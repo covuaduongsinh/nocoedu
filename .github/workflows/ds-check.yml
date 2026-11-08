@@ -1,0 +1,37 @@
+name: ds-check
+
+on:
+  pull_request:
+
+concurrency:
+  group: ds-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check
+        run: pnpm check
+      - name: Licences of what the application added
+        run: |
+          pnpm licenses list --json > "$RUNNER_TEMP/licenses.json"
+          node -e "const d=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));const bad=Object.keys(d).filter(l=>/(^|[^A-Za-z])(A|L)?GPL/i.test(l)&&!/\sOR\s/.test(l));if(bad.length){console.error('Copyleft licences with no OR alternative: '+bad.join(', '));process.exit(1)}" "$RUNNER_TEMP/licenses.json"
+          if grep -qE "^\s+'?(chessground|chessops|@lichess-org/pgn-viewer|tournament-pairings|stockfish)@" pnpm-lock.yaml; then
+            echo "A GPL chess library is in pnpm-lock.yaml" >&2
+            exit 1
+          fi
+      - name: No secrets or data in the repository
+        run: |
+          if git ls-files | grep -iE "\.sqlite|(^|/)\.env$|(^|/)config\.yml$|\.dump$"; then
+            echo "Files that must not be committed" >&2
+            exit 1
+          fi
