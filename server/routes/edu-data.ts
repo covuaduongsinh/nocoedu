@@ -126,26 +126,33 @@ export default [
     const authz = app.container.resolve(authorizationToken);
     const router = new Hono<AuthorizationEnv>();
 
-    router.use(
-      '*',
-      auth.required(),
-      bodyLimit({ maxSize: 64 * 1024 }),
-      ...EXPOSURES.map((e) =>
-        // The reference types name each resource's own actions; the mapping is checked when the router is built.
-        authz.database.authorizeRepository({
-          repository: e.name,
-          resource: e.resource.reference(),
-          actions: {
-            findMany: 'view',
-            findOne: 'view',
-            count: 'view',
-            ...(e.create ? { createOne: 'manage' } : {}),
-            ...(e.update ? { updateOne: 'manage' } : {}),
-            ...(e.remove ? { deleteOne: 'manage' } : {}),
-          },
-        } as never),
-      ),
-    );
+    router.use('*', auth.required(), bodyLimit({ maxSize: 64 * 1024 }));
+    for (const e of EXPOSURES) {
+      // Only the generated method paths: the business routes in `edu-actions.ts` share the first path segment and
+      // carry their own authorization.
+      const methods = [
+        'findMany',
+        'findOne',
+        'count',
+        ...(e.create ? ['createOne'] : []),
+        ...(e.update ? ['updateOne'] : []),
+        ...(e.remove ? ['deleteOne'] : []),
+      ];
+      // The reference types name each resource's own actions; the mapping is checked when the router is built.
+      const guard = authz.database.authorizeRepository({
+        repository: e.name,
+        resource: e.resource.reference(),
+        actions: {
+          findMany: 'view',
+          findOne: 'view',
+          count: 'view',
+          ...(e.create ? { createOne: 'manage' } : {}),
+          ...(e.update ? { updateOne: 'manage' } : {}),
+          ...(e.remove ? { deleteOne: 'manage' } : {}),
+        },
+      } as never);
+      for (const method of methods) router.use(`/${e.name}/${method}`, guard);
+    }
     router.route('/', await repositoryRoutes.createRouter(app));
     return new Hono().route('/', router);
   }),

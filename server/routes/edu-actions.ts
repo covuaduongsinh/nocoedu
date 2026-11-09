@@ -432,7 +432,8 @@ export default [
         }
         // The record is kept: a withdrawal only sets the time and the reason.
         await repository.updateOne({
-          filter: { id, rutLaiLuc: null },
+          filter: (f) =>
+            f.and([f.number('id').eq(id), f.date('rutLaiLuc').empty()]),
           values: { rutLaiLuc: new Date(), lyDoRut: lyDo ?? null },
         });
         return c.json({ data: { id } });

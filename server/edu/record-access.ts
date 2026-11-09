@@ -123,13 +123,26 @@ export function registerEduRecordAccess(
           ? anyOf('coSoId', scope.coSoIds)
           : false;
       case 'eduLop':
-        return scope.lopIds.length ? anyOf('id', scope.lopIds) : false;
+        // Structural filters (a column of the row itself) so a row created in this request is already in scope.
+        return mode === 'branches'
+          ? scope.coSoIds.length
+            ? anyOf('coSoId', scope.coSoIds)
+            : false
+          : scope.lopIds.length
+            ? anyOf('id', scope.lopIds)
+            : false;
       case 'eduLopLich':
       case 'eduBuoiHoc':
       case 'eduNhanXetThang':
         return scope.lopIds.length ? anyOf('lopId', scope.lopIds) : false;
       case 'eduHocVien':
-        return scope.hocVienIds.length ? anyOf('id', scope.hocVienIds) : false;
+        return mode === 'branches'
+          ? scope.coSoIds.length
+            ? anyOf('coSoId', scope.coSoIds)
+            : false
+          : scope.lopIds.length
+            ? anyOf('lopId', scope.lopIds)
+            : false;
       case 'eduPhuHuynh': {
         const parents = await parentIds(query, scope.hocVienIds);
         return parents.length ? anyOf('id', parents) : false;
