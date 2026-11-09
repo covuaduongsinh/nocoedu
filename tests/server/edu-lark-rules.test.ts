@@ -2,10 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import { LEVEL_KEYS } from '../../server/edu/levels.js';
 import {
+  sessionsToDeduct,
+  unexcusedAbsenceDeducts,
+} from '../../server/edu/so-du.js';
+import {
+  ATTENDANCE_SOURCE,
   BRANCH_EXCUSED_DEDUCTS,
   SHEETS_BRANCH,
 } from '../../server/edu/lark/chua-xac-nhan.js';
 import {
+  birthDateVn,
   birthYearVn,
   classLevel,
   levelFromLark,
@@ -15,13 +21,7 @@ import {
   statusFromLark,
   toVnMobile,
 } from '../../server/edu/lark/chuan-hoa.js';
-import {
-  attendanceFromCode,
-  parseSheetsCa,
-  pickSource,
-  resolveSheetsClass,
-  sheetsCaCell,
-} from '../../server/edu/lark/diem-danh.js';
+import { attendanceFromCode } from '../../server/edu/lark/diem-danh.js';
 import {
   openingBalance,
   recomputeBalance,
@@ -72,6 +72,21 @@ describe('names, phones and years', () => {
     });
   });
 
+  it('keeps the full date of birth in UTC+7', () => {
+    expect(birthDateVn(Date.UTC(2015, 11, 31, 17, 0, 0))).toEqual({
+      ok: true,
+      value: '2016-01-01',
+    });
+    expect(birthDateVn(Date.UTC(2015, 11, 31, 16, 59, 59))).toEqual({
+      ok: true,
+      value: '2015-12-31',
+    });
+    expect(birthDateVn(Number.NaN)).toEqual({
+      ok: false,
+      code: 'NGAY_SINH_SAI',
+    });
+  });
+
   it('maps levels, relations and statuses, and refuses the unknown', () => {
     expect(levelFromLark('NM1')).toEqual({ ok: true, value: 'tot' });
     expect(levelFromLark(' nm2 ')).toEqual({ ok: true, value: 'tot' });
@@ -113,7 +128,7 @@ describe('names, phones and years', () => {
 });
 
 describe('attendance codes and sources', () => {
-  it('maps every mark of the Base and the Sheets', () => {
+  it('maps the marks of the Base: 1 is present, 0 is absent', () => {
     expect(attendanceFromCode('1')).toEqual({ ok: true, value: 'co_mat' });
     expect(attendanceFromCode(1)).toEqual({ ok: true, value: 'co_mat' });
     expect(attendanceFromCode('0')).toEqual({
@@ -124,82 +139,40 @@ describe('attendance codes and sources', () => {
       ok: true,
       value: 'vang_khong_phep',
     });
-    expect(attendanceFromCode('x')).toEqual({
-      ok: true,
-      value: 'vang_co_phep',
-    });
-    expect(attendanceFromCode('Xin nghỉ')).toEqual({
-      ok: true,
-      value: 'vang_co_phep',
-    });
-    expect(attendanceFromCode('học lớp 2')).toEqual({
-      ok: true,
-      value: 'hoc_bu',
-    });
-    // a coach's name, "!" and "?" are not explained: an error, never a guess
-    for (const mark of ['Giáo viên Mẫu', '!', '?', '', null])
+  });
+
+  it('refuses every other mark, including "học lớp 2" (a school grade, not a make-up)', () => {
+    for (const mark of [
+      'Giáo viên Mẫu',
+      'học lớp 2',
+      'x',
+      'xin nghỉ',
+      '!',
+      '?',
+      '',
+      null,
+    ])
       expect(attendanceFromCode(mark)).toEqual({
         ok: false,
         code: 'DIEM_DANH_KHONG_RO',
       });
   });
 
-  it('picks the source by date', () => {
-    expect(pickSource('2025-12-31')).toBe('base');
-    expect(pickSource('2026-01-01')).toBe('sheets');
-  });
-
-  it('reads a Sheets class cell and slot name', () => {
-    expect(sheetsCaCell('1')).toBe('belongs');
-    expect(sheetsCaCell('x')).toBe('notBelongs');
-    expect(sheetsCaCell('')).toBe('empty');
-    expect(parseSheetsCa('T3')).toEqual({ thu: 3, ca: null });
-    expect(parseSheetsCa('T2 CA1')).toEqual({ thu: 2, ca: 1 });
-    expect(parseSheetsCa('Ghi chú')).toBeNull();
-  });
-
-  it('finds the class of a Sheets slot, or says it cannot', () => {
-    const schedule = [
-      { lopId: 1, coSoId: 1, thu: 2, gioBatDau: '18:15' },
-      { lopId: 2, coSoId: 1, thu: 2, gioBatDau: '19:15' },
-      { lopId: 3, coSoId: 1, thu: 3, gioBatDau: '18:15' },
-      { lopId: 4, coSoId: 1, thu: 3, gioBatDau: '18:15' },
-      { lopId: 5, coSoId: 2, thu: 2, gioBatDau: '18:15' },
-    ];
-    expect(resolveSheetsClass(schedule, { coSoId: 1, thu: 2, ca: 1 })).toEqual({
-      ok: true,
-      value: 1,
-    });
-    expect(resolveSheetsClass(schedule, { coSoId: 1, thu: 2, ca: 2 })).toEqual({
-      ok: true,
-      value: 2,
-    });
-    // two classes at the same time: not guessed
-    expect(
-      resolveSheetsClass(schedule, { coSoId: 1, thu: 3, ca: null }),
-    ).toEqual({
-      ok: false,
-      code: 'LOP_KHONG_RO',
-    });
-    // two slots and no CA given
-    expect(
-      resolveSheetsClass(schedule, { coSoId: 1, thu: 2, ca: null }),
-    ).toEqual({
-      ok: false,
-      code: 'LOP_KHONG_RO',
-    });
-    // no such class
-    expect(
-      resolveSheetsClass(schedule, { coSoId: 1, thu: 7, ca: null }).ok,
-    ).toBe(false);
-    expect(resolveSheetsClass(schedule, { coSoId: 1, thu: 2, ca: 3 }).ok).toBe(
-      false,
-    );
-  });
-
-  it('knows both Sheets files and both branches', () => {
+  it('takes attendance from the Base only and knows the two Sheets files', () => {
+    expect(ATTENDANCE_SOURCE).toBe('base');
     expect(SHEETS_BRANCH).toEqual({ KL357: 'KL', VP26: 'VP' });
     expect(Object.keys(BRANCH_EXCUSED_DEDUCTS).sort()).toEqual(['KL', 'VP']);
+  });
+
+  it('does not deduct an absence by default and can deduct an unexcused one later', () => {
+    expect(sessionsToDeduct('co_mat', false)).toBe(1);
+    expect(sessionsToDeduct('vang_khong_phep', false)).toBe(0);
+    expect(sessionsToDeduct('vang_khong_phep', false, true)).toBe(1);
+    expect(sessionsToDeduct('vang_co_phep', false, true)).toBe(0);
+    expect(unexcusedAbsenceDeducts({})).toBe(false);
+    expect(
+      unexcusedAbsenceDeducts({ EDU_TRU_BUOI_VANG_KHONG_PHEP: 'true' }),
+    ).toBe(true);
   });
 });
 
@@ -230,16 +203,16 @@ describe('opening balance and recomputed balance', () => {
   });
 
   const opening = { soBuoi: 10, ngayChot: '2026-02-10' };
+  // Lark gives only present (1) and absent (0); an absence is `vang_khong_phep`.
   const sessions = [
     { ngay: '2026-02-03', trangThai: 'co_mat' as const },
     { ngay: '2026-02-10', trangThai: 'co_mat' as const },
     { ngay: '2026-02-12', trangThai: 'co_mat' as const },
-    { ngay: '2026-02-14', trangThai: 'vang_co_phep' as const },
-    { ngay: '2026-02-17', trangThai: 'vang_khong_phep' as const },
-    { ngay: '2026-02-19', trangThai: 'hoc_bu' as const },
+    { ngay: '2026-02-14', trangThai: 'vang_khong_phep' as const },
+    { ngay: '2026-02-17', trangThai: 'co_mat' as const },
   ];
 
-  it('deducts only the sessions after the cut-off date', () => {
+  it('deducts only the attended sessions after the cut-off date', () => {
     const result = recomputeBalance(opening, sessions, false);
     expect(result.rows.map((row) => row.tinhVaoSoDu)).toEqual([
       false,
@@ -247,22 +220,16 @@ describe('opening balance and recomputed balance', () => {
       true,
       true,
       true,
-      true,
     ]);
-    // present 1 + excused 0 + unexcused 1 + make-up 1 = 3
-    expect(result.soBuoiConLai).toBe(7);
-    expect(result.rows.map((row) => row.soBuoiDaTru)).toEqual([
-      0, 0, 1, 0, 1, 1,
-    ]);
+    // balance = 10 paid − 2 attended after the cut-off; the absence costs nothing for now
+    expect(result.soBuoiConLai).toBe(8);
+    expect(result.rows.map((row) => row.soBuoiDaTru)).toEqual([0, 0, 1, 0, 1]);
     expect(result.warnings).toEqual([]);
   });
 
-  it('follows the branch setting for an excused absence', () => {
-    // excused absence deducts 1 and the make-up then deducts 0
-    const result = recomputeBalance(opening, sessions, true);
-    expect(result.rows.map((row) => row.soBuoiDaTru)).toEqual([
-      0, 0, 1, 1, 1, 0,
-    ]);
+  it('can deduct an absence without leave once the club decides so', () => {
+    const result = recomputeBalance(opening, sessions, false, true);
+    expect(result.rows.map((row) => row.soBuoiDaTru)).toEqual([0, 0, 1, 1, 1]);
     expect(result.soBuoiConLai).toBe(7);
   });
 
@@ -272,7 +239,7 @@ describe('opening balance and recomputed balance', () => {
       sessions,
       false,
     );
-    expect(result.soBuoiConLai).toBe(-2);
+    expect(result.soBuoiConLai).toBe(-1);
   });
 
   it('deducts nothing for a student without an opening balance', () => {

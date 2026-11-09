@@ -4,31 +4,35 @@ Dựa trên [schema.md](schema.md) và [quy-tac-nghiep-vu.md](quy-tac-nghiep-vu.
 
 ## Đã cài ở giai đoạn 2
 
-- **Migration** `database/main/migrations/202611100001_edu_lark_mapping.ts` (chỉ thêm cột, có `down`): `externalId` (chuỗi 96, duy nhất khi có) trên `eduCoSo`, `eduLop`, `eduLopLich`, `eduHocVien`, `eduPhuHuynh`, `eduGoiHoc`, `eduBuoiHoc`, `eduDiemDanh`; `eduHocVien.externalCode`; `eduPhuHuynh.email`; `eduBuoiHoc.keHoachDay/kienThucMoi/giaoBtvn/keHoachBuoiSau`; `eduDiemDanh.yThucDiem` (điểm ý thức; tên `yThucDiem` không qua được bước đổi tên cột của framework) và `tinhVaoSoDu`; `eduGoiHoc.loai` (`mua` hoặc `chuyen_so_du`) và `ghiChu`. Không cột nào nằm trong danh sách trường quyền, nên không vai trò nào đọc hay ghi qua API.
-- **Quy tắc** là hàm thuần trong `server/edu/lark/` (`chuan-hoa.ts`, `diem-danh.ts`, `so-du.ts`), gom ở dịch vụ `eduLarkMappingToken` (`server/providers/edu-lark-mapping.ts`, không mở route). Mặc định chưa xác nhận nằm trong `chua-xac-nhan.ts`, mỗi hằng số ghi số câu hỏi.
-- **Gói mở đầu**: mỗi học viên có số dư chốt thì có một `eduGoiHoc` với `loai = chuyen_so_du`, `donGia = thanhTien = 0`, `ghiChu = chuyen_tu_lark`, `externalId = lark:sodu:<rec học viên>`; sổ `eduSoDuNhatKy` ghi một dòng `chuyen_tu_lark` (+N) cho gói đó. `nguoiTaoId` và `nguoiThucHienId` là người chạy lệnh nhập (giai đoạn 3 bắt buộc truyền `--user`).
+Thầy Tường đã trả lời các câu hỏi (comment `396805820907520`, 09/11/2026); phần dưới ghi câu nào **đã xác nhận** và câu nào còn dùng **mặc định**.
+
+- **Migration** `database/main/migrations/202611100001_edu_lark_mapping.ts` (chỉ thêm cột, có `down`): `externalId` (chuỗi 96, duy nhất khi có) trên `eduCoSo`, `eduLop`, `eduLopLich`, `eduHocVien`, `eduPhuHuynh`, `eduGoiHoc`, `eduBuoiHoc`, `eduDiemDanh`; `eduHocVien.externalCode` (mã cũ) và `eduHocVien.ngaySinh` (ngày sinh đủ, `YYYY-MM-DD`); `eduPhuHuynh.email`; `eduBuoiHoc.keHoachDay/kienThucMoi/giaoBtvn/keHoachBuoiSau`; `eduDiemDanh.yThucDiem` (điểm ý thức; tên `diemYThuc` không qua được bước đổi tên cột của framework) và `tinhVaoSoDu`; `eduGoiHoc.loai` (`mua` hoặc `chuyen_so_du`) và `ghiChu`. Không cột nào nằm trong danh sách trường quyền, nên không API bản ghi chuẩn nào trả về chúng.
+- **Ngày sinh**: chỉ đọc được qua `POST /hocVien/ngaySinh`, cần hành động `edu.hocVien.manage` (quản trị và quản lý cơ sở, quản lý chỉ thấy học viên cơ sở mình); HLV, kế toán và API chỉ đọc bị từ chối. Năm sinh `namSinh` vẫn tính từ ngày sinh.
+- **Quy tắc** là hàm thuần trong `server/edu/lark/` (`chuan-hoa.ts`, `diem-danh.ts`, `so-du.ts`), gom ở dịch vụ `eduLarkMappingToken` (`server/providers/edu-lark-mapping.ts`, không mở route). Hằng số ở `chua-xac-nhan.ts`, mỗi hằng số ghi số câu hỏi và đã xác nhận hay mặc định.
+- **Nguồn điểm danh duy nhất là Base**, mọi năm. Sheets KL357/VP26 chỉ là danh sách dự kiến (`1` đã đăng ký, `!`/`?` dự kiến hoặc học thử, `x` đã báo nghỉ đột xuất): không nhập điểm danh từ Sheets, và không cần tìm lớp cho buổi từ Sheets.
+- **Số dư buổi = số buổi đã nộp − số buổi có mặt.** Vắng (`0`) chưa trừ buổi; sau này có thể trừ khi vắng không phép bằng `EDU_TRU_BUOI_VANG_KHONG_PHEP=true` (và `eduCoSo.truBuoiVangCoPhep` cho vắng có phép). Lark không phân biệt có phép hay không, nên mọi `0` là `vang_khong_phep`.
+- **Gói mở đầu** (bảng nộp tiền không đọc được): mỗi học viên có số dư chốt thì có một `eduGoiHoc` với `loai = chuyen_so_du`, `donGia = thanhTien = 0`, `ghiChu = chuyen_tu_lark`, `externalId = lark:sodu:<rec học viên>`; sổ `eduSoDuNhatKy` ghi một dòng `chuyen_tu_lark` (+N) cho gói đó. `nguoiTaoId` và `nguoiThucHienId` là người chạy lệnh nhập (giai đoạn 3 bắt buộc truyền `--user`).
 - **Điểm danh trước ngày chốt**: `tinhVaoSoDu = false`, `soBuoiDaTru = 0`. Sửa trạng thái một dòng như vậy qua `/diemDanh/luu` không đổi số dư và không ghi sổ. Học viên không có số dư chốt: mọi dòng `tinhVaoSoDu = false`, số dư 0, bản chạy thử báo `KHONG_CO_SO_DU`.
-- **Buổi từ Sheets**: lớp xác định bằng cơ sở + thứ + ca (`CAn` = giờ bắt đầu sớm thứ n của ngày đó) qua `eduLopLich`; không có hoặc có nhiều lớp thì lỗi `LOP_KHONG_RO`.
+- **"học lớp 2"** là tuổi đi học của học viên, không phải học bù: báo `DIEM_DANH_KHONG_RO`, không trừ buổi, không lưu lớp ở trường.
 
-### Các câu hỏi và mặc định đã cài
+### Các câu hỏi
 
-| Câu | Mặc định                                                                                     | Hằng số                  |
-| --- | -------------------------------------------------------------------------------------------- | ------------------------ |
-| 1   | Base cho ngày trước 2026-01-01, Sheets từ ngày đó; sheet `B…` của 2025 bỏ qua                | `SHEETS_FROM_DATE`       |
-| 2   | Ô `1` ở cột ca = thuộc ca đó; `x`, `!`, `?`, `-` = không thuộc, đếm và báo                   | `SHEETS_CA_CODES`        |
-| 3   | `0` = vắng không phép; `x`, `xin nghỉ` = vắng có phép                                        | `ATTENDANCE_CODES`       |
-| 4   | `học lớp 2` = học bù; `FALSE` (2024) = vắng không phép; tên giáo viên = lỗi                  | `ATTENDANCE_CODES`       |
-| 5   | Gói mở đầu = "số buổi tồn update" tại "Ngày update gần nhất về HP"; chỉ trừ buổi sau ngày đó | `OPENING_BALANCE_RULE`   |
-| 6   | `NM1`, `NM2` → `tot`; `Mã`…`Vua` giữ tên; `Test`/trống = lỗi `CAP_KHONG_RO`                  | `LEVEL_CODES`            |
-| 7   | Cấp của lớp = cấp phổ biến nhất của học viên, hoà thì lấy thấp hơn, lớp trống là `tot`       | `classLevel()`           |
-| 8   | `KL357` → `KL`, `VP26` → `VP`                                                                | `SHEETS_BRANCH`          |
-| 9   | Phụ huynh từ trường tra cứu trên HocVien; `Ông/ Bà` → `khac`                                 | `RELATION_CODES`         |
-| 10  | Không nhập "Ghi chú"                                                                         | `IMPORT_STUDENT_NOTE`    |
-| 11  | Giữ mã cũ trong `externalCode`                                                               | —                        |
-| 12  | Ba trạng thái học thử gộp thành `hoc_thu`                                                    | `STATUS_CODES`           |
-| 13  | Điểm ý thức là số nguyên 0–10; chữ khác để trống                                             | `Y_THUC_MAX`             |
-| 14  | Vắng có phép không trừ buổi ở cả hai cơ sở                                                   | `BRANCH_EXCUSED_DEDUCTS` |
-| 15  | Chỉ lưu năm sinh (UTC+7)                                                                     | `birthYearVn()`          |
+| Câu  | Trả lời / mặc định                                                                     | Trạng thái  | Hằng số                                 |
+| ---- | -------------------------------------------------------------------------------------- | ----------- | --------------------------------------- |
+| 1, 2 | Base là nguồn điểm danh duy nhất; Sheets chỉ là danh sách dự kiến                      | đã xác nhận | `ATTENDANCE_SOURCE`                     |
+| 3    | `0` là vắng, không phân biệt có phép hay không; vắng chưa trừ buổi                     | đã xác nhận | `ATTENDANCE_CODES`                      |
+| 4    | `học lớp 2` là tuổi học lớp 2, không phải học bù → `DIEM_DANH_KHONG_RO`                | đã xác nhận | `ATTENDANCE_CODES`                      |
+| 5    | Số dư = số buổi đã nộp − số buổi có mặt; gói mở đầu từ "số buổi tồn update"            | đã xác nhận | `OPENING_BALANCE_RULE`                  |
+| 6    | `NM1`, `NM2` → `tot`; `Mã`…`Vua` giữ tên; `Test`/trống = lỗi                           | đã xác nhận | `LEVEL_CODES`                           |
+| 7    | Cấp của lớp = cấp phổ biến nhất của học viên, hoà thì lấy thấp hơn, lớp trống là `tot` | mặc định    | `classLevel()`                          |
+| 8    | `KL357` → Kim Liên (`KL`), `VP26` → Vĩnh Phúc (`VP`)                                   | đã xác nhận | `SHEETS_BRANCH`                         |
+| 9    | Phụ huynh từ "Họ tên PH", "SDT PH", "Quan hệ" trên HocVien; `Ông/ Bà` → `khac`         | đã xác nhận | `RELATION_CODES`                        |
+| 10   | Không nhập "Ghi chú" của học viên                                                      | mặc định    | `IMPORT_STUDENT_NOTE`                   |
+| 11   | Giữ mã cũ trong `externalCode`; mã mới tạo theo cách NocoEdu đang làm                  | đã xác nhận | `KEEP_OLD_STUDENT_CODE`                 |
+| 12   | Ba trạng thái học thử gộp thành `hoc_thu`                                              | mặc định    | `STATUS_CODES`                          |
+| 13   | Điểm ý thức là số nguyên 0–10; chữ khác để trống                                       | đã xác nhận | `Y_THUC_MAX`                            |
+| 14   | Chưa trừ buổi khi vắng; sau này có thể trừ khi vắng không phép                         | đã xác nhận | `EDU_TRU_BUOI_VANG_KHONG_PHEP`          |
+| 15   | Giữ cả ngày tháng năm sinh                                                             | đã xác nhận | `birthDateVn()`, `KEEP_FULL_BIRTH_DATE` |
 
 ## Nguyên tắc
 
@@ -39,14 +43,14 @@ Dựa trên [schema.md](schema.md) và [quy-tac-nghiep-vu.md](quy-tac-nghiep-vu.
 
 ## Thứ tự và bảng
 
-| #   | NocoEdu                             | Nguồn Lark                                                                                           | Khoá `externalId`                                                                                                              |
-| --- | ----------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | `eduCoSo`                           | Lựa chọn của HocVien."cơ sở" và LopHoc."cơ sở" (`Kim Liên`, `Vĩnh Phúc`)                             | tên lựa chọn (`Kim Liên`, `Vĩnh Phúc`): mỗi trường chọn của Lark có bộ id lựa chọn riêng, nên ghép theo **tên**, không theo id |
-| 2   | `eduLop`, `eduLopLich`              | Base LopHoc (7 bản ghi)                                                                              | `rec…` của LopHoc                                                                                                              |
-| 3   | `eduPhuHuynh`, `eduHocVienPhuHuynh` | Tra cứu trên HocVien (bảng phụ huynh `tblZUIXmpdt13j4x` **chưa đọc được**)                           | `rec…` của phụ huynh trong ô liên kết, hoặc `lark:ph:<SĐT>`                                                                    |
-| 4   | `eduHocVien`                        | Base HocVien (179 bản ghi)                                                                           | `rec…` của HocVien                                                                                                             |
-| 5   | `eduGoiHoc` (gói mở đầu)            | HocVien."số buổi tồn update" (bảng nộp tiền `tblHp1PGPz52eZBz` **chưa đọc được**)                    | `lark:sodu:<rec học viên>`                                                                                                     |
-| 6   | `eduBuoiHoc`, `eduDiemDanh`         | Base "2024/2025 Nhận xét mỗi buổi" và/hoặc Sheets KL357/VP26 ([Cần Thầy Tường xác nhận] nguồn chuẩn) | Base: `rec…`; Sheets: buổi = `<token>:<sheet_id>`, điểm danh = `<token>:<sheet_id>:<dòng>`                                     |
+| #   | NocoEdu                             | Nguồn Lark                                                                        | Khoá `externalId`                                                                                                              |
+| --- | ----------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `eduCoSo`                           | Lựa chọn của HocVien."cơ sở" và LopHoc."cơ sở" (`Kim Liên`, `Vĩnh Phúc`)          | tên lựa chọn (`Kim Liên`, `Vĩnh Phúc`): mỗi trường chọn của Lark có bộ id lựa chọn riêng, nên ghép theo **tên**, không theo id |
+| 2   | `eduLop`, `eduLopLich`              | Base LopHoc (7 bản ghi)                                                           | `rec…` của LopHoc                                                                                                              |
+| 3   | `eduPhuHuynh`, `eduHocVienPhuHuynh` | Tra cứu trên HocVien (bảng phụ huynh `tblZUIXmpdt13j4x` **chưa đọc được**)        | `rec…` của phụ huynh trong ô liên kết, hoặc `lark:ph:<SĐT>`                                                                    |
+| 4   | `eduHocVien`                        | Base HocVien (179 bản ghi)                                                        | `rec…` của HocVien                                                                                                             |
+| 5   | `eduGoiHoc` (gói mở đầu)            | HocVien."số buổi tồn update" (bảng nộp tiền `tblHp1PGPz52eZBz` **chưa đọc được**) | `lark:sodu:<rec học viên>`                                                                                                     |
+| 6   | `eduBuoiHoc`, `eduDiemDanh`         | Base "2024/2025 Nhận xét mỗi buổi" (nguồn điểm danh duy nhất)                     | Base: `rec…`                                                                                                                   |
 
 ## Trường và quy tắc chuẩn hoá
 
@@ -76,6 +80,7 @@ Dựa trên [schema.md](schema.md) và [quy-tac-nghiep-vu.md](quy-tac-nghiep-vu.
 | NocoEdu                  | Lark HocVien                                      | Quy tắc                                                                                                                                                                                                                              |
 | ------------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `hoTen`                  | "Học viên" (trường chính)                         | Unicode NFC, bỏ khoảng trắng đầu cuối và gộp khoảng trắng giữa, viết hoa chữ đầu mỗi từ (`nguyễn  minh an` → `Nguyễn Minh An`); không đổi thứ tự họ tên                                                                              |
+| `ngaySinh`               | "Ngày sinh"                                       | ngày đủ `YYYY-MM-DD` theo UTC+7; chỉ đọc qua `/hocVien/ngaySinh` (câu 15)                                                                                                                                                            |
 | `namSinh`                | "Ngày sinh"                                       | năm của ngày theo múi giờ Base `Asia/Bangkok` (UTC+7). Thiếu ngày sinh → lỗi `THIEU_NAM_SINH`, không đoán                                                                                                                            |
 | `levelKey`, `levelOrder` | "Trình độ hiện tại" → Level                       | `NM1`, `NM2` → `tot`; `Mã` → `ma`; `Tượng` → `tuong`; `Xe` → `xe`; `Hậu` → `hau`; `Vua` → `vua`; `Test` hoặc trống → lỗi `CAP_KHONG_RO`. [Cần Thầy Tường xác nhận] Nhập môn 1–2 có phải cấp Tốt không; 12 bản ghi Level gồm những gì |
 | `coSoId`                 | "cơ sở"                                           | theo bảng cơ sở; trống → lỗi                                                                                                                                                                                                         |
@@ -117,16 +122,16 @@ Bảng nộp tiền **chưa đọc được** (`1254302`), nên không dựng l�
 
 **Từ Base "Nhận xét mỗi buổi"**: gom các bản ghi cùng (Lớp, "Ngày học - Day format") thành một `eduBuoiHoc`.
 
-| NocoEdu                        | Lark                    | Quy tắc                                                                                                                                                                                    |
-| ------------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `eduBuoiHoc.ngay`              | "Ngày học - Day format" | `YYYY-MM-DD` theo UTC+7; trống → thử đọc "Ngày học" dạng `dd/MM/yyyy`; vẫn không được → lỗi                                                                                                |
-| `eduBuoiHoc.gioBatDau/KetThuc` | lịch lớp                | lấy từ `eduLopLich` của thứ đó                                                                                                                                                             |
-| `eduDiemDanh.trangThai`        | "có mặt"                | `1` → `co_mat`; `0` → `vang_khong_phep` hay `vang_co_phep` [Cần Thầy Tường xác nhận]; 2024: `học lớp 2` → `hoc_bu` [Cần xác nhận], `FALSE` → `0`, tên giáo viên → lỗi `DIEM_DANH_KHONG_RO` |
-| `eduDiemDanh.daLamBtvn`        | "Làm BTVN"              | `1` → `true`, còn lại `false`                                                                                                                                                              |
-| `eduDiemDanh.nhanXet`          | "Nhận xét"              | cắt 500 ký tự (giới hạn cột); dài hơn → báo số dòng bị cắt                                                                                                                                 |
-| `eduDiemDanh.soBuoiDaTru`      | —                       | `sessionsToDeduct` cho buổi **sau** ngày chốt; `0` và `tinhVaoSoDu = false` cho buổi từ ngày chốt trở về trước                                                                             |
+| NocoEdu                        | Lark                    | Quy tắc                                                                                                                                                                                         |
+| ------------------------------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `eduBuoiHoc.ngay`              | "Ngày học - Day format" | `YYYY-MM-DD` theo UTC+7; trống → thử đọc "Ngày học" dạng `dd/MM/yyyy`; vẫn không được → lỗi                                                                                                     |
+| `eduBuoiHoc.gioBatDau/KetThuc` | lịch lớp                | lấy từ `eduLopLich` của thứ đó                                                                                                                                                                  |
+| `eduDiemDanh.trangThai`        | "có mặt"                | `1` → `co_mat`; `0` và `FALSE` → `vang_khong_phep` (Lark không phân biệt có phép; chưa trừ buổi); mọi giá trị khác (tên giáo viên, `học lớp 2` là tuổi của học viên) → lỗi `DIEM_DANH_KHONG_RO` |
+| `eduDiemDanh.daLamBtvn`        | "Làm BTVN"              | `1` → `true`, còn lại `false`                                                                                                                                                                   |
+| `eduDiemDanh.nhanXet`          | "Nhận xét"              | cắt 500 ký tự (giới hạn cột); dài hơn → báo số dòng bị cắt                                                                                                                                      |
+| `eduDiemDanh.soBuoiDaTru`      | —                       | `sessionsToDeduct` cho buổi **sau** ngày chốt; `0` và `tinhVaoSoDu = false` cho buổi từ ngày chốt trở về trước                                                                                  |
 
-**Từ Sheets KL357/VP26**: một sheet = một `eduBuoiHoc` của mỗi ca có học viên trong sheet; cột ca (`T3`… hoặc `T2 CA1`…) cho biết học viên thuộc ca nào, cột "Có mặt" cho trạng thái. Ngày và ca đọc từ tiêu đề cột "Nhận xét" (`C10: 19/1/26 - T2-CA2`). Ghép học viên theo **tên** (Sheets không có mã) với chuẩn hoá họ tên ở trên; trùng tên → lỗi `TRUNG_TEN`, không đoán. Mã `x`, `!`, `?`, `xin nghỉ` chờ Thầy Tường giải nghĩa.
+**Sheets KL357/VP26** không phải nguồn điểm danh (Thầy Tường, câu 1–2): chỉ là danh sách dự kiến, nên không nhập `eduBuoiHoc` hay `eduDiemDanh` từ đó.
 
 ## NocoEdu còn thiếu
 
@@ -146,4 +151,4 @@ Bảng nộp tiền **chưa đọc được** (`1254302`), nên không dựng l�
 
 1. Hai bảng phụ huynh và nộp tiền **bỏ qua** theo quyết định của chủ dự án (09/11/2026), sau hai lần thử đều lỗi `1254302`; phụ huynh và gói buổi dùng đề xuất thay thế ở trên. Nếu sau này app đọc được, chạy lại `node scripts/lark/giai-ma.mjs --only base` và thay đề xuất bằng ánh xạ thật.
 2. (Tuỳ chọn) Cấp scope `base:app:read`, `base:table:read`, `base:field:read`, `base:view:read`, `base:workflow:read` để dùng lệnh `lark-cli base +…` và đọc được automation.
-3. Thầy Tường trả lời các nhãn **[Cần Thầy Tường xác nhận]** ở hai tài liệu, quan trọng nhất: nguồn điểm danh chuẩn (Base hay Sheets), nghĩa của `0`/`x`/`!`/`?`, cách đang trừ buổi, cấp của `NM1`/`NM2`.
+3. Thầy Tường đã trả lời phần lớn các câu (xem bảng ở đầu tài liệu); còn mặc định ở câu 7, 10, 12.

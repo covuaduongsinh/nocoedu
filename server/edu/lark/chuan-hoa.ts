@@ -50,6 +50,14 @@ export function birthYearVn(milliseconds: number): Converted<number> {
     : fail('NGAY_SINH_SAI');
 }
 
+/** The full date of birth (`YYYY-MM-DD`) in the club's calendar (UTC+7) of a Lark date; same bounds as the year. */
+export function birthDateVn(milliseconds: number): Converted<string> {
+  const year = birthYearVn(milliseconds);
+  return year.ok
+    ? ok(new Date(milliseconds + 7 * 3_600_000).toISOString().slice(0, 10))
+    : year;
+}
+
 export function levelFromLark(raw: unknown): Converted<LevelKey> {
   const level = LEVEL_CODES[key(raw)];
   return level ? ok(level) : fail('CAP_KHONG_RO');

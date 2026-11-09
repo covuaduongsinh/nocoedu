@@ -16,7 +16,7 @@ const EXTERNAL_ID_TABLES = [
  * Columns the import of the club's Lark data needs (DS-60 phase 2). Everything is added, nothing is changed:
  * - `externalId` on eight tables: the anti-duplicate key of the import. It is nullable and unique, so rows created in
  *   the application (no external id) never collide with each other.
- * - `eduHocVien.externalCode`: the old student code, kept to look a student up on Lark.
+ * - `eduHocVien.externalCode`: the old student code, kept to look a student up on Lark. `eduHocVien.ngaySinh`: the full date of birth, readable only through `/hocVien/ngaySinh` (administrator and branch manager).
  * - `eduPhuHuynh.email`, the content of a session, the mindfulness score of an attendance row (`yThucDiem`: a name such as `diemYThuc` does not survive the column-name conversion).
  * - `eduDiemDanh.tinhVaoSoDu`: `false` for history already contained in the opening balance (see
  *   `docs/lark/anh-xa-nocoedu.md`); such a row never moves the balance, even when its status is corrected later.
@@ -36,6 +36,8 @@ const migration: MigrationDefinition = defineMigration({
     }
     await builder.alterCollection('eduHocVien', (c) => {
       c.string('externalCode', { length: 32, nullable: true });
+      // The full date of birth (`YYYY-MM-DD`), kept at the head coach's request (DS-60): it is not a permission field.
+      c.string('ngaySinh', { length: 10, nullable: true });
     });
     await builder.alterCollection('eduPhuHuynh', (c) => {
       c.string('email', { length: 191, nullable: true });
@@ -77,6 +79,9 @@ const migration: MigrationDefinition = defineMigration({
     });
     await builder.alterCollection('eduPhuHuynh', (c) => {
       c.dropField('email');
+    });
+    await builder.alterCollection('eduHocVien', (c) => {
+      c.dropField('ngaySinh');
     });
     await builder.alterCollection('eduHocVien', (c) => {
       c.dropField('externalCode');

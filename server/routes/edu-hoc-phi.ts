@@ -21,6 +21,7 @@ import {
   isLowBalance,
   LOW_BALANCE_THRESHOLD,
   sessionsToDeduct,
+  unexcusedAbsenceDeducts,
   todayVn,
   vietQrConfig,
   vietQrUrl,
@@ -330,7 +331,11 @@ export default [
               existing &&
               (existing.trangThai === entry.trangThai || !countsTowardBalance)
                 ? Number(existing.soBuoiDaTru)
-                : sessionsToDeduct(entry.trangThai, excusedDeducts);
+                : sessionsToDeduct(
+                    entry.trangThai,
+                    excusedDeducts,
+                    unexcusedAbsenceDeducts(process.env),
+                  );
             let diemDanhId: number;
             let alreadyDeducted: number;
             if (existing) {

@@ -61,6 +61,7 @@ export function recomputeBalance(
   opening: OpeningBalance | null,
   attendance: readonly AttendanceInput[],
   excusedAbsenceDeducts: boolean,
+  unexcusedAbsenceDeducts = false,
 ): RecomputedBalance {
   if (!opening) {
     return {
@@ -77,7 +78,11 @@ export function recomputeBalance(
   const rows = attendance.map((row): AttendanceOutcome => {
     if (row.ngay <= opening.ngayChot)
       return { ngay: row.ngay, tinhVaoSoDu: false, soBuoiDaTru: 0 };
-    const deducted = sessionsToDeduct(row.trangThai, excusedAbsenceDeducts);
+    const deducted = sessionsToDeduct(
+      row.trangThai,
+      excusedAbsenceDeducts,
+      unexcusedAbsenceDeducts,
+    );
     balance -= deducted;
     return { ngay: row.ngay, tinhVaoSoDu: true, soBuoiDaTru: deducted };
   });

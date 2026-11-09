@@ -15,7 +15,7 @@ test('the Lark mapping service resolves and the provider opens no route', async 
   expect(service.balance.recomputeBalance(null, [], false).warnings).toEqual([
     'KHONG_CO_SO_DU',
   ]);
-  expect(service.rules.SHEETS_FROM_DATE).toBe('2026-01-01');
+  expect(service.rules.ATTENDANCE_SOURCE).toBe('base');
 
   // The provider adds no HTTP endpoint, not even for an administrator.
   const admin = await adminSession(testApp);

@@ -117,6 +117,9 @@ describeMigration('202611100001_edu_lark_mapping', {
       });
     }
     await expectCollection('eduHocVien').toHaveField('externalCode');
+    await expectCollection('eduHocVien').toHaveField('ngaySinh', {
+      nullable: true,
+    });
     await expectCollection('eduPhuHuynh').toHaveField('email');
     await expectCollection('eduBuoiHoc').toHaveField('keHoachDay');
     await expectCollection('eduDiemDanh').toHaveField('yThucDiem');
