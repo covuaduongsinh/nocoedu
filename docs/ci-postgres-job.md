@@ -33,5 +33,5 @@ postgres:
         cache: pnpm
     - run: pnpm install --frozen-lockfile
     - name: Migrations and record scope on PostgreSQL
-      run: pnpm exec vitest run tests/database/edu-migrations.test.ts tests/server/edu-scope.test.ts tests/server/edu-scope-writes.test.ts tests/server/edu-actions.test.ts
+      run: pnpm exec vitest run tests/database/edu-migrations.test.ts tests/server/edu-scope.test.ts tests/server/edu-scope-writes.test.ts tests/server/edu-actions.test.ts tests/server/edu-diem-danh.test.ts
 ```

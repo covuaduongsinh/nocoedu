@@ -165,6 +165,109 @@ export const FIELDS = {
       'lyDoRut',
     ],
   },
+  buoiHoc: {
+    read: [
+      'id',
+      'lopId',
+      'ngay',
+      'gioBatDau',
+      'gioKetThuc',
+      'hlvId',
+      'loai',
+      'trangThai',
+    ],
+    write: [
+      'lopId',
+      'ngay',
+      'gioBatDau',
+      'gioKetThuc',
+      'hlvId',
+      'loai',
+      'trangThai',
+    ],
+  },
+  diemDanh: {
+    read: [
+      'id',
+      'buoiHocId',
+      'hocVienId',
+      'trangThai',
+      'daLamBtvn',
+      'nhanXet',
+      'soBuoiDaTru',
+      'nguoiDiemDanhId',
+    ],
+    write: [
+      'buoiHocId',
+      'hocVienId',
+      'trangThai',
+      'daLamBtvn',
+      'nhanXet',
+      'soBuoiDaTru',
+      'nguoiDiemDanhId',
+    ],
+  },
+  goiHoc: {
+    read: [
+      'id',
+      'hocVienId',
+      'soBuoi',
+      'donGia',
+      'thanhTien',
+      'ngayMua',
+      'trangThai',
+      'nguoiTaoId',
+    ],
+    write: [
+      'hocVienId',
+      'soBuoi',
+      'donGia',
+      'thanhTien',
+      'ngayMua',
+      'trangThai',
+      'nguoiTaoId',
+    ],
+  },
+  thanhToan: {
+    read: [
+      'id',
+      'goiHocId',
+      'hocVienId',
+      'coSoId',
+      'soTien',
+      'hinhThuc',
+      'ngay',
+      'thang',
+      'noiDungCk',
+      'nguoiGhiNhanId',
+    ],
+    write: [
+      'goiHocId',
+      'hocVienId',
+      'coSoId',
+      'soTien',
+      'hinhThuc',
+      'ngay',
+      'thang',
+      'noiDungCk',
+      'nguoiGhiNhanId',
+    ],
+  },
+  soDuNhatKy: {
+    read: [
+      'id',
+      'hocVienId',
+      'thayDoi',
+      'soDuSau',
+      'lyDo',
+      'goiHocId',
+      'diemDanhId',
+      'ghiChu',
+      'nguoiThucHienId',
+      'createdAt',
+    ],
+    write: [],
+  },
 } as const;
 
 /** Reads of the two fields below are what other applications get through `/api/ext/*`. */
@@ -320,4 +423,76 @@ export const ext = defineCompositeResource('edu.ext', (r) =>
         .title('Đọc phụ huynh')
         .grant('parent', perm('phuHuynh', { read: EXT_FIELDS.phuHuynh })),
     ),
+);
+
+const buoiHocRead = perm('buoiHoc', FIELDS.buoiHoc);
+const diemDanhRead = perm('diemDanh', FIELDS.diemDanh);
+const goiHocRead = perm('goiHoc', FIELDS.goiHoc);
+const thanhToanRead = perm('thanhToan', FIELDS.thanhToan);
+const soDuRead = perm('soDuNhatKy', FIELDS.soDuNhatKy);
+
+/** Sessions: view, and manage (generate the sessions of a class from its timetable). */
+export const buoiHoc = defineCompositeResource('edu.buoiHoc', (r) =>
+  r
+    .title('Buổi học')
+    .action('view', (a) => a.title('Xem').grant('data', buoiHocRead))
+    .action('manage', (a) =>
+      a
+        .title('Tạo buổi theo lịch lớp')
+        .grant('data', buoiHocRead.create([...FIELDS.buoiHoc.write])),
+    ),
+);
+
+/** Attendance: view, and record (take the register of a session; the balance is changed by the service). */
+export const diemDanh = defineCompositeResource('edu.diemDanh', (r) =>
+  r
+    .title('Điểm danh')
+    .action('view', (a) => a.title('Xem').grant('data', diemDanhRead))
+    .action('record', (a) =>
+      a
+        .title('Điểm danh')
+        .grant(
+          'data',
+          diemDanhRead
+            .create([...FIELDS.diemDanh.write])
+            .update([
+              'trangThai',
+              'daLamBtvn',
+              'nhanXet',
+              'soBuoiDaTru',
+              'nguoiDiemDanhId',
+            ]),
+        ),
+    ),
+);
+
+/** Packages of sessions: view, and manage (sell). A package is never edited; a coach holds neither action. */
+export const goiHoc = defineCompositeResource('edu.goiHoc', (r) =>
+  r
+    .title('Gói buổi')
+    .action('view', (a) => a.title('Xem').grant('data', goiHocRead))
+    .action('manage', (a) =>
+      a
+        .title('Bán gói buổi')
+        .grant('data', goiHocRead.create([...FIELDS.goiHoc.write])),
+    ),
+);
+
+/** Payments: view, and manage (record). A payment is never edited or deleted here. */
+export const thanhToan = defineCompositeResource('edu.thanhToan', (r) =>
+  r
+    .title('Thanh toán')
+    .action('view', (a) => a.title('Xem').grant('data', thanhToanRead))
+    .action('manage', (a) =>
+      a
+        .title('Ghi nhận thanh toán')
+        .grant('data', thanhToanRead.create([...FIELDS.thanhToan.write])),
+    ),
+);
+
+/** The balance ledger of a student. Rows are written only by the services that change a balance. */
+export const soDu = defineCompositeResource('edu.soDu', (r) =>
+  r
+    .title('Nhật ký số dư buổi')
+    .action('view', (a) => a.title('Xem').grant('data', soDuRead)),
 );

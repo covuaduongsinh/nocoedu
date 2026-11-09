@@ -2,15 +2,20 @@ import { definePermissionSet } from '@nocobase/authorization/permission-sets';
 
 import { PAGES } from '../../server/edu/pages.js';
 import {
+  buoiHoc,
   coSo,
   coSoQuanLy,
+  diemDanh,
   dongY,
   ext,
+  goiHoc,
   hocVien,
   lienKet,
   lop,
   lopLich,
   phuHuynh,
+  soDu,
+  thanhToan,
 } from '../../server/edu/permissions.js';
 import { MY_BRANCHES, MY_CLASSES } from '../../server/edu/record-access.js';
 
@@ -61,6 +66,19 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .grant(
     dongY.reference().grant({ view: { data: ALL }, record: { data: ALL } }),
   )
+  .grant(
+    buoiHoc.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
+  )
+  .grant(
+    diemDanh.reference().grant({ view: { data: ALL }, record: { data: ALL } }),
+  )
+  .grant(
+    goiHoc.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
+  )
+  .grant(
+    thanhToan.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
+  )
+  .grant(soDu.reference().grant({ view: { data: ALL } }))
   .build();
 
 export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
@@ -101,6 +119,27 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
       .reference()
       .grant({ view: { data: MY_BRANCHES }, record: { data: MY_BRANCHES } }),
   )
+  .grant(
+    buoiHoc
+      .reference()
+      .grant({ view: { data: MY_BRANCHES }, manage: { data: MY_BRANCHES } }),
+  )
+  .grant(
+    diemDanh
+      .reference()
+      .grant({ view: { data: MY_BRANCHES }, record: { data: MY_BRANCHES } }),
+  )
+  .grant(
+    goiHoc
+      .reference()
+      .grant({ view: { data: MY_BRANCHES }, manage: { data: MY_BRANCHES } }),
+  )
+  .grant(
+    thanhToan
+      .reference()
+      .grant({ view: { data: MY_BRANCHES }, manage: { data: MY_BRANCHES } }),
+  )
+  .grant(soDu.reference().grant({ view: { data: MY_BRANCHES } }))
   .build();
 
 export const eduHlv = definePermissionSet('edu_hlv')
@@ -116,6 +155,17 @@ export const eduHlv = definePermissionSet('edu_hlv')
       levelUp: { data: MY_CLASSES, history: MY_CLASSES },
     }),
   )
+  .grant(
+    buoiHoc
+      .reference()
+      .grant({ view: { data: MY_CLASSES }, manage: { data: MY_CLASSES } }),
+  )
+  .grant(
+    diemDanh
+      .reference()
+      .grant({ view: { data: MY_CLASSES }, record: { data: MY_CLASSES } }),
+  )
+  .grant(soDu.reference().grant({ view: { data: MY_CLASSES } }))
   .build();
 
 export const eduKeToan = definePermissionSet('edu_ke_toan')
@@ -132,6 +182,15 @@ export const eduKeToan = definePermissionSet('edu_ke_toan')
   .grant(hocVien.reference().grant({ view: { data: ALL } }))
   .grant(phuHuynh.reference().grant({ view: { data: ALL } }))
   .grant(lienKet.reference().grant({ view: { data: ALL } }))
+  .grant(buoiHoc.reference().grant({ view: { data: ALL } }))
+  .grant(diemDanh.reference().grant({ view: { data: ALL } }))
+  .grant(
+    goiHoc.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
+  )
+  .grant(
+    thanhToan.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
+  )
+  .grant(soDu.reference().grant({ view: { data: ALL } }))
   .build();
 
 export const eduApiDoc = definePermissionSet('edu_api_doc')

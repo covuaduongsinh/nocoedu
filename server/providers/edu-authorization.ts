@@ -8,15 +8,20 @@ import type { AppPluginApplication } from '@nocobase/app-server/plugins';
 
 import {
   COLLECTIONS,
+  buoiHoc,
   coSo,
   coSoQuanLy,
+  diemDanh,
   dongY,
   ext,
+  goiHoc,
   hocVien,
   lienKet,
   lop,
   lopLich,
   phuHuynh,
+  soDu,
+  thanhToan,
 } from '../edu/permissions.js';
 import { registerEduRecordAccess } from '../edu/record-access.js';
 
@@ -54,6 +59,11 @@ export default class EduAuthorizationProvider extends ServiceProvider<AppPluginA
     authz.ui.place(authz.compositeResources.define(phuHuynh), section);
     authz.ui.place(authz.compositeResources.define(lienKet), section);
     authz.ui.place(authz.compositeResources.define(dongY), section);
+    authz.ui.place(authz.compositeResources.define(buoiHoc), section);
+    authz.ui.place(authz.compositeResources.define(diemDanh), section);
+    authz.ui.place(authz.compositeResources.define(goiHoc), section);
+    authz.ui.place(authz.compositeResources.define(thanhToan), section);
+    authz.ui.place(authz.compositeResources.define(soDu), section);
     authz.ui.place(authz.compositeResources.define(ext), section);
     return Promise.resolve();
   }

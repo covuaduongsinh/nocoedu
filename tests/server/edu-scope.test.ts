@@ -21,6 +21,17 @@ test('every NocoEdu record route answers 401 without a session', async ({
     '/hocVien/lenCap',
     '/phuHuynh/taoMoi',
     '/dongY/ghiNhan',
+    '/buoiHoc/findMany',
+    '/diemDanh/findMany',
+    '/goiHoc/findMany',
+    '/thanhToan/findMany',
+    '/soDuNhatKy/findMany',
+    '/buoiHoc/taoTheoLich',
+    '/diemDanh/luu',
+    '/goiHoc/taoMoi',
+    '/thanhToan/ghiNhan',
+    '/thanhToan/vietQr',
+    '/soDu/canhBao',
   ]) {
     const response = await request(path, {
       method: 'POST',

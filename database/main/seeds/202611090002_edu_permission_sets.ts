@@ -288,6 +288,127 @@ const PERMISSION_SETS: readonly {
             }
           }
         ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.buoiHoc'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          },
+          {
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.diemDanh'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          },
+          {
+            action: 'record',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.goiHoc'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          },
+          {
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.thanhToan'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          },
+          {
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.soDu'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
       }
     ]
   },
@@ -530,6 +651,127 @@ const PERMISSION_SETS: readonly {
             }
           }
         ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.buoiHoc'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
+              }
+            }
+          },
+          {
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.diemDanh'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
+              }
+            }
+          },
+          {
+            action: 'record',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.goiHoc'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
+              }
+            }
+          },
+          {
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.thanhToan'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
+              }
+            }
+          },
+          {
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.soDu'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
+              }
+            }
+          }
+        ]
       }
     ]
   },
@@ -641,6 +883,75 @@ const PERMISSION_SETS: readonly {
               scopes: {
                 data: 'edu.myClasses',
                 history: 'edu.myClasses'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.buoiHoc'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses'
+              }
+            }
+          },
+          {
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.diemDanh'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses'
+              }
+            }
+          },
+          {
+            action: 'record',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.soDu'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses'
               }
             }
           }
@@ -785,6 +1096,109 @@ const PERMISSION_SETS: readonly {
         resource: {
           type: 'composite',
           id: 'edu.lienKet'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.buoiHoc'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.diemDanh'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.goiHoc'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          },
+          {
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.thanhToan'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          },
+          {
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.soDu'
         },
         actions: [
           {

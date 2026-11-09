@@ -15,14 +15,19 @@ import { bodyLimit } from 'hono/body-limit';
 import {
   COLLECTIONS,
   FIELDS,
+  buoiHoc,
   coSo,
   coSoQuanLy,
+  diemDanh,
   dongY,
+  goiHoc,
   hocVien,
   lienKet,
   lop,
   lopLich,
   phuHuynh,
+  soDu,
+  thanhToan,
 } from '../edu/permissions.js';
 import { eduError, policiesOf, type EduEnv } from './edu-support.js';
 
@@ -93,6 +98,11 @@ const EXPOSURES: readonly Exposure[] = [
     remove: true,
   },
   { name: 'dongY', key: 'dongY', resource: dongY },
+  { name: 'buoiHoc', key: 'buoiHoc', resource: buoiHoc },
+  { name: 'diemDanh', key: 'diemDanh', resource: diemDanh },
+  { name: 'goiHoc', key: 'goiHoc', resource: goiHoc },
+  { name: 'thanhToan', key: 'thanhToan', resource: thanhToan },
+  { name: 'soDuNhatKy', key: 'soDuNhatKy', resource: soDu },
 ];
 
 /**
