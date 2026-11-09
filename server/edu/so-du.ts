@@ -1,10 +1,11 @@
 /**
  * Balance rules of NocoEdu, kept free of any database access so the four attendance cases can be tested on their own.
  *
- * Attendance status → sessions deducted from the balance:
+ * Balance = sessions paid − sessions attended. Attendance status → sessions deducted from the balance:
  * - `co_mat` (present): 1
- * - `vang_khong_phep` (absent without leave): 1
  * - `vang_co_phep` (excused absence): 0, or 1 when the branch sets `truBuoiVangCoPhep`
+ * - `vang_khong_phep` (absent without leave): 0 for now — the head coach confirmed (DS-60) that an absence is not
+ *   deducted yet but may be later; `EDU_TRU_BUOI_VANG_KHONG_PHEP=true` turns the deduction on (see `unexcusedAbsenceDeducts`)
  * - `hoc_bu` (make-up session): 1 when the branch does not deduct an excused absence, otherwise 0 — the pairing that
  *   keeps an excused absence followed by a make-up from costing nothing or twice (see `.nb-studio/memory/hoc-bu-tru-buoi.md`).
  */
@@ -19,14 +20,23 @@ export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
 /** A student with this many sessions left or fewer is warned about. */
 export const LOW_BALANCE_THRESHOLD = 2;
 
+/** Whether an absence without leave deducts a session: off by default, on with `EDU_TRU_BUOI_VANG_KHONG_PHEP=true`. */
+export function unexcusedAbsenceDeducts(
+  env: Readonly<Record<string, string | undefined>>,
+): boolean {
+  return env.EDU_TRU_BUOI_VANG_KHONG_PHEP?.trim().toLowerCase() === 'true';
+}
+
 export function sessionsToDeduct(
   status: AttendanceStatus,
   excusedAbsenceDeducts: boolean,
+  unexcusedAbsenceDeduct = false,
 ): number {
   switch (status) {
     case 'co_mat':
-    case 'vang_khong_phep':
       return 1;
+    case 'vang_khong_phep':
+      return unexcusedAbsenceDeduct ? 1 : 0;
     case 'vang_co_phep':
       return excusedAbsenceDeducts ? 1 : 0;
     case 'hoc_bu':

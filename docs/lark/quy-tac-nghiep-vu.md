@@ -1,5 +1,7 @@
 # Quy tắc nghiệp vụ đọc ra từ Lark (giai đoạn 1)
 
+> **Giai đoạn 2:** Thầy Tường đã trả lời hầu hết các câu hỏi (09/11/2026): nguồn điểm danh chuẩn là Base, Sheets chỉ là danh sách dự kiến; `0` là vắng và chưa trừ buổi; số dư = số buổi đã nộp − số buổi có mặt; `học lớp 2` là tuổi của học viên, không phải học bù; `NM1`/`NM2` là cấp Tốt; giữ cả ngày sinh. Bảng câu hỏi và hằng số ở [anh-xa-nocoedu.md](anh-xa-nocoedu.md#các-câu-hỏi); các nhãn `[Cần Thầy Tường xác nhận]` bên dưới là nhận định của giai đoạn 1, phần nào mâu thuẫn với câu trả lời thì câu trả lời được ưu tiên. Còn mặc định ở câu 7, 10, 12.
+
 Tài liệu này diễn giải từng công thức và trường tra cứu trong [schema.md](schema.md) thành câu tiếng Việt, rồi nêu chỗ công thức mâu thuẫn nhau và chỗ dữ liệu được nhập tay thay cho công thức. Đề xuất ánh xạ sang NocoEdu ở [anh-xa-nocoedu.md](anh-xa-nocoedu.md).
 
 Nhãn **[Cần Thầy Tường xác nhận]** đánh dấu chỗ suy ra từ tên trường, kiểu ô hay mã giá trị lặp lại, không có công thức nào nói rõ. Không có nội dung bản ghi nào của học viên được đọc để viết tài liệu này: chỉ cấu trúc, số bản ghi và các mã ngắn lặp lại (như `1`, `x`, `Mã`).

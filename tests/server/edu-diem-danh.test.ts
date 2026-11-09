@@ -124,7 +124,8 @@ test('the balance drops correctly for each of the four attendance cases, with bo
   const cases = [
     ['co_mat', 1, 1],
     ['vang_co_phep', 0, 1],
-    ['vang_khong_phep', 1, 1],
+    // An absence without leave is not deducted yet (DS-60, confirmed by the head coach).
+    ['vang_khong_phep', 0, 0],
     ['hoc_bu', 1, 0],
   ] as const;
   for (const deducts of [false, true]) {
@@ -168,18 +169,57 @@ test('changing a status refunds or deducts only the difference, and saving twice
 
   expect((await save('vang_co_phep')).status).toBe(200);
   expect(await balance(connection, ids.hocVienA)).toBe(10);
-  expect((await save('vang_khong_phep')).status).toBe(200);
+  // Present again, then absent without leave: the deduction comes back, so only the difference moves.
+  expect((await save('co_mat')).status).toBe(200);
   expect(await balance(connection, ids.hocVienA)).toBe(9);
+  expect((await save('vang_khong_phep')).status).toBe(200);
+  expect(await balance(connection, ids.hocVienA)).toBe(10);
   expect(await ledger(connection)).toEqual([
     { thayDoi: -1, soDuSau: 9, lyDo: 'diem_danh' },
     { thayDoi: 1, soDuSau: 10, lyDo: 'diem_danh_sua' },
     { thayDoi: -1, soDuSau: 9, lyDo: 'diem_danh' },
+    { thayDoi: 1, soDuSau: 10, lyDo: 'diem_danh_sua' },
   ]);
   const rows = await connection.query
     .selectFrom('eduDiemDanh')
     .select('id')
     .execute();
   expect(rows).toHaveLength(1);
+});
+
+test('correcting a history row imported from Lark never moves the balance', async ({
+  testApp,
+  connection,
+}) => {
+  const { hlvA, ids, sessionA } = await setup(testApp, connection);
+  await resetStudent(connection, ids.hocVienA, 7);
+  // A row before the opening balance: its status is recorded, its deduction is already inside the 7.
+  await connection.query
+    .insertInto('eduDiemDanh')
+    .values({
+      buoiHocId: sessionA,
+      hocVienId: ids.hocVienA,
+      trangThai: 'co_mat',
+      soBuoiDaTru: 0,
+      tinhVaoSoDu: false,
+    })
+    .execute();
+  const save = (trangThai: string) =>
+    post(hlvA.session, '/diemDanh/luu', {
+      buoiHocId: sessionA,
+      danhSach: [{ hocVienId: ids.hocVienA, trangThai }],
+    });
+
+  for (const status of ['co_mat', 'vang_co_phep', 'vang_khong_phep']) {
+    expect((await save(status)).status).toBe(200);
+    expect(await balance(connection, ids.hocVienA)).toBe(7);
+  }
+  expect(await ledger(connection)).toEqual([]);
+  const row = await connection.query
+    .selectFrom('eduDiemDanh')
+    .select(['trangThai', 'soBuoiDaTru'])
+    .executeTakeFirstOrThrow();
+  expect(row).toMatchObject({ trangThai: 'vang_khong_phep', soBuoiDaTru: 0 });
 });
 
 test('two identical saves at once deduct one session', async ({

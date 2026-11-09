@@ -187,6 +187,35 @@ describe('scripts/lark/analyze', () => {
     });
   });
 
+  it('keeps the filter of a lookup field without its values', () => {
+    const field = sanitizeField({
+      field_id: 'fld3',
+      field_name: 'Tra cứu mẫu',
+      type: 19,
+      property: {
+        target_table: 'tblMau',
+        target_field: 'fldMau',
+        filter_info: {
+          conjunction: 'and',
+          conditions: [
+            {
+              field_id: 'fld4',
+              field_type: 1,
+              operator: 'is',
+              value: '["Học viên Mẫu"]',
+            },
+          ],
+        },
+      },
+    });
+    expect(field.lookupFilter?.conditions).toHaveLength(1);
+    expect(field.lookupFilter?.conditions[0]).toMatchObject({
+      fieldId: 'fld4',
+      hasValue: true,
+    });
+    expect(JSON.stringify(field)).not.toContain('Mẫu"]');
+  });
+
   it('names the tables and fields of a Base formula', () => {
     const tables = [
       {

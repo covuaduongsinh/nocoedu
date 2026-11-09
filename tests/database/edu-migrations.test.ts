@@ -87,3 +87,76 @@ describeMigration('202611090003_edu_buoi_hoc_rule_snapshot', {
     await expectCollection('eduBuoiHoc').not.toHaveField('truVangCoPhep');
   },
 });
+
+describeMigration('202611100001_edu_lark_mapping', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ connection, expectCollection }) => {
+    for (const name of [
+      'eduCoSo',
+      'eduLop',
+      'eduLopLich',
+      'eduHocVien',
+      'eduPhuHuynh',
+      'eduGoiHoc',
+      'eduBuoiHoc',
+      'eduDiemDanh',
+    ]) {
+      await expectCollection(name).toHaveField('externalId', {
+        nullable: true,
+      });
+      await expectCollection(name).toHaveIndex(['externalId'], {
+        unique: true,
+      });
+    }
+    await expectCollection('eduHocVien').toHaveField('externalCode');
+    await expectCollection('eduHocVien').toHaveField('ngaySinh', {
+      nullable: true,
+    });
+    await expectCollection('eduPhuHuynh').toHaveField('email');
+    await expectCollection('eduBuoiHoc').toHaveField('keHoachDay');
+    await expectCollection('eduDiemDanh').toHaveField('yThucDiem');
+    await expectCollection('eduDiemDanh').toHaveField('tinhVaoSoDu', {
+      nullable: false,
+    });
+    await expectCollection('eduGoiHoc').toHaveField('loai', {
+      nullable: false,
+    });
+
+    // Rows without an external id never collide; two rows with the same one do.
+    await connection.query
+      .insertInto('eduCoSo')
+      .values([
+        { ma: 'CS-A', ten: 'Cơ sở A' },
+        { ma: 'CS-B', ten: 'Cơ sở B' },
+      ])
+      .execute();
+    await connection.query
+      .insertInto('eduCoSo')
+      .values({ ma: 'CS-C', ten: 'Cơ sở C', externalId: 'lark:coSo:C' })
+      .execute();
+    await expect(
+      connection.query
+        .insertInto('eduCoSo')
+        .values({ ma: 'CS-D', ten: 'Cơ sở D', externalId: 'lark:coSo:C' })
+        .execute(),
+    ).rejects.toThrow();
+    await connection.query
+      .deleteFrom('eduCoSo')
+      .where('ma', 'in', ['CS-A', 'CS-B', 'CS-C'])
+      .execute();
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduCoSo').toExist();
+    await expectCollection('eduCoSo').not.toHaveField('externalId');
+    await expectCollection('eduDiemDanh').not.toHaveField('tinhVaoSoDu');
+    await expectCollection('eduGoiHoc').not.toHaveField('loai');
+  },
+});

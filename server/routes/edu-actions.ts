@@ -40,7 +40,9 @@ const HocVienInput = z.object({
   levelKey: z.enum(LEVEL_KEYS).default('tot'),
   lopId: Id.nullish(),
   coSoId: Id,
-  trangThai: z.enum(['dang_hoc', 'tam_nghi', 'da_nghi']).default('dang_hoc'),
+  trangThai: z
+    .enum(['dang_hoc', 'tam_nghi', 'da_nghi', 'hoc_thu'])
+    .default('dang_hoc'),
   ghiChuHlv: z.string().trim().max(2000).nullish(),
 });
 
@@ -106,6 +108,7 @@ export default [
     for (const path of [
       '/hocVien/taoMoi',
       '/hocVien/capNhatGhiChu',
+      '/hocVien/ngaySinh',
       '/hocVien/chuyenLop',
       '/hocVien/lenCap',
       '/phuHuynh/taoMoi',
@@ -204,6 +207,41 @@ export default [
         }
         await repository.updateOne({ filter: { id }, values: { ghiChuHlv } });
         return c.json({ data: { id } });
+      },
+    );
+
+    // The full date of birth is personal data of a child (knowledge document 05). It is not in any permission field list,
+    // so no standard record API returns it. This route is the only reader: it needs the `manage` action, which an
+    // administrator and a branch manager hold and a coach, an accountant and the read-only API do not, and it finds the
+    // student through that action's own record scope first (a manager sees only their branch).
+    router.post(
+      '/hocVien/ngaySinh',
+      declare("Read a student's full date of birth", 'readBirthDate'),
+      needs('edu.hocVien', 'manage'),
+      apiValidator('json', z.object({ id: Id })),
+      async (c) => {
+        const { id } = c.req.valid('json');
+        const visible = await database
+          .connection()
+          .repository('eduHocVien')
+          .withPolicy(policyOf(c, 'eduHocVien'))
+          .findOne({ filter: { id } });
+        if (!visible) {
+          throw eduError(
+            'NOT_FOUND',
+            'EDU_STUDENT_NOT_FOUND',
+            'Student not found.',
+          );
+        }
+        const row = await database
+          .connection()
+          .query.selectFrom('eduHocVien')
+          .select('ngaySinh')
+          .where('id', '=', id)
+          .executeTakeFirst();
+        return c.json({
+          data: { id, ngaySinh: row?.ngaySinh ?? null },
+        });
       },
     );
 

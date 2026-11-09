@@ -326,12 +326,17 @@ async function main() {
     bases: [],
     spreadsheets: [],
   };
-  if (!args.only || args.only === 'base')
-    for (const token of SOURCES.bases)
-      output.bases.push(await decodeBase(lark, token));
-  if (!args.only || args.only === 'sheets')
-    for (const token of SOURCES.sheets)
-      output.spreadsheets.push(await decodeSpreadsheet(lark, token));
+  try {
+    if (!args.only || args.only === 'base')
+      for (const token of SOURCES.bases)
+        output.bases.push(await decodeBase(lark, token));
+    if (!args.only || args.only === 'sheets')
+      for (const token of SOURCES.sheets)
+        output.spreadsheets.push(await decodeSpreadsheet(lark, token));
+  } finally {
+    // lark-cli keeps its own config and logs under the temporary directory: nothing of Lark stays on disk.
+    lark.close();
+  }
   // Every call passes a path template, so the list holds no token or record id.
   output.commands = [...lark.commands];
   output.callCount = calls.length;
