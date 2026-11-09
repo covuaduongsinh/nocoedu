@@ -106,14 +106,68 @@ export async function seedSampleData(
           coSoId: branchIds[lop.branch],
           trangThai: 'dang_hoc',
           ghiChuHlv: null,
-          // A few students are close to running out so the warnings show.
-          soBuoiConLai: i % 4 === 0 ? 2 : i % 5 === 0 ? 1 : 8,
+          soBuoiConLai: 0,
         },
       });
       const studentId = Number(student.record.id);
       await q
         .updateTable('eduHocVien')
         .set({ ma: codeFromId('HS', studentId) })
+        .where('id', '=', studentId)
+        .execute();
+      // The balance comes from a package and the ledger, like a real one: 10 sessions bought, then an adjustment
+      // down to the sample value (a few students are close to running out so the warnings show).
+      const target = i % 4 === 0 ? 2 : i % 5 === 0 ? 1 : 8;
+      await q
+        .insertInto('eduGoiHoc')
+        .values({
+          hocVienId: studentId,
+          soBuoi: 10,
+          donGia: 150000,
+          thanhTien: 1500000,
+          ngayMua: addDays(today, -30),
+          nguoiTaoId: 'mau',
+        })
+        .execute();
+      const pack = await q
+        .selectFrom('eduGoiHoc')
+        .select('id')
+        .where('hocVienId', '=', studentId)
+        .executeTakeFirstOrThrow();
+      const ledger = [
+        {
+          thayDoi: 10,
+          soDuSau: 10,
+          lyDo: 'mua_goi',
+          goiHocId: Number(pack.id),
+          ghiChu: null,
+        },
+        ...(target < 10
+          ? [
+              {
+                thayDoi: target - 10,
+                soDuSau: target,
+                lyDo: 'dieu_chinh',
+                goiHocId: null,
+                ghiChu: 'Số dư mẫu',
+              },
+            ]
+          : []),
+      ];
+      for (const entry of ledger) {
+        await q
+          .insertInto('eduSoDuNhatKy')
+          .values({
+            hocVienId: studentId,
+            ...entry,
+            nguoiThucHienId: 'mau',
+            createdAt: new Date(),
+          })
+          .execute();
+      }
+      await q
+        .updateTable('eduHocVien')
+        .set({ soBuoiConLai: target })
         .where('id', '=', studentId)
         .execute();
       const parent = await connection.repository('eduPhuHuynh').createOne({

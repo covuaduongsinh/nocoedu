@@ -8,6 +8,7 @@ import type { AppPluginApplication } from '@nocobase/app-server/plugins';
 
 import {
   COLLECTIONS,
+  baoCao,
   buoiHoc,
   coSo,
   coSoQuanLy,
@@ -66,6 +67,7 @@ export default class EduAuthorizationProvider extends ServiceProvider<AppPluginA
     authz.ui.place(authz.compositeResources.define(thanhToan), section);
     authz.ui.place(authz.compositeResources.define(soDu), section);
     authz.ui.place(authz.compositeResources.define(nhanXet), section);
+    authz.ui.place(authz.compositeResources.define(baoCao), section);
     authz.ui.place(authz.compositeResources.define(ext), section);
     return Promise.resolve();
   }

@@ -185,18 +185,31 @@ test('reports show only the scope of the role, and a coach cannot read revenue',
   ]);
 });
 
-test('a CSV export is the same report, logs who exported how many rows, and guards formulas', async ({
+test('exporting is its own action: a coach can view a report but not download it', async ({
   testApp,
   connection,
 }) => {
-  const { hlvA, keToan, ids } = await setup(testApp, connection);
+  const { hlvA, managerA, keToan, ids } = await setup(testApp, connection);
   await connection.query
     .updateTable('eduHocVien')
     .set({ hoTen: '=HYPERLINK("x")', soBuoiConLai: 1 })
     .where('id', '=', ids.hocVienA)
     .execute();
 
-  const csv = await post(hlvA.session, '/baoCao/xuatCsv', {
+  // The coach sees the report on screen but is refused the file; nothing is logged.
+  expect((await report(hlvA.session, { loai: 'sapHetBuoi' })).status).toBe(200);
+  expect(
+    (await post(hlvA.session, '/baoCao/xuatCsv', { loai: 'sapHetBuoi' }))
+      .status,
+  ).toBe(403);
+  expect(
+    await connection.query
+      .selectFrom('eduXuatDuLieuNhatKy')
+      .select('id')
+      .execute(),
+  ).toHaveLength(0);
+
+  const csv = await post(managerA.session, '/baoCao/xuatCsv', {
     loai: 'sapHetBuoi',
   });
   expect(csv.status).toBe(200);
@@ -209,18 +222,78 @@ test('a CSV export is the same report, logs who exported how many rows, and guar
     .select(['userId', 'loai', 'soDong'])
     .execute();
   expect(log).toEqual([
-    { userId: hlvA.id, loai: 'bao_cao_sapHetBuoi', soDong: 1 },
+    { userId: managerA.id, loai: 'bao_cao_sapHetBuoi', soDong: 1 },
   ]);
   // The log never holds a name.
   expect(JSON.stringify(log)).not.toContain('HYPERLINK');
 
-  expect(
-    (await post(hlvA.session, '/baoCao/xuatCsv', { loai: 'doanhThu' })).status,
-  ).toBe(403);
+  // The accountant may export, and sees revenue.
   expect(
     (await post(keToan.session, '/baoCao/xuatCsv', { loai: 'doanhThu' }))
       .status,
   ).toBe(200);
+});
+
+test('the attendance report leaves out classes the caller may not see, and a huge report is refused', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin, hlvA, ids } = await setup(testApp, connection);
+  const q = connection.query;
+  // Student A once attended a session of class B (a make-up).
+  await q
+    .insertInto('eduBuoiHoc')
+    .values({
+      lopId: ids.lopB,
+      ngay: VN_TODAY(),
+      gioBatDau: '17:30',
+      gioKetThuc: '19:00',
+    })
+    .execute();
+  const sessionB = await q
+    .selectFrom('eduBuoiHoc')
+    .select('id')
+    .where('lopId', '=', ids.lopB)
+    .executeTakeFirstOrThrow();
+  await q
+    .insertInto('eduDiemDanh')
+    .values({
+      buoiHocId: Number(sessionB.id),
+      hocVienId: ids.hocVienA,
+      trangThai: 'hoc_bu',
+    })
+    .execute();
+  const mine = (await (
+    await report(hlvA.session, { loai: 'chuyenCan' })
+  ).json()) as Report;
+  expect(mine.data.rows).toEqual([]);
+  const all = (await (
+    await report(admin, { loai: 'chuyenCan' })
+  ).json()) as Report;
+  expect(all.data.rows.map((r) => r.lop)).toEqual(['Lớp Mẫu B1']);
+
+  // More rows than a report reads: a clear error, never a short report.
+  for (let from = 0; from < 5001; from += 100) {
+    await q
+      .insertInto('eduHocVien')
+      .values(
+        Array.from({ length: Math.min(100, 5001 - from) }, (_, i) => ({
+          ma: `HS-BIG-${from + i}`,
+          hoTen: `Học viên Mẫu ${from + i}`,
+          namSinh: 2016,
+          levelKey: 'tot',
+          levelOrder: 1,
+          lopId: ids.lopA,
+          coSoId: ids.coSoA,
+        })),
+      )
+      .execute();
+  }
+  const big = await report(admin, { loai: 'siSo' });
+  expect(big.status).toBe(400);
+  expect(
+    ((await big.json()) as { error: { reason: string } }).error.reason,
+  ).toBe('EDU_REPORT_TOO_LARGE');
 });
 
 test('a coach writes monthly comments for their own class only, and exports them as text', async ({

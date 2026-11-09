@@ -43,6 +43,10 @@ export default function BaoCaoPage(): ReactElement {
     resource: { type: 'composite', id: 'edu.diemDanh' },
     action: 'view',
   });
+  const { can: canExport } = useCan({
+    resource: { type: 'composite', id: 'edu.baoCao' },
+    action: 'export',
+  });
   const kinds = [
     'siSo',
     'sapHetBuoi',
@@ -80,9 +84,11 @@ export default function BaoCaoPage(): ReactElement {
         title={t('edu.baoCao.title')}
         description={t('edu.baoCao.description')}
         actions={
-          <Button variant='outline' onClick={() => void download()}>
-            {t('edu.baoCao.csv')}
-          </Button>
+          canExport ? (
+            <Button variant='outline' onClick={() => void download()}>
+              {t('edu.baoCao.csv')}
+            </Button>
+          ) : null
         }
       />
       <div className='max-w-xs'>

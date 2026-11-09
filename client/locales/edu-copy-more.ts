@@ -181,6 +181,7 @@ export const EDU_MORE_ROWS: readonly (readonly [
     'Attendance corrected',
     '点名更正',
   ],
+  ['hocPhi.reason.dieu_chinh', 'Điều chỉnh', 'Adjustment', '调整'],
   ['hocPhi.reason.mua_goi', 'Mua gói buổi', 'Package bought', '购买课时包'],
 
   ['nhanXet.title', 'Nhận xét tháng', 'Monthly comments', '月度评语'],

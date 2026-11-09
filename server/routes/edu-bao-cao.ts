@@ -69,7 +69,8 @@ const GATE: Record<ReportKind, string> = {
 };
 
 const PAGE = 100;
-const MAX_ROWS = 5000;
+/** A report reads at most this many rows; more is refused with a clear error instead of a silently short report. */
+export const MAX_ROWS = 5000;
 const PRESENT = ['co_mat', 'hoc_bu'];
 
 const chunks = <T>(items: readonly T[], size: number): T[][] => {
@@ -127,7 +128,7 @@ export default [
         findMany(input: unknown): Promise<Row[]>;
       };
       const rows: Row[] = [];
-      for (let offset = 0; offset < MAX_ROWS; offset += PAGE) {
+      for (let offset = 0; offset <= MAX_ROWS; offset += PAGE) {
         const page = await repository.findMany({
           ...(filter ? { filter } : {}),
           sort: (s: { field: (n: string) => { asc: () => unknown } }) =>
@@ -137,6 +138,13 @@ export default [
         });
         rows.push(...page);
         if (page.length < PAGE) break;
+      }
+      if (rows.length > MAX_ROWS) {
+        throw eduError(
+          'FAILED_PRECONDITION',
+          'EDU_REPORT_TOO_LARGE',
+          'The report covers too many records. Narrow it to one branch or class.',
+        );
       }
       return rows;
     }
@@ -282,6 +290,14 @@ export default [
         case 'chuyenCan': {
           const from = input.tuNgay ?? addDays(today, -30);
           const to = input.denNgay ?? today;
+          // Only sessions of classes the caller may see: a student who attended another class once (a make-up) must
+          // not bring that class into this report.
+          const classPolicy = (await policiesOf(c, 'edu.lop', 'view')).eduLop;
+          const visibleClasses = new Set(
+            classPolicy
+              ? (await readAll('eduLop', classPolicy)).map((r) => num(r.id))
+              : [],
+          );
           const tally = new Map<
             number,
             {
@@ -307,7 +323,10 @@ export default [
                 .where('ngay', '>=', from)
                 .where('ngay', '<=', to)
                 .execute();
-              for (const r of rows) sessions.set(num(r.id), num(r.lopId));
+              for (const r of rows) {
+                if (visibleClasses.has(num(r.lopId)))
+                  sessions.set(num(r.id), num(r.lopId));
+              }
             }
             for (const m of marks) {
               const lopId = sessions.get(num(m.buoiHocId));
@@ -439,6 +458,8 @@ export default [
       async (c) => {
         const input = c.req.valid('json');
         const userId = currentUserId(c);
+        // Downloading is a separate action from viewing: a coach sees a report on screen but cannot take the file.
+        await policiesOf(c, 'edu.baoCao', 'export');
         const report = await build(c, input);
         await q()
           .insertInto('eduXuatDuLieuNhatKy')

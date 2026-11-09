@@ -102,7 +102,11 @@ export function text(value: unknown): string {
 
 export type Result<T> =
   | { readonly state: 'loading' }
-  | { readonly state: 'error'; readonly forbidden: boolean }
+  | {
+      readonly state: 'error';
+      readonly forbidden: boolean;
+      readonly reason?: string;
+    }
   | { readonly state: 'ready'; readonly data: T };
 
 /** POSTs a read-only business route (reports, summaries) and keeps the result; `reload` asks again. */
@@ -132,6 +136,10 @@ export function useRequest<T>(
               forbidden:
                 error instanceof ApiClientError &&
                 (error as { status?: number }).status === 403,
+              ...(error instanceof ApiClientError &&
+              (error as { reason?: string }).reason
+                ? { reason: (error as { reason: string }).reason }
+                : {}),
             },
           });
       });

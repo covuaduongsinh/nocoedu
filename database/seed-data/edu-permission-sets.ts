@@ -2,6 +2,7 @@ import { definePermissionSet } from '@nocobase/authorization/permission-sets';
 
 import { PAGES } from '../../server/edu/pages.js';
 import {
+  baoCao,
   buoiHoc,
   coSo,
   coSoQuanLy,
@@ -83,6 +84,7 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .grant(
     nhanXet.reference().grant({ view: { data: ALL }, write: { data: ALL } }),
   )
+  .grant(baoCao.reference().grant({ export: { data: ALL } }))
   .build();
 
 export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
@@ -150,6 +152,7 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
       write: { data: MY_BRANCHES },
     }),
   )
+  .grant(baoCao.reference().grant({ export: { data: MY_BRANCHES } }))
   .build();
 
 export const eduHlv = definePermissionSet('edu_hlv')
@@ -215,6 +218,7 @@ export const eduKeToan = definePermissionSet('edu_ke_toan')
     thanhToan.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
   )
   .grant(soDu.reference().grant({ view: { data: ALL } }))
+  .grant(baoCao.reference().grant({ export: { data: ALL } }))
   .build();
 
 export const eduApiDoc = definePermissionSet('edu_api_doc')

@@ -154,6 +154,25 @@ describe('attendance and report pages', () => {
     await render(<BaoCaoPage />, '/bao-cao', '/bao-cao');
     expect(await screen.findByText('Lớp Mẫu 1')).toBeInTheDocument();
     expect(screen.getByText('Sĩ số')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tải CSV' })).toBeInTheDocument();
+    // Viewing a report does not allow downloading it.
+    expect(
+      screen.queryByRole('button', { name: 'Tải CSV' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers the CSV download only to a person who holds the export action', async () => {
+    permissions = {
+      unrestricted: false,
+      permissions: [
+        {
+          resource: { type: 'composite', id: 'edu.baoCao' },
+          actions: ['export'],
+        },
+      ],
+    };
+    await render(<BaoCaoPage />, '/bao-cao', '/bao-cao');
+    expect(
+      await screen.findByRole('button', { name: 'Tải CSV' }),
+    ).toBeInTheDocument();
   });
 });

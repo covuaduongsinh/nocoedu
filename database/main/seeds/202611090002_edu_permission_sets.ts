@@ -479,6 +479,23 @@ const PERMISSION_SETS: readonly {
             }
           }
         ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.baoCao'
+        },
+        actions: [
+          {
+            action: 'export',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
       }
     ]
   },
@@ -904,6 +921,23 @@ const PERMISSION_SETS: readonly {
           },
           {
             action: 'write',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.baoCao'
+        },
+        actions: [
+          {
+            action: 'export',
             policy: {
               type: 'composite',
               scopes: {
@@ -1424,6 +1458,23 @@ const PERMISSION_SETS: readonly {
         actions: [
           {
             action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.baoCao'
+        },
+        actions: [
+          {
+            action: 'export',
             policy: {
               type: 'composite',
               scopes: {

@@ -33,6 +33,7 @@ const SCOPED_COLLECTIONS = [
   'eduSoDuNhatKy',
   'eduNhanXetThang',
   'eduCoSoQuanLy',
+  'eduXuatDuLieuNhatKy',
 ] as const;
 
 type Query = ReturnType<DatabaseManager['connection']>['query'];

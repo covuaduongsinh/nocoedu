@@ -265,6 +265,10 @@ export const FIELDS = {
     ],
     write: ['hocVienId', 'lopId', 'hlvId', 'thang', 'noiDung', 'trangThai'],
   },
+  xuatDuLieu: {
+    read: ['id', 'userId', 'loai', 'soDong', 'createdAt'],
+    write: [],
+  },
   soDuNhatKy: {
     read: [
       'id',
@@ -527,5 +531,19 @@ export const nhanXet = defineCompositeResource('edu.nhanXet', (r) =>
             .create([...FIELDS.nhanXetThang.write])
             .update(['noiDung', 'trangThai']),
         ),
+    ),
+);
+
+/**
+ * Exporting a report as a file is its own action (knowledge document 05): holding `view` of a report does not allow
+ * downloading it. The grant is over the export log, the record of every export; the route checks the action itself.
+ */
+export const baoCao = defineCompositeResource('edu.baoCao', (r) =>
+  r
+    .title('Báo cáo')
+    .action('export', (a) =>
+      a
+        .title('Xuất báo cáo ra tệp CSV')
+        .grant('data', perm('xuatDuLieu', FIELDS.xuatDuLieu)),
     ),
 );
