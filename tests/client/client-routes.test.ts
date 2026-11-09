@@ -5,7 +5,6 @@ import {
 } from '@nocobase/app-client/plugins';
 import { describe, expect, it } from 'vitest';
 
-import systemSettingsRoutes from '../../client/pages/settings/routes.js';
 import applicationRoutes, {
   createApplicationRoutes,
 } from '../../client/routes.ts';
@@ -182,56 +181,34 @@ describe('app client routes', () => {
     const resolved = resolveRoutes();
 
     // The landing page and the inbox opted out of page authorization, so they are reachable by every signed-in user.
+    // The four NocoEdu pages each need their own page grant, given by the NocoEdu permission sets; the Users and
+    // Permission management pages stay behind the platform's own user and permission-set permissions.
     expect(pageAuthorizations(resolved.routes)).toEqual([
       { name: 'home', authorizedAs: null },
       { name: 'inbox', authorizedAs: null },
+      { name: 'edu-coSo', authorizedAs: 'edu.coSo' },
+      { name: 'edu-lop', authorizedAs: 'edu.lop' },
+      { name: 'edu-hocVien', authorizedAs: 'edu.hocVien' },
+      { name: 'edu-phuHuynh', authorizedAs: 'edu.phuHuynh' },
+      { name: 'edu-diemDanh', authorizedAs: 'edu.diemDanh' },
+      { name: 'edu-hocPhi', authorizedAs: 'edu.hocPhi' },
+      { name: 'edu-nhanXet', authorizedAs: 'edu.nhanXet' },
+      { name: 'edu-baoCao', authorizedAs: 'edu.baoCao' },
       { name: 'settingsHome', authorizedAs: null },
+      ...managementPages,
     ]);
   });
 
-  it('keeps a bare application free of settings modules and supports settings registration as business capabilities are developed', async () => {
-    // Only the settings home, which lists what the viewer may open and grants nothing itself.
+  it('registers Users and Permission management once, with every page behind a permission', async () => {
+    const built = resolveRoutes();
     expect(
-      pagePaths(resolveRoutes().routes).filter((path) =>
-        path.startsWith('/settings'),
-      ),
-    ).toEqual(['/settings']);
-    const built = resolveAppClientContributions([
-      {
-        packageName: '@nocobase/app-template-default',
-        routes: [...applicationRoutes, systemSettingsRoutes],
-        source: 'application',
-      },
-    ]);
-    expect(pageAuthorizations(built.routes)).toEqual([
-      { name: 'home', authorizedAs: null },
-      { name: 'inbox', authorizedAs: null },
-      { name: 'settingsHome', authorizedAs: null },
-      { name: 'settingsUsers', authorizedAs: 'user:*' },
-      { name: 'settingsUserCreate', authorizedAs: 'user:*' },
-      { name: 'settingsUser', authorizedAs: 'user:*' },
-      { name: 'settingsUserEdit', authorizedAs: 'user:*' },
-      {
-        name: 'settingsRoles',
-        authorizedAs: 'settings:authorization.permission-sets',
-      },
-      {
-        name: 'settingsRoleCreate',
-        authorizedAs: 'settings:authorization.permission-sets',
-      },
-      {
-        name: 'settingsRoleEdit',
-        authorizedAs: 'settings:authorization.permission-sets',
-      },
-      ...[
-        'settingsDefaultAccess',
-        'settingsDefaultAccessCreate',
-        'settingsDefaultAccessEdit',
-      ].map((name) => ({
-        name,
-        authorizedAs: 'settings:authorization.default-access',
-      })),
-    ]);
+      pagePaths(built.routes).filter((path) => path.startsWith('/settings')),
+    ).toEqual(expect.arrayContaining(['/settings', '/settings/users']));
+    for (const entry of pageAuthorizations(built.routes)) {
+      // Only the landing page, the inbox and the settings home may skip page authorization.
+      if (entry.authorizedAs === null)
+        expect(['home', 'inbox', 'settingsHome']).toContain(entry.name);
+    }
     for (const loader of componentLoadersIn(built.routes))
       await expect(loader()).resolves.toMatchObject({
         default: expect.any(Function),
@@ -245,6 +222,33 @@ describe('app client routes', () => {
     ).not.toHaveProperty('navigation');
   });
 });
+
+const managementPages = [
+  { name: 'settingsUsers', authorizedAs: 'user:*' },
+  { name: 'settingsUserCreate', authorizedAs: 'user:*' },
+  { name: 'settingsUser', authorizedAs: 'user:*' },
+  { name: 'settingsUserEdit', authorizedAs: 'user:*' },
+  {
+    name: 'settingsRoles',
+    authorizedAs: 'settings:authorization.permission-sets',
+  },
+  {
+    name: 'settingsRoleCreate',
+    authorizedAs: 'settings:authorization.permission-sets',
+  },
+  {
+    name: 'settingsRoleEdit',
+    authorizedAs: 'settings:authorization.permission-sets',
+  },
+  ...[
+    'settingsDefaultAccess',
+    'settingsDefaultAccessCreate',
+    'settingsDefaultAccessEdit',
+  ].map((name) => ({
+    name,
+    authorizedAs: 'settings:authorization.default-access',
+  })),
+];
 
 /** This application's own contribution, registered the way the client runtime registers it. */
 function resolveRoutes() {

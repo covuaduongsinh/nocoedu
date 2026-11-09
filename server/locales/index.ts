@@ -4,6 +4,7 @@ import type { LocaleLoaders } from '@nocobase/i18n';
 // it never adds one, so a language belongs in this map before anything can be served in it.
 const locales: LocaleLoaders = {
   'en-US': () => import('./en-US.js'),
+  'vi-VN': () => import('./vi-VN.js'),
   'zh-CN': () => import('./zh-CN.js'),
 };
 

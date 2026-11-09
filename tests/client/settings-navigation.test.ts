@@ -219,12 +219,30 @@ describe('System settings navigation', () => {
     ]).routes;
     expect(catalog(routes)).toEqual([
       [
+        'settingsAccount',
+        [
+          ['settingsUsers', '/settings/users'],
+          ['permissionManagement', '/settings/roles'],
+        ],
+      ],
+      [
         'settingsSystem',
         [['notificationManagement', '/settings/notifications/templates']],
       ],
     ]);
     expect(
       buildRouteNavigation(routes, new Set()).map(({ route }) => route.name),
-    ).toEqual(['home', 'settingsHome']);
+    ).toEqual([
+      'home',
+      'edu-coSo',
+      'edu-lop',
+      'edu-hocVien',
+      'edu-phuHuynh',
+      'edu-diemDanh',
+      'edu-hocPhi',
+      'edu-nhanXet',
+      'edu-baoCao',
+      'settingsHome',
+    ]);
   });
 });
