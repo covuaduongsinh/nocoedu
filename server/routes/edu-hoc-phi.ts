@@ -67,12 +67,20 @@ const AttendanceInput = z.object({
     .max(200),
 });
 
-const PackageInput = z.object({
-  hocVienId: Id,
-  soBuoi: z.number().int().min(1).max(500),
-  donGia: z.number().int().min(0).max(100_000_000),
-  ngayMua: SessionDate.optional(),
-});
+/** The total is stored in a 32-bit integer column (PostgreSQL `integer`), so a package stays below its range. */
+const MAX_PACKAGE_TOTAL = 2_000_000_000;
+
+const PackageInput = z
+  .object({
+    hocVienId: Id,
+    soBuoi: z.number().int().min(1).max(500),
+    donGia: z.number().int().min(0).max(100_000_000),
+    ngayMua: SessionDate.optional(),
+  })
+  .refine((value) => value.soBuoi * value.donGia <= MAX_PACKAGE_TOTAL, {
+    path: ['donGia'],
+    message: 'The total of a package is too large.',
+  });
 
 const PaymentInput = z.object({
   goiHocId: Id,
@@ -255,7 +263,28 @@ export default [
             .select('truBuoiVangCoPhep')
             .where('id', '=', Number(lop.coSoId))
             .executeTakeFirstOrThrow();
-          const excusedDeducts = asBoolean(branch.truBuoiVangCoPhep);
+          // The rule in force is fixed on the session the first time its register is saved. A later change of the
+          // branch setting applies to the next sessions only, so saving an old register again never moves a balance.
+          const stored = await connection.query
+            .selectFrom('eduBuoiHoc')
+            .select('truVangCoPhep')
+            .where('id', '=', input.buoiHocId)
+            .executeTakeFirstOrThrow();
+          let excusedDeducts: boolean;
+          if (
+            stored.truVangCoPhep === null ||
+            stored.truVangCoPhep === undefined
+          ) {
+            excusedDeducts = asBoolean(branch.truBuoiVangCoPhep);
+            await connection.query
+              .updateTable('eduBuoiHoc')
+              .set({ truVangCoPhep: excusedDeducts })
+              .where('id', '=', input.buoiHocId)
+              .where('truVangCoPhep', 'is', null)
+              .execute();
+          } else {
+            excusedDeducts = asBoolean(stored.truVangCoPhep);
+          }
           const attendance = connection
             .repository('eduDiemDanh')
             .withPolicy(attendancePolicy);
@@ -284,7 +313,6 @@ export default [
                 'danhSach',
               );
             }
-            const target = sessionsToDeduct(entry.trangThai, excusedDeducts);
             const existing = await attendance.findOne({
               filter: (f) =>
                 f.and([
@@ -292,6 +320,11 @@ export default [
                   f.number('hocVienId').eq(entry.hocVienId),
                 ]),
             });
+            // An unchanged status keeps what was deducted (also for registers saved before the rule was stored).
+            const target =
+              existing && existing.trangThai === entry.trangThai
+                ? Number(existing.soBuoiDaTru)
+                : sessionsToDeduct(entry.trangThai, excusedDeducts);
             let diemDanhId: number;
             let alreadyDeducted: number;
             if (existing) {
@@ -466,6 +499,13 @@ export default [
             .select('coSoId')
             .where('id', '=', Number(pack.hocVienId))
             .executeTakeFirstOrThrow();
+          // Lock the package row for this transaction before the paid total is read, so two payments at once on
+          // PostgreSQL cannot both pass the "not more than due" check.
+          await connection.query
+            .updateTable('eduGoiHoc')
+            .set({ trangThai: asText(pack.trangThai) })
+            .where('id', '=', input.goiHocId)
+            .execute();
           const paid = await paidFor(connection, input.goiHocId);
           const due = Number(pack.thanhTien) - paid;
           if (input.soTien > due) {

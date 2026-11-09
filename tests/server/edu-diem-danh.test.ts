@@ -84,6 +84,12 @@ async function resetStudent(
   const q = connection.query;
   await q.deleteFrom('eduSoDuNhatKy').allowAllRows().execute();
   await q.deleteFrom('eduDiemDanh').allowAllRows().execute();
+  // The stored rule belongs to a register that was marked; a fresh register stores it again.
+  await q
+    .updateTable('eduBuoiHoc')
+    .set({ truVangCoPhep: null })
+    .allowAllRows()
+    .execute();
   await q
     .updateTable('eduHocVien')
     .set({ soBuoiConLai: balance })
@@ -427,5 +433,91 @@ test('sessions are created from the timetable of a class, once', async ({
   expect(((await again.json()) as Json).data?.created).toBe(0);
   expect([403, 404]).toContain(
     (await post(hlvB.session, '/buoiHoc/taoTheoLich', range)).status,
+  );
+});
+
+test('changing the branch setting does not move the balance of a register that was already marked', async ({
+  testApp,
+  connection,
+}) => {
+  const { hlvA, ids, sessionA } = await setup(testApp, connection);
+  const setRule = (deducts: boolean) =>
+    connection.query
+      .updateTable('eduCoSo')
+      .set({ truBuoiVangCoPhep: deducts })
+      .where('id', '=', ids.coSoA)
+      .execute();
+  const save = (trangThai: string) =>
+    post(hlvA.session, '/diemDanh/luu', {
+      buoiHocId: sessionA,
+      danhSach: [{ hocVienId: ids.hocVienA, trangThai }],
+    });
+
+  // Excused absence under "not deducted"; the setting is then switched on and the same register saved again.
+  await setRule(false);
+  await resetStudent(connection, ids.hocVienA, 10);
+  expect((await save('vang_co_phep')).status).toBe(200);
+  expect(await balance(connection, ids.hocVienA)).toBe(10);
+  await setRule(true);
+  expect((await save('vang_co_phep')).status).toBe(200);
+  expect(await balance(connection, ids.hocVienA)).toBe(10);
+  expect(await ledger(connection)).toHaveLength(0);
+  // A new status on that register uses the rule stored on the session (not deducted), so a make-up costs 1, not 0.
+  expect((await save('hoc_bu')).status).toBe(200);
+  expect(await balance(connection, ids.hocVienA)).toBe(9);
+
+  // The other way round: a make-up under "deducted" costs 0 and stays 0 when the setting is switched off.
+  await connection.query
+    .updateTable('eduBuoiHoc')
+    .set({ truVangCoPhep: null })
+    .where('id', '=', sessionA)
+    .execute();
+  await setRule(true);
+  await resetStudent(connection, ids.hocVienA, 10);
+  expect((await save('hoc_bu')).status).toBe(200);
+  expect(await balance(connection, ids.hocVienA)).toBe(10);
+  await setRule(false);
+  expect((await save('hoc_bu')).status).toBe(200);
+  expect(await balance(connection, ids.hocVienA)).toBe(10);
+  expect(await ledger(connection)).toHaveLength(0);
+});
+
+test('a package total stays inside a 32-bit column, and two payments at once never exceed the amount due', async ({
+  testApp,
+  connection,
+}) => {
+  const { keToan, ids } = await setup(testApp, connection);
+  await resetStudent(connection, ids.hocVienA, 0);
+  expect(
+    (
+      await post(keToan.session, '/goiHoc/taoMoi', {
+        hocVienId: ids.hocVienA,
+        soBuoi: 500,
+        donGia: 100_000_000,
+      })
+    ).status,
+  ).toBe(400);
+  const sold = await post(keToan.session, '/goiHoc/taoMoi', {
+    hocVienId: ids.hocVienA,
+    soBuoi: 15,
+    donGia: 100_000_000,
+  });
+  expect(sold.status).toBe(201);
+  const goiHocId = ((await sold.json()) as Json).data!.id!;
+
+  const pay = () =>
+    post(keToan.session, '/thanhToan/ghiNhan', {
+      goiHocId,
+      soTien: 1_000_000_000,
+      hinhThuc: 'chuyen_khoan',
+    });
+  const results = await Promise.all([pay(), pay()]);
+  expect(results.map((r) => r.status).sort()).toEqual([201, 400]);
+  const paid = await connection.query
+    .selectFrom('eduThanhToan')
+    .select('soTien')
+    .execute();
+  expect(paid.reduce((sum: number, r: any) => sum + Number(r.soTien), 0)).toBe(
+    1_000_000_000,
   );
 });

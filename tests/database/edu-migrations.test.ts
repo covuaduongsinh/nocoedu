@@ -66,3 +66,24 @@ describeMigration('202611090001_create_edu_tables', {
     await expectCollection('eduXuatDuLieuNhatKy').not.toExist();
   },
 });
+
+describeMigration('202611090003_edu_buoi_hoc_rule_snapshot', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduBuoiHoc').toHaveField('truVangCoPhep', {
+      nullable: true,
+    });
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduBuoiHoc').toExist();
+    await expectCollection('eduBuoiHoc').not.toHaveField('truVangCoPhep');
+  },
+});
