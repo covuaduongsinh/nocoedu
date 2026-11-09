@@ -15,9 +15,9 @@ Dựa trên [schema.md](schema.md) và [quy-tac-nghiep-vu.md](quy-tac-nghiep-vu.
 | --- | ----------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | 1   | `eduCoSo`                           | Lựa chọn của HocVien."cơ sở" và LopHoc."cơ sở" (`Kim Liên`, `Vĩnh Phúc`)                             | tên lựa chọn (`Kim Liên`, `Vĩnh Phúc`): mỗi trường chọn của Lark có bộ id lựa chọn riêng, nên ghép theo **tên**, không theo id |
 | 2   | `eduLop`, `eduLopLich`              | Base LopHoc (7 bản ghi)                                                                              | `rec…` của LopHoc                                                                                                              |
-| 3   | `eduPhuHuynh`, `eduHocVienPhuHuynh` | Bảng phụ huynh `tblZUIXmpdt13j4x` (**chưa đọc được**)                                                | `rec…` của bảng phụ huynh                                                                                                      |
+| 3   | `eduPhuHuynh`, `eduHocVienPhuHuynh` | Tra cứu trên HocVien (bảng phụ huynh `tblZUIXmpdt13j4x` **chưa đọc được**)                           | `rec…` của phụ huynh trong ô liên kết, hoặc `lark:ph:<SĐT>`                                                                    |
 | 4   | `eduHocVien`                        | Base HocVien (179 bản ghi)                                                                           | `rec…` của HocVien                                                                                                             |
-| 5   | `eduGoiHoc` (+ `eduThanhToan`?)     | Bảng nộp tiền `tblHp1PGPz52eZBz` (**chưa đọc được**)                                                 | `rec…` của lần nộp tiền                                                                                                        |
+| 5   | `eduGoiHoc` (gói mở đầu)            | HocVien."số buổi tồn update" (bảng nộp tiền `tblHp1PGPz52eZBz` **chưa đọc được**)                    | `lark:sodu:<rec học viên>`                                                                                                     |
 | 6   | `eduBuoiHoc`, `eduDiemDanh`         | Base "2024/2025 Nhận xét mỗi buổi" và/hoặc Sheets KL357/VP26 ([Cần Thầy Tường xác nhận] nguồn chuẩn) | Base: `rec…`; Sheets: buổi = `<token>:<sheet_id>`, điểm danh = `<token>:<sheet_id>:<dòng>`                                     |
 
 ## Trường và quy tắc chuẩn hoá
@@ -60,7 +60,7 @@ Dựa trên [schema.md](schema.md) và [quy-tac-nghiep-vu.md](quy-tac-nghiep-vu.
 
 ### Phụ huynh (`eduPhuHuynh`, `eduHocVienPhuHuynh`)
 
-Chưa đọc được bảng phụ huynh. Từ các trường tra cứu trên HocVien đã biết bảng có họ tên, số điện thoại, địa chỉ và trường ngược sang HocVien.
+Bảng phụ huynh **chưa đọc được** (`1254302`, xem [quy-tac-nghiep-vu.md#chưa-đọc-được](quy-tac-nghiep-vu.md#chưa-đọc-được)). Toàn bộ mục này là đề xuất dựa trên các trường tra cứu của HocVien ("Họ tên PH", "SDT PH", "Quan hệ", "email PH") và trường liên kết "ID contact PH" [Cần Thầy Tường xác nhận]. `externalId` lấy từ mã bản ghi phụ huynh mà ô liên kết "ID contact PH" trả về; nếu API không trả mã khi bảng đích bị chặn thì dùng `lark:ph:<SĐT đã chuẩn hoá>`. Khi một học viên có nhiều phụ huynh, các giá trị tra cứu bị nối thành một chuỗi: tách theo dấu phân cách, ghép họ tên với SĐT theo thứ tự; số phần tử lệch nhau → lỗi `PH_KHONG_GHEP_DUOC`.
 
 | NocoEdu                          | Lark                     | Quy tắc                                                                                                                                                                                                                   |
 | -------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -74,7 +74,16 @@ Chưa đọc được bảng phụ huynh. Từ các trường tra cứu trên Ho
 
 ### Gói buổi (`eduGoiHoc`, `eduThanhToan`)
 
-Chưa đọc được bảng nộp tiền. Đã biết bảng có: số buổi (`fldHfG75tb`), số buổi tồn (`fldBCMdh5j`), một mã chữ (`fld40HQwi0`), liên kết học viên (`fldeLNzRvl`). Không ánh xạ được số tiền, đơn giá, ngày mua cho tới khi được cấp quyền.
+Bảng nộp tiền **chưa đọc được** (`1254302`), nên không dựng lại được lịch sử nộp tiền, số tiền, đơn giá hay công thức số dư. Đề xuất thay thế [Cần Thầy Tường xác nhận]:
+
+| NocoEdu                                   | Lark                                             | Quy tắc                                                                                                                                                |
+| ----------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `eduGoiHoc` (một gói mở đầu mỗi học viên) | HocVien."số buổi tồn update (vào ngày thống kê)" | `soBuoi` = số buổi tồn; nhiều giá trị (danh sách) → lỗi `SO_DU_KHONG_RO`; trống → không tạo gói                                                        |
+| `eduGoiHoc.ngayMua`                       | HocVien."Ngày update gần nhất về HP"             | `YYYY-MM-DD` theo UTC+7; trống → lỗi `THIEU_NGAY_CHOT`                                                                                                 |
+| `eduGoiHoc.donGia`, `thanhTien`           | —                                                | `0` (gói chuyển số dư, không phải bán mới); ghi chú `chuyen_tu_lark`                                                                                   |
+| `eduGoiHoc.externalId`                    | —                                                | `lark:sodu:<rec học viên>`                                                                                                                             |
+| `eduThanhToan`                            | —                                                | không tạo (không đọc được tiền đã nộp)                                                                                                                 |
+| `eduHocVien.soBuoiConLai`                 | —                                                | = gói mở đầu − tổng `sessionsToDeduct` của điểm danh **sau** ngày chốt; bản chạy thử so số này với "Số buổi còn lại" (chữ) của buổi gần nhất trên Lark |
 
 ### Buổi học và điểm danh (`eduBuoiHoc`, `eduDiemDanh`)
 
@@ -107,6 +116,6 @@ Chưa đọc được bảng nộp tiền. Đã biết bảng có: số buổi (
 
 ## Cần làm trước giai đoạn 2
 
-1. **Cấp quyền đọc cho app** trên bảng phụ huynh `tblZUIXmpdt13j4x` và bảng nộp tiền `tblHp1PGPz52eZBz` (Base đang bật quyền nâng cao: thêm app vào một vai trò có quyền xem hai bảng này), rồi chạy lại `scripts/lark/giai-ma.mjs`. Không có hai bảng này thì không ánh xạ được phụ huynh, gói buổi và số dư.
+1. Hai bảng phụ huynh và nộp tiền **bỏ qua** theo quyết định của chủ dự án (09/11/2026), sau hai lần thử đều lỗi `1254302`; phụ huynh và gói buổi dùng đề xuất thay thế ở trên. Nếu sau này app đọc được, chạy lại `node scripts/lark/giai-ma.mjs --only base` và thay đề xuất bằng ánh xạ thật.
 2. (Tuỳ chọn) Cấp scope `base:app:read`, `base:table:read`, `base:field:read`, `base:view:read`, `base:workflow:read` để dùng lệnh `lark-cli base +…` và đọc được automation.
 3. Thầy Tường trả lời các nhãn **[Cần Thầy Tường xác nhận]** ở hai tài liệu, quan trọng nhất: nguồn điểm danh chuẩn (Base hay Sheets), nghĩa của `0`/`x`/`!`/`?`, cách đang trừ buổi, cấp của `NM1`/`NM2`.

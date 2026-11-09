@@ -44,6 +44,6 @@ Các lệnh tắt `lark-cli base +table-list`, `+field-list`… gọi API `base/
 
 ## Giới hạn hiện tại
 
-- Base bật quyền nâng cao: vai trò của app không đọc được bảng `tblZUIXmpdt13j4x` (phụ huynh) và `tblHp1PGPz52eZBz` (nộp tiền). Cấp quyền rồi chạy lại.
+- Base bật quyền nâng cao: vai trò của app không đọc được bảng `tblZUIXmpdt13j4x` (phụ huynh) và `tblHp1PGPz52eZBz` (nộp tiền), lỗi `1254302` ở cả hai lần thử ngày 09/11/2026. Theo quyết định của chủ dự án, hai bảng này được bỏ qua và ghi ở mục "Chưa đọc được" của `docs/lark/quy-tac-nghiep-vu.md`.
 - `bitable/v1/…/workflows` trả `1254200`; automation chưa liệt kê được.
 - Base không có cờ bắt buộc ở mức trường; "bắt buộc" lấy từ câu hỏi bắt buộc của biểu mẫu.

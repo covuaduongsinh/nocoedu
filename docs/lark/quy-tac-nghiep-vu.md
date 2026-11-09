@@ -6,8 +6,7 @@ Nhãn **[Cần Thầy Tường xác nhận]** đánh dấu chỗ suy ra từ tê
 
 ## 0. Điều cần biết trước
 
-- **Hai bảng then chốt chưa đọc được.** Base bật quyền nâng cao; vai trò của app không có quyền trên `tblZUIXmpdt13j4x` và `tblHp1PGPz52eZBz` (lỗi `1254302`). Theo tên các trường trỏ tới, bảng thứ nhất là **bảng phụ huynh** (trường ngược `HocVien`, lookup "Họ tên PH", "SDT PH", "Địa chỉ nơi ở"; trường mã tự tăng `fld6W8Uuwl`) và bảng thứ hai là **bảng các lần nộp tiền / gói buổi** (HocVien "Tổng hợp các lần nộp tiền", "Lần nộp tiền gần nhất"; Nhận xét "Ký hiệu Lần nộp tiền", "Tổng số buổi"). Đây là suy đoán theo tên, chưa thấy cấu trúc. **Cách tính số dư buổi trên Lark nằm trong bảng nộp tiền**, nên phần 3 dưới đây chưa dịch được công thức số dư.
-- **Không có automation nào đọc được.** `GET /bitable/v1/apps/:app_token/workflows` trả `1254200` (lỗi phía Lark); `base +workflow-list` cần scope `base:workflow:read` mà app chưa có. Base không có dashboard.
+- **Hai bảng then chốt và automation chưa đọc được** — xem mục [Chưa đọc được](#chưa-đọc-được) cuối tài liệu. Theo quyết định của chủ dự án (09/11/2026), phần này được bỏ qua và ghi lại; các quy tắc phụ thuộc vào chúng chỉ là đề xuất.
 - **Sheets không tính số dư.** Hai file KL357 (2026) và VP26 (2026) chỉ có công thức cộng cột ở dòng cuối mỗi sheet; không có công thức nào tính số buổi còn lại.
 
 ## 1. Học viên, phụ huynh, cơ sở (Base)
@@ -97,3 +96,20 @@ Mỗi file là một cơ sở (KL = Kim Liên, VP = Vĩnh Phúc) [Cần Thầy T
 8. **Tồn kho sách nhập tay** dù là phép cộng trừ đơn giản (xem phần 2).
 9. **Ràng buộc cơ sở**: học viên và lớp chọn cơ sở độc lập, nên một học viên Kim Liên có thể có buổi ở lớp Vĩnh Phúc mà không có cảnh báo.
 10. **Dữ liệu ngoài phạm vi tối thiểu** (tri thức 05) đang có trên Lark: CCCD, tên trường và lớp ở trường, địa chỉ nơi ở và địa chỉ hóa đơn, ngày sinh đầy đủ, ảnh buổi đầu, ảnh bài test đầu vào, sở thích. NocoEdu **không nhập** các trường này (xem đề xuất ánh xạ).
+
+## Chưa đọc được
+
+Đã thử hai lần với app `--as bot`, lần 1 lúc 2026-11-09T12:55Z, lần 2 lúc 2026-11-09T13:48Z, sau khi chủ dự án báo đã cấp quyền tối đa. Theo quyết định của chủ dự án, không thử thêm; các phần dưới chỉ là đề xuất dựa trên trường tra cứu ở bảng khác.
+
+| Nguồn                                                               | Lệnh                                                                                      | Lỗi                                   | Ảnh hưởng                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bảng `tblZUIXmpdt13j4x` (suy ra là **phụ huynh**)                   | `lark-cli api GET /open-apis/bitable/v1/apps/:app_token/tables/:table_id/fields --as bot` | `1254302 The role has no permissions` | Ánh xạ phụ huynh: chỉ biết các trường họ tên (`fldCyV9C6F`), SĐT (`fldGZHpThh`), địa chỉ (`fldq03LG65`), mã tự tăng (`fld6W8Uuwl`), trường ngược `HocVien` (`fld1EEysvi`). Không biết Zalo, email, quan hệ, số bản ghi     |
+| Bảng `tblHp1PGPz52eZBz` (suy ra là **các lần nộp tiền / gói buổi**) | như trên                                                                                  | `1254302 The role has no permissions` | Ánh xạ gói buổi và **số dư**: chỉ biết số buổi (`fldHfG75tb`), số buổi tồn (`fldBCMdh5j`), một mã chữ (`fld40HQwi0`), liên kết học viên (`fldeLNzRvl`). Không biết số tiền, đơn giá, ngày nộp, công thức số dư, số bản ghi |
+| Automation/workflow của Base                                        | `lark-cli api GET /open-apis/bitable/v1/apps/:app_token/workflows --as bot`               | `1254200` (lỗi chung phía Lark)       | Không biết có automation nào tự trừ buổi hay tự cập nhật số dư không                                                                                                                                                       |
+
+Có thể quyền "tối đa" được cấp ở mức chia sẻ tài liệu, còn quyền nâng cao của Base vẫn giới hạn vai trò của app; muốn app đọc được thì cần thêm app vào một vai trò quyền nâng cao có quyền xem hai bảng này. [suy đoán, Cần Thầy Tường xác nhận]
+
+Đề xuất thay thế (chờ duyệt ở giai đoạn 2, chi tiết trong [anh-xa-nocoedu.md](anh-xa-nocoedu.md)):
+
+- **Phụ huynh**: tạo từ các trường tra cứu trên HocVien ("Họ tên PH", "SDT PH") và lựa chọn "Quan hệ"; khi học viên có nhiều phụ huynh thì Lark nối giá trị thành một chuỗi, phải tách theo dấu phân cách và ghép cặp họ tên – SĐT theo thứ tự. [Cần Thầy Tường xác nhận]
+- **Gói buổi và số dư**: không dựng lại lịch sử nộp tiền. Mỗi học viên nhận **một gói mở đầu** bằng "số buổi tồn update (vào ngày thống kê)" vào ngày "Ngày update gần nhất về HP"; số dư NocoEdu = gói mở đầu − số buổi bị trừ theo điểm danh sau ngày đó (`sessionsToDeduct`). [Cần Thầy Tường xác nhận]

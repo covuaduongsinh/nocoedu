@@ -14,6 +14,8 @@ Giới hạn của app Lark (11/2026):
 - `lark-cli` tự lấy `tenant_access_token` mỗi lần gọi thì endpoint token trả `429`; `scripts/lark/lark-cli.mjs` lấy một lần và truyền qua `LARKSUITE_CLI_TENANT_ACCESS_TOKEN`.
 - Đọc giá trị Sheets mất vài giây mỗi lần; giải mã đủ 2 Sheets mất khoảng 1 giờ.
 
-**Vì sao:** các giới hạn này không thấy được từ mã nguồn và tốn một lượt chạy để phát hiện.
+Quyết định của chủ dự án (09/11/2026, sau hai lần thử đều lỗi `1254302`): **bảng nào app không đọc được thì bỏ qua và ghi lại** (mã lỗi, thời điểm thử, phần ánh xạ bị ảnh hưởng) ở mục "Chưa đọc được" của `docs/lark/quy-tac-nghiep-vu.md`; phần ánh xạ đó chỉ đề xuất từ trường tra cứu ở bảng khác, gắn nhãn `[Cần Thầy Tường xác nhận]`. Không xin quyền thêm, không đoán cấu trúc.
 
-**Cách áp dụng:** trước khi đọc Lark, kiểm tra hai bảng trên đã được cấp quyền chưa (`node scripts/lark/giai-ma.mjs --only base`, xem `unreadableTables`). Không lưu file xuất từ Lark trong repo; script từ chối ghi vào repo.
+**Vì sao:** các giới hạn này không thấy được từ mã nguồn và tốn một lượt chạy để phát hiện; chủ dự án đã cấp quyền mà app vẫn bị chặn, nên không chờ thêm.
+
+**Cách áp dụng:** khi đọc Lark, xem `unreadableTables` trong kết quả của `node scripts/lark/giai-ma.mjs --only base`; bảng còn bị chặn thì làm theo quyết định trên. Đề xuất thay thế (gói mở đầu từ số dư chốt trên HocVien) nằm ở `docs/lark/anh-xa-nocoedu.md`, chờ duyệt. Không lưu file xuất từ Lark trong repo; script từ chối ghi vào repo.
