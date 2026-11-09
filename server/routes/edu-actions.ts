@@ -450,6 +450,6 @@ export default [
       },
     );
 
-    return router;
+    return new Hono().route('/', router);
   }),
 ];

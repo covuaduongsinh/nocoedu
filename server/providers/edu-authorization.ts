@@ -6,7 +6,18 @@ import { databaseManagerToken } from '@nocobase/db';
 import { ServiceProvider } from '@nocobase/service-provider';
 import type { AppPluginApplication } from '@nocobase/app-server/plugins';
 
-import { COLLECTIONS, RESOURCES } from '../edu/permissions.js';
+import {
+  COLLECTIONS,
+  coSo,
+  coSoQuanLy,
+  dongY,
+  ext,
+  hocVien,
+  lienKet,
+  lop,
+  lopLich,
+  phuHuynh,
+} from '../edu/permissions.js';
 import { registerEduRecordAccess } from '../edu/record-access.js';
 
 /**
@@ -33,11 +44,17 @@ export default class EduAuthorizationProvider extends ServiceProvider<AppPluginA
       title: 'NocoEdu',
       parent: 'business',
     });
-    for (const resource of RESOURCES) {
-      authz.ui.place(authz.compositeResources.define(resource), {
-        section: 'edu',
-      });
-    }
+    // One call per resource: each has its own action names, so they do not share a type to loop over.
+    const section = { section: 'edu' };
+    authz.ui.place(authz.compositeResources.define(coSo), section);
+    authz.ui.place(authz.compositeResources.define(coSoQuanLy), section);
+    authz.ui.place(authz.compositeResources.define(lop), section);
+    authz.ui.place(authz.compositeResources.define(lopLich), section);
+    authz.ui.place(authz.compositeResources.define(hocVien), section);
+    authz.ui.place(authz.compositeResources.define(phuHuynh), section);
+    authz.ui.place(authz.compositeResources.define(lienKet), section);
+    authz.ui.place(authz.compositeResources.define(dongY), section);
+    authz.ui.place(authz.compositeResources.define(ext), section);
     return Promise.resolve();
   }
 }

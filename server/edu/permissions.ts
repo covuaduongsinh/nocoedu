@@ -196,7 +196,7 @@ function perm(key: CollectionKey, fields: { read: Fields; write?: Fields }) {
 function simple(
   id: string,
   title: string,
-  key: CollectionKey,
+  key: keyof typeof FIELDS,
   options: { create?: boolean; update?: Fields; remove?: boolean },
 ) {
   const f = FIELDS[key] as { read: Fields; write: Fields };
@@ -320,15 +320,3 @@ export const ext = defineCompositeResource('edu.ext', (r) =>
         .grant('parent', perm('phuHuynh', { read: EXT_FIELDS.phuHuynh })),
     ),
 );
-
-export const RESOURCES = [
-  coSo,
-  coSoQuanLy,
-  lop,
-  lopLich,
-  hocVien,
-  phuHuynh,
-  lienKet,
-  dongY,
-  ext,
-] as const;
