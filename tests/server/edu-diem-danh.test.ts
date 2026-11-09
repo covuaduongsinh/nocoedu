@@ -182,6 +182,41 @@ test('changing a status refunds or deducts only the difference, and saving twice
   expect(rows).toHaveLength(1);
 });
 
+test('correcting a history row imported from Lark never moves the balance', async ({
+  testApp,
+  connection,
+}) => {
+  const { hlvA, ids, sessionA } = await setup(testApp, connection);
+  await resetStudent(connection, ids.hocVienA, 7);
+  // A row before the opening balance: its status is recorded, its deduction is already inside the 7.
+  await connection.query
+    .insertInto('eduDiemDanh')
+    .values({
+      buoiHocId: sessionA,
+      hocVienId: ids.hocVienA,
+      trangThai: 'co_mat',
+      soBuoiDaTru: 0,
+      tinhVaoSoDu: false,
+    })
+    .execute();
+  const save = (trangThai: string) =>
+    post(hlvA.session, '/diemDanh/luu', {
+      buoiHocId: sessionA,
+      danhSach: [{ hocVienId: ids.hocVienA, trangThai }],
+    });
+
+  for (const status of ['vang_khong_phep', 'vang_co_phep', 'co_mat']) {
+    expect((await save(status)).status).toBe(200);
+    expect(await balance(connection, ids.hocVienA)).toBe(7);
+  }
+  expect(await ledger(connection)).toEqual([]);
+  const row = await connection.query
+    .selectFrom('eduDiemDanh')
+    .select(['trangThai', 'soBuoiDaTru'])
+    .executeTakeFirstOrThrow();
+  expect(row).toMatchObject({ trangThai: 'co_mat', soBuoiDaTru: 0 });
+});
+
 test('two identical saves at once deduct one session', async ({
   testApp,
   connection,

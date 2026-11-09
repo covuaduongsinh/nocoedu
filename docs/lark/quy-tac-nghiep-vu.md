@@ -1,5 +1,7 @@
 # Quy tắc nghiệp vụ đọc ra từ Lark (giai đoạn 1)
 
+> **Giai đoạn 2:** mọi nhãn `[Cần Thầy Tường xác nhận]` dưới đây đã có một mặc định cài thành code, theo 15 câu hỏi liệt kê trong [anh-xa-nocoedu.md](anh-xa-nocoedu.md#các-câu-hỏi-và-mặc-định-đã-cài). Mặc định nằm ở `server/edu/lark/chua-xac-nhan.ts`; khi Thầy Tường trả lời thì sửa hằng số đó, nhãn ở đây giữ nguyên cho đến khi được xác nhận.
+
 Tài liệu này diễn giải từng công thức và trường tra cứu trong [schema.md](schema.md) thành câu tiếng Việt, rồi nêu chỗ công thức mâu thuẫn nhau và chỗ dữ liệu được nhập tay thay cho công thức. Đề xuất ánh xạ sang NocoEdu ở [anh-xa-nocoedu.md](anh-xa-nocoedu.md).
 
 Nhãn **[Cần Thầy Tường xác nhận]** đánh dấu chỗ suy ra từ tên trường, kiểu ô hay mã giá trị lặp lại, không có công thức nào nói rõ. Không có nội dung bản ghi nào của học viên được đọc để viết tài liệu này: chỉ cấu trúc, số bản ghi và các mã ngắn lặp lại (như `1`, `x`, `Mã`).

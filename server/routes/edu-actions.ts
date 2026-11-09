@@ -40,7 +40,9 @@ const HocVienInput = z.object({
   levelKey: z.enum(LEVEL_KEYS).default('tot'),
   lopId: Id.nullish(),
   coSoId: Id,
-  trangThai: z.enum(['dang_hoc', 'tam_nghi', 'da_nghi']).default('dang_hoc'),
+  trangThai: z
+    .enum(['dang_hoc', 'tam_nghi', 'da_nghi', 'hoc_thu'])
+    .default('dang_hoc'),
   ghiChuHlv: z.string().trim().max(2000).nullish(),
 });
 

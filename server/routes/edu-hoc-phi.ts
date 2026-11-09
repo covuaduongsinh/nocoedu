@@ -320,9 +320,15 @@ export default [
                   f.number('hocVienId').eq(entry.hocVienId),
                 ]),
             });
+            // A row imported from Lark that lies before the opening balance is already inside that balance: it is not a
+            // permission field, so it is read directly. Correcting such a row never moves the balance.
+            const countsTowardBalance = existing
+              ? await rowCountsTowardBalance(connection, Number(existing.id))
+              : true;
             // An unchanged status keeps what was deducted (also for registers saved before the rule was stored).
             const target =
-              existing && existing.trangThai === entry.trangThai
+              existing &&
+              (existing.trangThai === entry.trangThai || !countsTowardBalance)
                 ? Number(existing.soBuoiDaTru)
                 : sessionsToDeduct(entry.trangThai, excusedDeducts);
             let diemDanhId: number;
@@ -667,7 +673,7 @@ async function moveBalance(
     hocVienId: number;
     before: number;
     after: number;
-    reason: 'diem_danh' | 'diem_danh_sua' | 'mua_goi';
+    reason: 'diem_danh' | 'diem_danh_sua' | 'mua_goi' | 'chuyen_tu_lark';
     diemDanhId?: number;
     goiHocId?: number;
     userId: string;
@@ -693,4 +699,19 @@ async function moveBalance(
       createdAt: new Date(),
     })
     .execute();
+}
+
+/** `eduDiemDanh.tinhVaoSoDu`: `false` for history already contained in an opening balance; a missing value counts. */
+async function rowCountsTowardBalance(
+  connection: Queryable,
+  diemDanhId: number,
+): Promise<boolean> {
+  const row = await connection.query
+    .selectFrom('eduDiemDanh')
+    .select('tinhVaoSoDu')
+    .where('id', '=', diemDanhId)
+    .executeTakeFirst();
+  return row?.tinhVaoSoDu === undefined || row.tinhVaoSoDu === null
+    ? true
+    : asBoolean(row.tinhVaoSoDu);
 }

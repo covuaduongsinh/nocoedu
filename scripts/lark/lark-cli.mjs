@@ -6,7 +6,7 @@
 // run and handed to lark-cli through LARKSUITE_CLI_TENANT_ACCESS_TOKEN, because lark-cli
 // otherwise requests a new token for every call and the token endpoint answers 429.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -114,7 +114,12 @@ export async function createLark({ delayMs = 1200, log = () => {} } = {}) {
     }
   }
 
-  return { call, commands };
+  /** Removes the config, data and log directories lark-cli wrote under the temporary directory. */
+  function close() {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+
+  return { call, commands, close };
 }
 
 function redactParams(params) {

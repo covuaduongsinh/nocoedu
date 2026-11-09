@@ -1573,7 +1573,7 @@ lark-cli api GET /open-apis/bitable/v1/apps/:app_token/tables/:table_id/records 
 lark-cli api GET /open-apis/bitable/v1/apps/:app_token/tables/:table_id/views --params '{"page_size":100}' --as bot
 lark-cli api GET /open-apis/bitable/v1/apps/:app_token/tables/:table_id/views/:view_id --as bot
 lark-cli api GET /open-apis/bitable/v1/apps/:app_token/workflows --as bot
-lark-cli api GET /open-apis/sheets/v2/spreadsheets/:token/values/:sheet_id!A1:<lastCol><n> --params '{"valueRenderOption":"Formula",":token":"FormattedString"}' --as bot
+lark-cli api GET /open-apis/sheets/v2/spreadsheets/:token/values/:sheet_id!A1:<lastCol><n> --params '{"valueRenderOption":"Formula","dateTimeRenderOption":"FormattedString"}' --as bot
 lark-cli api GET /open-apis/sheets/v3/spreadsheets/:token --as bot
 lark-cli api GET /open-apis/sheets/v3/spreadsheets/:token/sheets/query --as bot
 ```

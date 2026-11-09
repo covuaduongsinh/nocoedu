@@ -312,7 +312,7 @@ export function sanitizeField(field) {
   if (p.target_field) out.lookupField = p.target_field;
   if (p.roll_up !== undefined) out.rollUp = p.roll_up;
   if (p.filter_info?.conditions)
-    out.lookupFilter = sanitizeViewFilter(p.filter_info.conditions);
+    out.lookupFilter = sanitizeViewFilter(p.filter_info);
   if (p.formatter) out.formatter = p.formatter;
   if (p.date_formatter) out.dateFormatter = p.date_formatter;
   if (p.auto_fill !== undefined) out.autoFill = p.auto_fill;
