@@ -3,6 +3,7 @@ import { expect } from 'vitest';
 import {
   adminSession,
   jsonHeaders,
+  idByMa,
   seedSchool,
   test,
   userWithRole,
@@ -25,38 +26,42 @@ test('an API key of the read-only role reads the ext API and nothing else', asyn
     'svc-mau-api',
     'edu_api_doc',
   );
-  await seedSchool(connection, { hlvA: 'a', hlvB: 'b', managerA: 'c' });
+  const ids = await seedSchool(connection, {
+    hlvA: 'a',
+    hlvB: 'b',
+    managerA: 'c',
+  });
   // Student 1 has a learning consent, student 2 has none; student 3 consented and then withdrew.
   await connection.query
     .insertInto('eduHocVien')
     .values({
-      id: 3,
       ma: 'HS-C',
       hoTen: 'Học viên Mẫu Rút',
       namSinh: 2016,
       levelKey: 'ma',
       levelOrder: 2,
-      coSoId: 1,
+      coSoId: ids.coSoA,
     })
     .execute();
+  const hocVienC = await idByMa(connection, 'eduHocVien', 'HS-C');
   await connection.query
     .insertInto('eduPhuHuynh')
     .values({
-      id: 1,
       ma: 'PH-1',
       hoTen: 'Phụ huynh Mẫu 01',
       soDienThoai: '0900000001',
     })
     .execute();
-  for (const hocVienId of [1, 3]) {
+  const phuHuynhId = await idByMa(connection, 'eduPhuHuynh', 'PH-1');
+  for (const hocVienId of [ids.hocVienA, hocVienC]) {
     await connection.query
       .insertInto('eduHocVienPhuHuynh')
-      .values({ hocVienId, phuHuynhId: 1, quanHe: 'me', lienHeChinh: true })
+      .values({ hocVienId, phuHuynhId, quanHe: 'me', lienHeChinh: true })
       .execute();
   }
   const consent = (hocVienId: number, rutLaiLuc: Date | null) => ({
     hocVienId,
-    phuHuynhId: 1,
+    phuHuynhId,
     mucDich: 'hoc_tap',
     dongY: true,
     treDongY: false,
@@ -68,11 +73,11 @@ test('an API key of the read-only role reads the ext API and nothing else', asyn
   });
   await connection.query
     .insertInto('eduDongY')
-    .values(consent(1, null))
+    .values(consent(ids.hocVienA, null))
     .execute();
   await connection.query
     .insertInto('eduDongY')
-    .values(consent(3, new Date()))
+    .values(consent(hocVienC, new Date()))
     .execute();
 
   const created = await service.session.fetch('/auth/api-key/create', {

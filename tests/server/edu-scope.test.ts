@@ -50,7 +50,7 @@ test('a coach sees only the class they teach, a branch manager only their branch
     'quanly-a',
     'edu_quan_ly_co_so',
   );
-  await seedSchool(connection, {
+  const ids = await seedSchool(connection, {
     hlvA: hlvA.id,
     hlvB: hlvB.id,
     managerA: managerA.id,
@@ -64,7 +64,7 @@ test('a coach sees only the class they teach, a branch manager only their branch
 
   // Another class: not found or forbidden, never the record.
   const other = await post(hlvA.session, '/hocVien/findOne', {
-    filter: { id: 2 },
+    filter: { id: ids.hocVienB },
   });
   if (other.status === 200) {
     expect(((await other.json()) as { data: unknown }).data ?? null).toBeNull();
@@ -74,7 +74,7 @@ test('a coach sees only the class they teach, a branch manager only their branch
 
   // A coach cannot write: no create/update/delete mapping.
   const write = await post(hlvA.session, '/hocVien/updateOne', {
-    filter: { id: 1 },
+    filter: { id: ids.hocVienA },
     values: { hoTen: 'Đổi tên' },
   });
   expect(write.status).toBe(403);

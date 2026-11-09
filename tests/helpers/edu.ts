@@ -87,11 +87,23 @@ type Query = {
   };
 };
 
-/** Two branches, one class each, one student each; entirely made-up data. */
+export interface SchoolIds {
+  readonly coSoA: number;
+  readonly coSoB: number;
+  readonly lopA: number;
+  readonly lopB: number;
+  readonly hocVienA: number;
+  readonly hocVienB: number;
+}
+
+/**
+ * Two branches, one class each, one student each; entirely made-up data. Ids come from the database (never inserted by
+ * hand: on PostgreSQL a hand-written id does not advance the sequence), so tests use the returned ids.
+ */
 export async function seedSchool(
   connection: Query & { query: any },
   people: { hlvA: string; hlvB: string; managerA: string },
-): Promise<void> {
+): Promise<SchoolIds> {
   const q = connection.query;
   // The file shares one application, so start every case from an empty school.
   for (const table of [
@@ -113,25 +125,34 @@ export async function seedSchool(
   ]) {
     await q.deleteFrom(table).allowAllRows().execute();
   }
+  const idOf = async (table: string, ma: string): Promise<number> => {
+    const row = await q
+      .selectFrom(table)
+      .select('id')
+      .where('ma', '=', ma)
+      .executeTakeFirstOrThrow();
+    return Number(row.id);
+  };
   await q
     .insertInto('eduCoSo')
-    .values({ id: 1, ma: 'CS-A', ten: 'Cơ sở Mẫu A' })
+    .values({ ma: 'CS-A', ten: 'Cơ sở Mẫu A' })
     .execute();
   await q
     .insertInto('eduCoSo')
-    .values({ id: 2, ma: 'CS-B', ten: 'Cơ sở Mẫu B' })
+    .values({ ma: 'CS-B', ten: 'Cơ sở Mẫu B' })
     .execute();
+  const coSoA = await idOf('eduCoSo', 'CS-A');
+  const coSoB = await idOf('eduCoSo', 'CS-B');
   await q
     .insertInto('eduCoSoQuanLy')
-    .values({ coSoId: 1, userId: people.managerA })
+    .values({ coSoId: coSoA, userId: people.managerA })
     .execute();
   await q
     .insertInto('eduLop')
     .values({
-      id: 1,
       ma: 'L-A1',
       ten: 'Lớp Mẫu A1',
-      coSoId: 1,
+      coSoId: coSoA,
       hlvId: people.hlvA,
       levelKey: 'tot',
       levelOrder: 1,
@@ -140,39 +161,60 @@ export async function seedSchool(
   await q
     .insertInto('eduLop')
     .values({
-      id: 2,
       ma: 'L-B1',
       ten: 'Lớp Mẫu B1',
-      coSoId: 2,
+      coSoId: coSoB,
       hlvId: people.hlvB,
       levelKey: 'tot',
       levelOrder: 1,
     })
     .execute();
+  const lopA = await idOf('eduLop', 'L-A1');
+  const lopB = await idOf('eduLop', 'L-B1');
   await q
     .insertInto('eduHocVien')
     .values({
-      id: 1,
       ma: 'HS-A',
       hoTen: 'Học viên Mẫu A',
       namSinh: 2016,
       levelKey: 'tot',
       levelOrder: 1,
-      lopId: 1,
-      coSoId: 1,
+      lopId: lopA,
+      coSoId: coSoA,
     })
     .execute();
   await q
     .insertInto('eduHocVien')
     .values({
-      id: 2,
       ma: 'HS-B',
       hoTen: 'Học viên Mẫu B',
       namSinh: 2015,
       levelKey: 'tot',
       levelOrder: 1,
-      lopId: 2,
-      coSoId: 2,
+      lopId: lopB,
+      coSoId: coSoB,
     })
     .execute();
+  return {
+    coSoA,
+    coSoB,
+    lopA,
+    lopB,
+    hocVienA: await idOf('eduHocVien', 'HS-A'),
+    hocVienB: await idOf('eduHocVien', 'HS-B'),
+  };
+}
+
+/** The id of the row with this code, for rows a test inserted without an id. */
+export async function idByMa(
+  connection: { query: any },
+  table: string,
+  ma: string,
+): Promise<number> {
+  const row = await connection.query
+    .selectFrom(table)
+    .select('id')
+    .where('ma', '=', ma)
+    .executeTakeFirstOrThrow();
+  return Number(row.id);
 }

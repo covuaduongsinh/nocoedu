@@ -3,6 +3,7 @@ import { expect } from 'vitest';
 import {
   adminSession,
   post,
+  idByMa,
   seedSchool,
   test,
   userWithRole,
@@ -23,25 +24,25 @@ async function setup(
     'act-ql-a',
     'edu_quan_ly_co_so',
   );
-  await seedSchool(connection, {
+  const ids = await seedSchool(connection, {
     hlvA: hlvA.id,
     hlvB: hlvB.id,
     managerA: managerA.id,
   });
-  return { admin, hlvA, hlvB, managerA };
+  return { admin, hlvA, hlvB, managerA, ids };
 }
 
 test('creating a student gives a code, and a branch manager cannot add to another branch', async ({
   testApp,
   connection,
 }) => {
-  const { admin, managerA } = await setup(testApp, connection);
+  const { admin, managerA, ids } = await setup(testApp, connection);
 
   const ok = await post(managerA.session, '/hocVien/taoMoi', {
     hoTen: 'Học viên Mẫu Mới',
     namSinh: 2017,
-    coSoId: 1,
-    lopId: 1,
+    coSoId: ids.coSoA,
+    lopId: ids.lopA,
   });
   expect(ok.status).toBe(201);
   const created = ((await ok.json()) as Json).data as {
@@ -53,8 +54,8 @@ test('creating a student gives a code, and a branch manager cannot add to anothe
   const foreign = await post(managerA.session, '/hocVien/taoMoi', {
     hoTen: 'Học viên Mẫu Lạ',
     namSinh: 2017,
-    coSoId: 2,
-    lopId: 2,
+    coSoId: ids.coSoB,
+    lopId: ids.lopB,
   });
   expect(foreign.status).toBe(403);
   const count = await connection.query
@@ -67,15 +68,15 @@ test('creating a student gives a code, and a branch manager cannot add to anothe
   const mismatch = await post(admin, '/hocVien/taoMoi', {
     hoTen: 'Học viên Mẫu Lệch',
     namSinh: 2017,
-    coSoId: 1,
-    lopId: 2,
+    coSoId: ids.coSoA,
+    lopId: ids.lopB,
   });
   expect(mismatch.status).toBe(400);
 
   const future = await post(admin, '/hocVien/taoMoi', {
     hoTen: 'Học viên Mẫu Sai',
     namSinh: 2990,
-    coSoId: 1,
+    coSoId: ids.coSoA,
   });
   expect(future.status).toBe(400);
 });
@@ -84,17 +85,17 @@ test('a coach confirms a level in their class only, history is recorded, and the
   testApp,
   connection,
 }) => {
-  const { hlvA } = await setup(testApp, connection);
+  const { hlvA, ids } = await setup(testApp, connection);
 
   const up = await post(hlvA.session, '/hocVien/lenCap', {
-    hocVienId: 1,
+    hocVienId: ids.hocVienA,
     denLevelKey: 'ma',
   });
   expect(up.status).toBe(201);
   const student = await connection.query
     .selectFrom('eduHocVien')
     .select(['levelKey', 'levelOrder'])
-    .where('id', '=', 1)
+    .where('id', '=', ids.hocVienA)
     .executeTakeFirstOrThrow();
   expect(student).toMatchObject({ levelKey: 'ma', levelOrder: 2 });
   const history = await connection.query
@@ -108,21 +109,21 @@ test('a coach confirms a level in their class only, history is recorded, and the
   expect(
     (
       await post(hlvA.session, '/hocVien/lenCap', {
-        hocVienId: 1,
+        hocVienId: ids.hocVienA,
         denLevelKey: 'tot',
       })
     ).status,
   ).toBe(400);
   // Student 2 is in another coach's class.
   const other = await post(hlvA.session, '/hocVien/lenCap', {
-    hocVienId: 2,
+    hocVienId: ids.hocVienB,
     denLevelKey: 'ma',
   });
   expect([403, 404]).toContain(other.status);
   const unchanged = await connection.query
     .selectFrom('eduHocVien')
     .select('levelKey')
-    .where('id', '=', 2)
+    .where('id', '=', ids.hocVienB)
     .executeTakeFirstOrThrow();
   expect(unchanged.levelKey).toBe('tot');
 });
@@ -131,23 +132,23 @@ test('one parent can have several children, and consent is recorded then withdra
   testApp,
   connection,
 }) => {
-  const { admin } = await setup(testApp, connection);
+  const { admin, ids } = await setup(testApp, connection);
   await connection.query
     .insertInto('eduHocVien')
     .values({
-      id: 3,
       ma: 'HS-C',
       hoTen: 'Học viên Mẫu C',
       namSinh: 2017,
       levelKey: 'tot',
       levelOrder: 1,
-      lopId: 1,
-      coSoId: 1,
+      lopId: ids.lopA,
+      coSoId: ids.coSoA,
     })
     .execute();
+  const hocVienC = await idByMa(connection, 'eduHocVien', 'HS-C');
 
   const first = await post(admin, '/phuHuynh/taoMoi', {
-    hocVienId: 1,
+    hocVienId: ids.hocVienA,
     hoTen: 'Phụ huynh Mẫu 01',
     soDienThoai: '0900 000 001',
     quanHe: 'me',
@@ -160,7 +161,7 @@ test('one parent can have several children, and consent is recorded then withdra
   expect(parent.ma).toMatch(/^PH\d{5}$/u);
 
   const second = await post(admin, '/phuHuynh/taoMoi', {
-    hocVienId: 3,
+    hocVienId: hocVienC,
     hoTen: 'Phụ huynh Mẫu 01',
     soDienThoai: '+84900000001',
     quanHe: 'me',
@@ -180,7 +181,7 @@ test('one parent can have several children, and consent is recorded then withdra
   ).toHaveLength(2);
 
   const duplicate = await post(admin, '/phuHuynh/taoMoi', {
-    hocVienId: 1,
+    hocVienId: ids.hocVienA,
     hoTen: 'Phụ huynh Mẫu 01',
     soDienThoai: '0900000001',
     quanHe: 'me',
@@ -188,7 +189,7 @@ test('one parent can have several children, and consent is recorded then withdra
   expect(duplicate.status).toBe(409);
 
   const consent = await post(admin, '/dongY/ghiNhan', {
-    hocVienId: 1,
+    hocVienId: ids.hocVienA,
     phuHuynhId: parent.id,
     mucDich: 'hoc_tap',
     dongY: true,
@@ -200,7 +201,7 @@ test('one parent can have several children, and consent is recorded then withdra
     .id;
 
   const notLinked = await post(admin, '/dongY/ghiNhan', {
-    hocVienId: 2,
+    hocVienId: ids.hocVienB,
     phuHuynhId: parent.id,
     mucDich: 'hoc_tap',
     dongY: true,
@@ -233,20 +234,20 @@ test('a coach cannot create students or parents, but can update the note of thei
   testApp,
   connection,
 }) => {
-  const { hlvA } = await setup(testApp, connection);
+  const { hlvA, ids } = await setup(testApp, connection);
   expect(
     (
       await post(hlvA.session, '/hocVien/taoMoi', {
         hoTen: 'Học viên Mẫu X',
         namSinh: 2017,
-        coSoId: 1,
+        coSoId: ids.coSoA,
       })
     ).status,
   ).toBe(403);
   expect(
     (
       await post(hlvA.session, '/phuHuynh/taoMoi', {
-        hocVienId: 1,
+        hocVienId: ids.hocVienA,
         hoTen: 'Phụ huynh Mẫu X',
         soDienThoai: '0900000009',
         quanHe: 'bo',
@@ -256,13 +257,13 @@ test('a coach cannot create students or parents, but can update the note of thei
   expect(
     (
       await post(hlvA.session, '/hocVien/capNhatGhiChu', {
-        id: 1,
+        id: ids.hocVienA,
         ghiChuHlv: 'Tiến bộ tốt',
       })
     ).status,
   ).toBe(200);
   const other = await post(hlvA.session, '/hocVien/capNhatGhiChu', {
-    id: 2,
+    id: ids.hocVienB,
     ghiChuHlv: 'Không được',
   });
   expect([403, 404]).toContain(other.status);

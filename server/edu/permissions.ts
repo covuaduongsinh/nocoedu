@@ -231,10 +231,10 @@ export const coSoQuanLy = simple(
     remove: true,
   },
 );
+// A class is closed by its status, never deleted (it owns students, timetable rows and sessions).
 export const lop = simple('edu.lop', 'Lớp', 'lop', {
   create: true,
   update: FIELDS.lop.write,
-  remove: true,
 });
 export const lopLich = simple('edu.lopLich', 'Lịch học của lớp', 'lopLich', {
   create: true,

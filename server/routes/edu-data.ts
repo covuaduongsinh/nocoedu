@@ -64,7 +64,6 @@ const EXPOSURES: readonly Exposure[] = [
     resource: lop,
     create: true,
     update: FIELDS.lop.write,
-    remove: true,
   },
   {
     name: 'lopLich',
@@ -195,6 +194,39 @@ export default [
             'EDU_OUT_OF_SCOPE',
             'You may not create a record here.',
           );
+        }
+        await next();
+      });
+    }
+    // `lop.hlvId` names a coach: only a person who holds the coach permission set may be named. Without this a branch
+    // manager could make any account the coach of a class and so give it that class's students.
+    for (const method of ['createOne', 'updateOne']) {
+      router.use(`/lop/${method}`, authz.middleware(), async (c, next) => {
+        const body = (await c.req.raw
+          .clone()
+          .json()
+          .catch(() => null)) as { values?: Record<string, unknown> } | null;
+        const hlvId = body?.values?.hlvId;
+        if (hlvId !== undefined && hlvId !== null) {
+          const assigned =
+            typeof hlvId === 'string' && hlvId.length > 0
+              ? await database
+                  .connection()
+                  .query.selectFrom('authorizationPermissionSetAssignments')
+                  .select('id')
+                  .where('subjectType', '=', 'user')
+                  .where('subjectId', '=', hlvId)
+                  .where('permissionSetKey', '=', 'edu_hlv')
+                  .executeTakeFirst()
+              : null;
+          if (!assigned) {
+            throw eduError(
+              'INVALID_ARGUMENT',
+              'EDU_NOT_A_COACH',
+              'The coach must be a person who holds the coach role.',
+              'hlvId',
+            );
+          }
         }
         await next();
       });
