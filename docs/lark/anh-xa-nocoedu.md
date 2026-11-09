@@ -36,8 +36,8 @@ Thầy Tường đã trả lời các câu hỏi (comment `396805820907520`, 09/
 
 ## Nguyên tắc
 
-- **Khoá chống trùng là `externalId`** trên mọi bảng nhận dữ liệu: mã bản ghi Lark (`rec…`) cho bản ghi Base, `<token sheet>:<sheet_id>:<dòng>` cho một dòng Sheets, `lark:coSo:<tên lựa chọn>` cho cơ sở. Chạy lại lệnh nhập thì cập nhật hoặc bỏ qua, không tạo bản sao.
-- **Chỉ nhập trường tối thiểu** của tri thức 05 (`396573995433985`). Không nhập: CCCD, tên trường và lớp ở trường, địa chỉ nơi ở, địa chỉ hóa đơn, ngày sinh đầy đủ (chỉ lấy năm), giới tính, sở thích, mong muốn khi học, ảnh, bài test đầu vào, nick Lichess/ChessKid.
+- **Khoá chống trùng là `externalId`** trên mọi bảng nhận dữ liệu: mã bản ghi Lark (`rec…`) cho bản ghi Base, `lark:coSo:<tên lựa chọn>` cho cơ sở, `lark:ph:<SĐT>` cho phụ huynh, `lark:sodu:<rec học viên>` cho gói mở đầu, `lark:buoi:<rec lớp>:<ngày>` cho buổi học, `<rec lớp>:lich` cho lịch lớp. Sheets không phải nguồn nhập nên không có khoá. Chạy lại lệnh nhập chỉ thêm những `externalId` chưa có, không cập nhật bản ghi đã nhập và không tạo bản sao.
+- **Chỉ nhập trường tối thiểu** của tri thức 05 (`396573995433985`). Không nhập: CCCD, tên trường và lớp ở trường, địa chỉ nơi ở, địa chỉ hóa đơn, giới tính, sở thích, mong muốn khi học, ảnh, bài test đầu vào, nick Lichess/ChessKid.
 - **Số dư buổi tính lại** trong NocoEdu từ gói buổi và điểm danh, không chép số dư nhập tay; số trên Lark chỉ dùng để so sánh ở bản chạy thử.
 - Nhật ký nhập chỉ ghi mã (`externalId`, mã NocoEdu) và mã lý do, không tên, không số điện thoại.
 
@@ -135,20 +135,29 @@ Bảng nộp tiền **chưa đọc được** (`1254302`), nên không dựng l�
 
 ## NocoEdu còn thiếu
 
-| Bảng                                                                                                       | Trường / tính năng                                                        | Lý do                                                                           |
-| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `eduCoSo`, `eduLop`, `eduHocVien`, `eduPhuHuynh`, `eduGoiHoc`, `eduThanhToan`, `eduBuoiHoc`, `eduDiemDanh` | `externalId` (chuỗi, duy nhất khi có)                                     | khoá chống trùng khi nhập lại                                                   |
-| `eduHocVien`                                                                                               | `externalCode` (mã `HV-yyyyMMdd-NNN` cũ)                                  | để tra cứu ngược với Lark khi đối chiếu; [Cần Thầy Tường xác nhận] có cần không |
-| `eduHocVien`                                                                                               | trạng thái học thử (`hoc_thu`, `dang_ky_hoc_thu`)                         | Lark có 3 giá trị học thử; [Cần Thầy Tường xác nhận] gộp hay giữ                |
-| `eduDiemDanh`                                                                                              | `yThucDiem` (số, 0–10)                                                    | Lark và Sheets chấm "Ý thức" mỗi buổi                                           |
-| `eduBuoiHoc`                                                                                               | `keHoachDay`, `kienThucMoi`, `giaoBtvn`, `keHoachBuoiSau` (chữ)           | nội dung buổi đang ghi ở từng dòng học viên; nên thuộc về buổi                  |
-| `eduPhuHuynh`                                                                                              | `email`                                                                   | HocVien."email PH"                                                              |
-| `eduLop`                                                                                                   | `levelKey` cho phép trống, hoặc quy tắc mặc định                          | lớp trên Lark không có cấp                                                      |
-| (mới) sách                                                                                                 | bảng sách, lần phát sách, sách đang học của học viên                      | 37 sách, 338 lần phát; ngoài phạm vi DS-60, đề xuất làm sau                     |
-| (mới) nhật ký nhập                                                                                         | `eduNhapLarkNhatKy`: lần chạy, ai chạy, chế độ, số dòng theo bảng, số lỗi | yêu cầu "có nhật ký" của giai đoạn 3                                            |
+| Bảng                                                                                                     | Trường / tính năng                                                        | Lý do                                                                           |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `eduCoSo`, `eduLop`, `eduLopLich`, `eduHocVien`, `eduPhuHuynh`, `eduGoiHoc`, `eduBuoiHoc`, `eduDiemDanh` | `externalId` (chuỗi, duy nhất khi có)                                     | khoá chống trùng khi nhập lại                                                   |
+| `eduHocVien`                                                                                             | `externalCode` (mã `HV-yyyyMMdd-NNN` cũ)                                  | để tra cứu ngược với Lark khi đối chiếu; [Cần Thầy Tường xác nhận] có cần không |
+| `eduHocVien`                                                                                             | trạng thái học thử (`hoc_thu`, `dang_ky_hoc_thu`)                         | Lark có 3 giá trị học thử; [Cần Thầy Tường xác nhận] gộp hay giữ                |
+| `eduDiemDanh`                                                                                            | `yThucDiem` (số, 0–10)                                                    | Lark chấm "Ý thức" mỗi buổi                                                     |
+| `eduBuoiHoc`                                                                                             | `keHoachDay`, `kienThucMoi`, `giaoBtvn`, `keHoachBuoiSau` (chữ)           | nội dung buổi đang ghi ở từng dòng học viên; nên thuộc về buổi                  |
+| `eduPhuHuynh`                                                                                            | `email`                                                                   | HocVien."email PH"                                                              |
+| `eduLop`                                                                                                 | `levelKey` cho phép trống, hoặc quy tắc mặc định                          | lớp trên Lark không có cấp                                                      |
+| (mới) sách                                                                                               | bảng sách, lần phát sách, sách đang học của học viên                      | 37 sách, 338 lần phát; ngoài phạm vi DS-60, đề xuất làm sau                     |
+| (mới) nhật ký nhập                                                                                       | `eduNhapLarkNhatKy`: lần chạy, ai chạy, chế độ, số dòng theo bảng, số lỗi | yêu cầu "có nhật ký" của giai đoạn 3                                            |
 
 ## Cần làm trước giai đoạn 2
 
 1. Hai bảng phụ huynh và nộp tiền **bỏ qua** theo quyết định của chủ dự án (09/11/2026), sau hai lần thử đều lỗi `1254302`; phụ huynh và gói buổi dùng đề xuất thay thế ở trên. Nếu sau này app đọc được, chạy lại `node scripts/lark/giai-ma.mjs --only base` và thay đề xuất bằng ánh xạ thật.
 2. (Tuỳ chọn) Cấp scope `base:app:read`, `base:table:read`, `base:field:read`, `base:view:read`, `base:workflow:read` để dùng lệnh `lark-cli base +…` và đọc được automation.
 3. Thầy Tường đã trả lời phần lớn các câu (xem bảng ở đầu tài liệu); còn mặc định ở câu 7, 10, 12.
+
+## Đã cài ở giai đoạn 3
+
+Lệnh `pnpm nocobase app edu import-lark` (xem [nhap-production.md](nhap-production.md)). Mã: `server/edu/lark/nguon.ts` (đọc Lark), `ke-hoach.ts` (lập kế hoạch, hàm thuần), `ghi.ts` (ghi trong một transaction), `nhap.ts` (điều phối và báo cáo). Khác với bảng ánh xạ ở trên:
+
+- Đọc thêm bảng `Level` (12 bản ghi, không có dữ liệu cá nhân) chỉ để đổi mã bản ghi của "Trình độ hiện tại" thành tên khi API không gửi kèm chữ.
+- Buổi học gom theo (lớp, ngày); giờ lấy từ lịch của lớp. Lớp không có lịch đọc được (`LICH_KHONG_RO`) thì điểm danh của lớp đó bị bỏ với `GIO_BUOI_KHONG_RO`.
+- Học viên đã có trong NocoEdu được **ghép** khi khớp đủ ba thứ: tên đã chuẩn hoá, năm sinh và SĐT phụ huynh; chỉ gán `externalId` và `externalCode`, không ghi đè trường nào. Khớp nhiều bản ghi: `TRUNG_NHIEU`, bỏ dòng. Ghép với học viên đã có gói hoặc số dư khác 0: không cộng số dư Lark (`GHEP_BO_QUA_SO_DU`).
+- SĐT lấy từ ô số bị mất số 0 đầu (9 chữ số) được thêm lại số 0 trước khi kiểm 10 số.

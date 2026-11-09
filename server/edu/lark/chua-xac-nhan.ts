@@ -100,3 +100,15 @@ export const BRANCH_EXCUSED_DEDUCTS: Readonly<Record<string, boolean>> = {
 
 /** CONFIRMED, question 15 — the full date of birth is kept (`eduHocVien.ngaySinh`) next to the birth year. */
 export const KEEP_FULL_BIRTH_DATE = true;
+
+/**
+ * CONFIRMED, question 8 (the same answer that names the Sheets files) — the branch a "cơ sở" choice on Lark stands for.
+ * Keys are compared after trimming and lower-casing. The `externalId` of a branch is `lark:coSo:<name on Lark>`: each
+ * single-select field of Lark has its own option ids, so branches are matched by name, never by option id.
+ */
+export const BRANCH_NAMES: Readonly<
+  Record<string, { ma: string; ten: string }>
+> = {
+  'kim liên': { ma: 'KL', ten: 'Kim Liên' },
+  'vĩnh phúc': { ma: 'VP', ten: 'Vĩnh Phúc' },
+};

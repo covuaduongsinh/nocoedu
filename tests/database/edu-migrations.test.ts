@@ -160,3 +160,51 @@ describeMigration('202611100001_edu_lark_mapping', {
     await expectCollection('eduGoiHoc').not.toHaveField('loai');
   },
 });
+
+describeMigration('202611100002_edu_nhap_lark', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ connection, expectCollection }) => {
+    await expectCollection('eduNhapLarkNhatKy').toExist();
+    await expectCollection('eduNhapLarkNhatKy').toHaveField('trangThai', {
+      nullable: false,
+    });
+    await expectCollection('eduBuoiHoc').toHaveField('truVangKhongPhep', {
+      nullable: true,
+    });
+    // A log row keeps its totals as JSON; an old session has no fixed setting yet.
+    await connection.query
+      .insertInto('eduNhapLarkNhatKy')
+      .values({
+        batDauLuc: new Date(),
+        nguoiChayId: 'user-mau',
+        trangThai: 'thanh_cong',
+        tongKet: { hocVien: { tao: 1 } },
+      })
+      .execute();
+    const row = await connection.query
+      .selectFrom('eduNhapLarkNhatKy')
+      .select(['tongKet', 'ketThucLuc'])
+      .executeTakeFirstOrThrow();
+    expect(row.ketThucLuc).toBeNull();
+    expect(row.tongKet).toEqual({ hocVien: { tao: 1 } });
+    await connection.query
+      .deleteFrom('eduNhapLarkNhatKy')
+      .allowAllRows()
+      .execute();
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduNhapLarkNhatKy').not.toExist();
+    await expectCollection('eduBuoiHoc').toExist();
+    await expectCollection('eduBuoiHoc').not.toHaveField('truVangKhongPhep');
+    // The column added by the previous migration stays.
+    await expectCollection('eduBuoiHoc').toHaveField('truVangCoPhep');
+  },
+});

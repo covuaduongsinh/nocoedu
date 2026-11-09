@@ -1,0 +1,72 @@
+# Nhập dữ liệu Lark vào NocoEdu trên production
+
+Lệnh: `pnpm nocobase app edu import-lark [--dry-run | --commit --user <id>] [--delay-ms <ms>] [--json]`.
+
+Framework đặt lệnh riêng của ứng dụng dưới topic `app`, nên lệnh là `app edu import-lark` (không phải `edu import-lark` như mô tả ban đầu của issue). Trong image Docker không có pnpm: `node dist/cli/index.js app edu import-lark …`.
+
+## Lệnh làm gì
+
+1. Đọc **5 bảng** của Base qua `lark-cli api GET … --as bot` (app bot, không OAuth người dùng): LopHoc, HocVien, "2024 Nhận xét mỗi buổi", "2025 Nhận xét mỗi buổi" và Level (12 dòng, chỉ để biết tên cấp). Đọc theo trang 500 dòng, nghỉ `--delay-ms` (mặc định 1200 ms) giữa hai lần gọi, gặp lỗi tần suất `99991400` thì chờ lâu dần rồi thử lại. Khoảng 3.400 bản ghi, chừng 10 lần gọi.
+2. Trước khi đọc bản ghi, kiểm danh sách trường của từng bảng. Thiếu hoặc đổi tên một trường thì dừng với `LARK_CAU_TRUC_DOI`, không đoán.
+3. Dữ liệu chỉ nằm trong bộ nhớ của lệnh; không ghi ra file, CSV hay log.
+4. Lập **một kế hoạch** (hàm thuần `lapKeHoach`) theo thứ tự cơ sở → lớp và lịch → phụ huynh → học viên → gói mở đầu → buổi và điểm danh. `--dry-run` chỉ in kế hoạch; `--commit` ghi đúng kế hoạch đó nên hai chế độ không thể lệch nhau.
+5. Hai bảng app Lark không đọc được (`tblZUIXmpdt13j4x` phụ huynh, `tblHp1PGPz52eZBz` nộp tiền, lỗi `1254302`) **bỏ qua** theo quyết định ngày 09/11/2026; tổng kết luôn in một dòng nhắc điều này. Phụ huynh lấy từ các trường tra cứu trên HocVien; gói mở đầu lấy từ "số buổi tồn update (vào ngày thống kê)" tại "Ngày update gần nhất về HP".
+
+### Quy tắc chính (đã duyệt, xem `anh-xa-nocoedu.md`)
+
+- Khoá chống trùng là `externalId`. Chạy lại chỉ thêm những `externalId` chưa có; **không cập nhật** bản ghi đã nhập, nên sửa trên Lark rồi chạy lại không đổi bản đã nhập.
+- Số dư buổi = gói mở đầu − số buổi có mặt **sau** ngày chốt. Vắng (`0`) không trừ buổi; trừ khi vắng không phép bật được bằng biến `EDU_TRU_BUOI_VANG_KHONG_PHEP=true` (chốt vào từng buổi lúc nhập). Điểm danh từ ngày chốt trở về trước được lưu với `tinhVaoSoDu = false`.
+- Học viên đã có trong NocoEdu: **ghép** (không nhân đôi) khi khớp đủ ba thứ: tên đã chuẩn hoá, năm sinh và SĐT phụ huynh. Chỉ gán `externalId` và `externalCode`, không ghi đè trường nào. Khớp nhiều bản ghi: lỗi `TRUNG_NHIEU`, bỏ dòng. Ghép với học viên đã có gói hoặc số dư khác 0: không cộng số dư từ Lark (`GHEP_BO_QUA_SO_DU`). Nếu production chưa có học viên thì quy tắc này không có tác dụng; `--dry-run` in riêng cột "ghép".
+- Dòng lỗi bị bỏ cùng mọi dòng phụ thuộc vào nó (học viên lỗi thì điểm danh của học viên đó cũng bị bỏ). Lỗi cấu trúc thì không cho `--commit`.
+- Học viên nhập vào chưa có bản ghi đồng ý `eduDongY` (Lark không có thông tin này). Mặc định là "chưa đồng ý", nên chưa công bố gì; CLB cần thu đồng ý sau.
+- "GV Phụ trách" ghép với tài khoản NocoEdu theo email; không khớp thì để trống và báo `HLV_CHUA_GHEP`.
+
+### Mã lỗi và cảnh báo
+
+| Mã                                                                                                | Ý nghĩa                                                                                              |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `THIEU_HO_TEN`, `THIEU_NAM_SINH`, `CO_SO_KHONG_RO`, `CAP_KHONG_RO`, `TRANG_THAI_KHONG_RO`         | học viên bị bỏ                                                                                       |
+| `TRUNG_NHIEU`                                                                                     | khớp nhiều học viên có sẵn, bỏ dòng                                                                  |
+| `SDT_SAI`, `PH_THIEU_TEN`, `PH_KHONG_GHEP_DUOC`                                                   | phụ huynh bị bỏ; học viên vẫn nhập với cảnh báo `THIEU_PHU_HUYNH`                                    |
+| `SO_DU_KHONG_RO`, `THIEU_NGAY_CHOT`                                                               | không tạo gói mở đầu cho học viên đó                                                                 |
+| `DIEM_DANH_KHONG_RO`                                                                              | ô "có mặt" không phải `1`/`0`/`FALSE` (ví dụ `học lớp 2`, tên giáo viên): không nhập, không trừ buổi |
+| `HOC_VIEN_BI_BO`, `LOP_KHONG_RO`, `LOP_BI_BO`, `NGAY_KHONG_RO`, `GIO_BUOI_KHONG_RO`, `TRUNG_DONG` | dòng điểm danh bị bỏ                                                                                 |
+| `KHONG_CO_SO_DU`, `HLV_CHUA_GHEP`, `EMAIL_SAI`, `NHAN_XET_CAT`                                    | cảnh báo, vẫn nhập                                                                                   |
+
+Output, nhật ký và log **chỉ** có số dòng, mã học viên cũ trên Lark (`HV-…`), mã bản ghi Lark (`rec…`) và mã lỗi; không có họ tên, SĐT, email, ngày sinh hay nhận xét.
+
+## Chạy trên production
+
+Các bước dành cho người có quyền vào server (Dokploy). Không đưa bí mật vào dòng lệnh hay vào repo.
+
+1. **Triển khai bản đã merge** và áp migration (có thể tự chạy khi khởi động): `node dist/cli/index.js db apply`. Hai migration của việc này: `202611100001_edu_lark_mapping`, `202611100002_edu_nhap_lark`.
+2. **Cài `lark-cli`** vào một thư mục tạm trong container (không thêm vào `dependencies` của ứng dụng): `mkdir -p /tmp/lark && cd /tmp/lark && npm install @larksuite/cli`, rồi đặt `LARK_CLI=/tmp/lark/node_modules/.bin/lark-cli`.
+3. **Biến môi trường** (đặt trong Dokploy, tab Environment; không gõ secret trên dòng lệnh):
+
+   | Biến                                            | Ý nghĩa                                                                                   |
+   | ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
+   | `LARK_APP_ID`, `LARK_APP_SECRET`, `LARK_DOMAIN` | app Lark đã được chia sẻ quyền xem Base; `LARK_DOMAIN` ví dụ `https://open.larksuite.com` |
+   | `LARK_CLI`                                      | đường dẫn `lark-cli` (mặc định tìm `lark-cli` trên `PATH`)                                |
+   | `EDU_TRU_BUOI_VANG_KHONG_PHEP`                  | không đặt (mặc định không trừ buổi khi vắng)                                              |
+
+   Secret chỉ dùng để xin token một lần; lệnh truyền token cho `lark-cli` qua biến môi trường của tiến trình con và **không** chuyển secret sang tiến trình con.
+
+4. **Chạy thử:** `node dist/cli/index.js app edu import-lark --dry-run` (thêm `--json` để lưu toàn bộ bảng so sánh số dư). Không ghi gì, kể cả nhật ký. Đọc:
+   - bảng tổng kết (dòng | tạo | trùng | ghép | lỗi) từng bảng;
+   - các dòng lỗi và cảnh báo theo mã, có ví dụ mã bản ghi để tra trên Lark;
+   - **bảng so sánh số dư**: với mỗi học viên, "Số buổi còn lại" của buổi gần nhất trên Lark, số dư tính lại và chênh lệch. Chênh lệch là chỗ cần Thầy Tường xem trước khi ghi (công thức trên Lark có thể bị nhập tay đè).
+5. **Sao lưu ngay trước khi ghi thật:** `pg_dump -Fc -f /đường/dẫn/an/toàn/nocoedu-truoc-nhap-lark.dump <chuỗi kết nối>`. Dump chứa dữ liệu trẻ em: để ngoài repo, ngoài thư mục chia sẻ.
+6. **Ghi thật:** `node dist/cli/index.js app edu import-lark --commit --user <id người chạy>`. `--user` phải là id có trong bảng người dùng (xem trong Quản lý người dùng); id này ghi làm người tạo gói buổi và người điểm danh, và vào nhật ký. Nên chạy ngoài giờ học, vì lúc ghi có thể trùng với việc HLV lưu điểm danh (lệnh dừng và hoàn tác nếu số dư thay đổi giữa chừng).
+7. **Kiểm tra:** bảng `eduNhapLarkNhatKy` có thêm một dòng `thanh_cong` (tổng kết theo bảng, chỉ mã). Chạy lại `--dry-run`: mọi dòng phải là "trùng", số "tạo" bằng 0.
+
+`--commit` ghi trong **một transaction**: có lỗi giữa chừng thì không có gì được ghi, một dòng `that_bai` (chỉ mã lỗi) được ghi vào nhật ký, và lệnh thoát khác 0. Mã thoát 2 là dùng sai (hai cờ cùng lúc, thiếu `--user`, thiếu biến `LARK_*`, `--user` không có trong hệ thống).
+
+### Rollback
+
+- **Lệnh dừng giữa chừng:** không cần làm gì, transaction đã hoàn tác.
+- **Đã ghi xong và muốn quay lại:** khôi phục bản `pg_dump` ở bước 5 (`pg_restore --clean --if-exists -d <db> <file>`), sau khi dừng ứng dụng. **Không** dùng `db rollback` sau khi đã nhập: gỡ migration làm mất `externalId` và lần nhập lại sẽ tạo bản ghi trùng. Mọi thay đổi người dùng làm trong NocoEdu sau lần nhập cũng mất theo bản khôi phục.
+- **Sau `--commit`, NocoEdu là nguồn chính.** Chạy lại lệnh chỉ để bổ sung dòng mới trên Lark; không đồng bộ hai chiều và không cập nhật dòng đã nhập.
+
+## Chưa làm
+
+Lệnh `--undo <lần chạy>`; đồng bộ định kỳ hoặc hai chiều; sách, giải đấu, đánh giá định kỳ; bảng nộp tiền và lịch sử thanh toán; quy trình xoá hoặc ẩn danh học viên (khi làm phải xử lý cả `ngaySinh`, `externalCode` và `email` phụ huynh); migration mới chỉ được kiểm trên SQLite, chưa kiểm trên PostgreSQL; hình dạng giá trị ô (liên kết, tra cứu, người) được dựng theo tài liệu `bitable/v1`, chưa kiểm bằng lần đọc Lark thật — `--dry-run` đầu tiên sẽ lộ chỗ lệch (các mã lỗi `*_KHONG_RO`, `THIEU_*`).
