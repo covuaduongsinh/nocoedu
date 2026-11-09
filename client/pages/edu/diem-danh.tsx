@@ -81,12 +81,15 @@ export default function DiemDanhPage(): ReactElement {
   }>();
 
   const classRows = classes.state === 'ready' ? classes.rows : [];
-  const sessionRows =
-    sessions.loaded.state === 'ready' ? sessions.loaded.rows : [];
+  const loadedSessions = sessions.loaded;
   const ordered = useMemo(
     () =>
-      [...sessionRows].sort((a, b) => text(b.ngay).localeCompare(text(a.ngay))),
-    [sessionRows],
+      loadedSessions.state === 'ready'
+        ? [...loadedSessions.rows].sort((a, b) =>
+            text(b.ngay).localeCompare(text(a.ngay)),
+          )
+        : [],
+    [loadedSessions],
   );
   const session = ordered.find((row) => row.id === selectedId);
   const className = (id: unknown): string =>

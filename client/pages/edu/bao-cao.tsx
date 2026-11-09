@@ -28,6 +28,10 @@ interface Report {
  * weeks and tuition revenue. The server limits each to the caller's classes or branches (a coach has no revenue
  * report). "Download CSV" is the same report as a spreadsheet file, and the export is logged.
  */
+/** A report row has no id: its cells together identify it (each report lists a branch, class or student once). */
+const rowKey = (row: Record<string, string | number | null>): string =>
+  Object.values(row).join('|');
+
 export default function BaoCaoPage(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
@@ -128,8 +132,8 @@ export default function BaoCaoPage(): ReactElement {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {result.data.rows.map((row, index) => (
-                <TableRow key={index}>
+              {result.data.rows.map((row) => (
+                <TableRow key={rowKey(row)}>
                   {result.data.columns.map((column) => (
                     <TableCell key={column.key}>
                       {text(row[column.key])}
