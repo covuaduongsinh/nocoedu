@@ -17,5 +17,5 @@ export function toCsv(
   rows: readonly (readonly (string | number | null | undefined)[])[],
 ): string {
   const lines = [headers, ...rows].map((row) => row.map(csvCell).join(','));
-  return `﻿${lines.join('\r\n')}\r\n`;
+  return `\uFEFF${lines.join('\r\n')}\r\n`;
 }
