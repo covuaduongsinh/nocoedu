@@ -11,7 +11,17 @@ import {
 } from '../../client/routing/route-navigation.js';
 
 /** The sidebar of a signed-in person with every NocoEdu page granted. */
-const eduMenu = ['home', 'edu-coSo', 'edu-lop', 'edu-hocVien', 'edu-phuHuynh'];
+const eduMenu = [
+  'home',
+  'edu-coSo',
+  'edu-lop',
+  'edu-hocVien',
+  'edu-phuHuynh',
+  'edu-diemDanh',
+  'edu-hocPhi',
+  'edu-nhanXet',
+  'edu-baoCao',
+];
 
 describe('default Foundation integration', () => {
   it('registers the Foundation deployment evidence build hook', () => {

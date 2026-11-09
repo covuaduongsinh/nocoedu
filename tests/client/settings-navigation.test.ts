@@ -238,6 +238,10 @@ describe('System settings navigation', () => {
       'edu-lop',
       'edu-hocVien',
       'edu-phuHuynh',
+      'edu-diemDanh',
+      'edu-hocPhi',
+      'edu-nhanXet',
+      'edu-baoCao',
       'settingsHome',
     ]);
   });

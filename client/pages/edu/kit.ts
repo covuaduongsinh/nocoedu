@@ -99,3 +99,53 @@ export function text(value: unknown): string {
     ? String(value)
     : '';
 }
+
+export type Result<T> =
+  | { readonly state: 'loading' }
+  | { readonly state: 'error'; readonly forbidden: boolean }
+  | { readonly state: 'ready'; readonly data: T };
+
+/** POSTs a read-only business route (reports, summaries) and keeps the result; `reload` asks again. */
+export function useRequest<T>(
+  path: string,
+  json: unknown,
+): { result: Result<T>; reload: () => void } {
+  const api = useApiClient();
+  const [version, setVersion] = useState(0);
+  const body = JSON.stringify(json);
+  const key = `${path}:${body}:${version}`;
+  const [done, setDone] = useState<{ key: string; value: Result<T> }>();
+  useEffect(() => {
+    let live = true;
+    api
+      .request<{ data: T }>({ path, method: 'POST', json: JSON.parse(body) })
+      .then((response) => {
+        if (live)
+          setDone({ key, value: { state: 'ready', data: response.data } });
+      })
+      .catch((error: unknown) => {
+        if (live)
+          setDone({
+            key,
+            value: {
+              state: 'error',
+              forbidden:
+                error instanceof ApiClientError &&
+                (error as { status?: number }).status === 403,
+            },
+          });
+      });
+    return () => {
+      live = false;
+    };
+  }, [api, path, body, key]);
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
+  const result: Result<T> =
+    done?.key === key ? done.value : { state: 'loading' };
+  return { result, reload };
+}
+
+/** Today in Vietnam as `YYYY-MM-DD`, the club's calendar day. */
+export function todayVn(): string {
+  return new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
+}

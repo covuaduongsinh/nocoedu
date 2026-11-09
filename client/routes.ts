@@ -1,7 +1,17 @@
 import { createAppClientConfig } from '@nocobase/app-client';
 import { readAppClientRuntimeConfig } from '@nocobase/app-client/runtime';
 import { includeNotificationTemplateRoutes } from './pages/settings/notification-routes.js';
-import { Building2, Contact, GraduationCap, Home, Users } from 'lucide-react';
+import {
+  BarChart3,
+  Building2,
+  CalendarCheck,
+  Contact,
+  GraduationCap,
+  Home,
+  MessageSquareText,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import systemSettingsRoutes from './pages/settings/routes.js';
 import settingsShellRoutes from './pages/settings/shell-routes.js';
 import {
@@ -15,7 +25,15 @@ import {
  * business actions of the server, so a page grant alone opens no data.
  */
 function eduPage(
-  id: 'coSo' | 'lop' | 'hocVien' | 'phuHuynh',
+  id:
+    | 'coSo'
+    | 'lop'
+    | 'hocVien'
+    | 'phuHuynh'
+    | 'diemDanh'
+    | 'hocPhi'
+    | 'nhanXet'
+    | 'baoCao',
   path: string,
   icon: typeof Home,
   order: number,
@@ -74,6 +92,34 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     Contact,
     4,
     () => import('./pages/edu/phu-huynh.js'),
+  ),
+  ...eduPage(
+    'diemDanh',
+    '/diem-danh',
+    CalendarCheck,
+    5,
+    () => import('./pages/edu/diem-danh.js'),
+  ),
+  ...eduPage(
+    'hocPhi',
+    '/hoc-phi',
+    Wallet,
+    6,
+    () => import('./pages/edu/hoc-phi.js'),
+  ),
+  ...eduPage(
+    'nhanXet',
+    '/nhan-xet',
+    MessageSquareText,
+    7,
+    () => import('./pages/edu/nhan-xet.js'),
+  ),
+  ...eduPage(
+    'baoCao',
+    '/bao-cao',
+    BarChart3,
+    8,
+    () => import('./pages/edu/bao-cao.js'),
   ),
   {
     // Declares no navigation, so the application decides where its entry goes (for example a sidebar item with an

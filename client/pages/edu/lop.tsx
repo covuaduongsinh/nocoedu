@@ -7,7 +7,14 @@ import { Button } from '#components/ui/button';
 import { StatusBadge } from '#components/status-badge';
 
 import { FormDialog, SelectField, TextField } from './form-parts.js';
-import { createOne, LEVEL_KEYS, LEVEL_ORDER, text, useRows } from './kit.js';
+import {
+  createOne,
+  LEVEL_KEYS,
+  LEVEL_ORDER,
+  text,
+  useRequest,
+  useRows,
+} from './kit.js';
 import { ListPage } from './list-page.js';
 
 const EMPTY = { ma: '', ten: '', coSoId: '', hlvId: '', levelKey: 'tot' };
@@ -17,6 +24,12 @@ export default function LopPage(): ReactElement {
   const api = useApiClient();
   const { loaded, reload } = useRows('lop');
   const branches = useRows('coSo').loaded;
+  // The coaches to choose from; a person who may not manage classes gets no list, and cannot open the form anyway.
+  const coaches = useRequest<{ id: string; name: string }[]>(
+    '/hlv/danhSach',
+    {},
+  ).result;
+  const coachRows = coaches.state === 'ready' ? coaches.data : [];
   const { can: canManage } = useCan({
     resource: { type: 'composite', id: 'edu.lop' },
     action: 'manage',
@@ -118,11 +131,16 @@ export default function LopPage(): ReactElement {
               label: t(`edu.level.${key}`),
             }))}
           />
-          <TextField
+          <SelectField
             id='lop-hlv'
             label={t('edu.lop.hlv')}
             value={form.hlvId}
+            allowEmpty
             onChange={(hlvId) => setForm({ ...form, hlvId })}
+            options={coachRows.map((coach) => ({
+              value: coach.id,
+              label: coach.name,
+            }))}
           />
         </FormDialog>
       ) : null}
