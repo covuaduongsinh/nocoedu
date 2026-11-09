@@ -15,286 +15,275 @@ const PERMISSION_SETS: readonly {
   grants: readonly object[];
 }[] = [
   {
-    "key": "edu_quan_tri",
-    "title": "NocoEdu - Quản trị",
-    "grants": [
+    key: 'edu_quan_tri',
+    title: 'NocoEdu - Quản trị',
+    grants: [
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.home"
+        resource: {
+          type: 'page',
+          id: 'edu.coSo'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.coSo"
+        resource: {
+          type: 'page',
+          id: 'edu.lop'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.lop"
+        resource: {
+          type: 'page',
+          id: 'edu.hocVien'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.hocVien"
+        resource: {
+          type: 'page',
+          id: 'edu.phuHuynh'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.phuHuynh"
+        resource: {
+          type: 'composite',
+          id: 'edu.coSo'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
-          }
-        ]
-      },
-      {
-        "resource": {
-          "type": "composite",
-          "id": "edu.coSo"
-        },
-        "actions": [
-          {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.coSoQuanLy"
+        resource: {
+          type: 'composite',
+          id: 'edu.coSoQuanLy'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.lop"
+        resource: {
+          type: 'composite',
+          id: 'edu.lop'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.lopLich"
+        resource: {
+          type: 'composite',
+          id: 'edu.lopLich'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.hocVien"
+        resource: {
+          type: 'composite',
+          id: 'edu.hocVien'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           },
           {
-            "action": "updateNote",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'updateNote',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           },
           {
-            "action": "levelUp",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords",
-                "history": "allRecords"
+            action: 'levelUp',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords',
+                history: 'allRecords'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.phuHuynh"
+        resource: {
+          type: 'composite',
+          id: 'edu.phuHuynh'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.lienKet"
+        resource: {
+          type: 'composite',
+          id: 'edu.lienKet'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.dongY"
+        resource: {
+          type: 'composite',
+          id: 'edu.dongY'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           },
           {
-            "action": "record",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'record',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
@@ -303,260 +292,249 @@ const PERMISSION_SETS: readonly {
     ]
   },
   {
-    "key": "edu_quan_ly_co_so",
-    "title": "NocoEdu - Quản lý cơ sở",
-    "grants": [
+    key: 'edu_quan_ly_co_so',
+    title: 'NocoEdu - Quản lý cơ sở',
+    grants: [
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.home"
+        resource: {
+          type: 'page',
+          id: 'edu.coSo'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.coSo"
+        resource: {
+          type: 'page',
+          id: 'edu.lop'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.lop"
+        resource: {
+          type: 'page',
+          id: 'edu.hocVien'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.hocVien"
+        resource: {
+          type: 'page',
+          id: 'edu.phuHuynh'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.phuHuynh"
+        resource: {
+          type: 'composite',
+          id: 'edu.coSo'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
-          }
-        ]
-      },
-      {
-        "resource": {
-          "type": "composite",
-          "id": "edu.coSo"
-        },
-        "actions": [
-          {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.lop"
+        resource: {
+          type: 'composite',
+          id: 'edu.lop'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.lopLich"
+        resource: {
+          type: 'composite',
+          id: 'edu.lopLich'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.hocVien"
+        resource: {
+          type: 'composite',
+          id: 'edu.hocVien'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           },
           {
-            "action": "updateNote",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'updateNote',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           },
           {
-            "action": "levelUp",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches",
-                "history": "edu.myBranches"
+            action: 'levelUp',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches',
+                history: 'edu.myBranches'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.phuHuynh"
+        resource: {
+          type: 'composite',
+          id: 'edu.phuHuynh'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.lienKet"
+        resource: {
+          type: 'composite',
+          id: 'edu.lienKet'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           },
           {
-            "action": "manage",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'manage',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.dongY"
+        resource: {
+          type: 'composite',
+          id: 'edu.dongY'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           },
           {
-            "action": "record",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myBranches"
+            action: 'record',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
               }
             }
           }
@@ -565,124 +543,113 @@ const PERMISSION_SETS: readonly {
     ]
   },
   {
-    "key": "edu_hlv",
-    "title": "NocoEdu - Huấn luyện viên",
-    "grants": [
+    key: 'edu_hlv',
+    title: 'NocoEdu - Huấn luyện viên',
+    grants: [
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.home"
+        resource: {
+          type: 'page',
+          id: 'edu.lop'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.lop"
+        resource: {
+          type: 'page',
+          id: 'edu.hocVien'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.hocVien"
+        resource: {
+          type: 'composite',
+          id: 'edu.coSo'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
-          }
-        ]
-      },
-      {
-        "resource": {
-          "type": "composite",
-          "id": "edu.coSo"
-        },
-        "actions": [
-          {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myClasses"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.lop"
+        resource: {
+          type: 'composite',
+          id: 'edu.lop'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myClasses"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.lopLich"
+        resource: {
+          type: 'composite',
+          id: 'edu.lopLich'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myClasses"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.hocVien"
+        resource: {
+          type: 'composite',
+          id: 'edu.hocVien'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myClasses"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses'
               }
             }
           },
           {
-            "action": "updateNote",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myClasses"
+            action: 'updateNote',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses'
               }
             }
           },
           {
-            "action": "levelUp",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "edu.myClasses",
-                "history": "edu.myClasses"
+            action: 'levelUp',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses',
+                history: 'edu.myClasses'
               }
             }
           }
@@ -691,161 +658,150 @@ const PERMISSION_SETS: readonly {
     ]
   },
   {
-    "key": "edu_ke_toan",
-    "title": "NocoEdu - Kế toán",
-    "grants": [
+    key: 'edu_ke_toan',
+    title: 'NocoEdu - Kế toán',
+    grants: [
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.home"
+        resource: {
+          type: 'page',
+          id: 'edu.coSo'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.coSo"
+        resource: {
+          type: 'page',
+          id: 'edu.lop'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.lop"
+        resource: {
+          type: 'page',
+          id: 'edu.hocVien'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.hocVien"
+        resource: {
+          type: 'page',
+          id: 'edu.phuHuynh'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
+            action: 'access'
           }
         ]
       },
       {
-        "resource": {
-          "type": "page",
-          "id": "edu.phuHuynh"
+        resource: {
+          type: 'composite',
+          id: 'edu.coSo'
         },
-        "actions": [
+        actions: [
           {
-            "action": "access"
-          }
-        ]
-      },
-      {
-        "resource": {
-          "type": "composite",
-          "id": "edu.coSo"
-        },
-        "actions": [
-          {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.lop"
+        resource: {
+          type: 'composite',
+          id: 'edu.lop'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.lopLich"
+        resource: {
+          type: 'composite',
+          id: 'edu.lopLich'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.hocVien"
+        resource: {
+          type: 'composite',
+          id: 'edu.hocVien'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.phuHuynh"
+        resource: {
+          type: 'composite',
+          id: 'edu.phuHuynh'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
         ]
       },
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.lienKet"
+        resource: {
+          type: 'composite',
+          id: 'edu.lienKet'
         },
-        "actions": [
+        actions: [
           {
-            "action": "view",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "data": "allRecords"
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
               }
             }
           }
@@ -854,31 +810,31 @@ const PERMISSION_SETS: readonly {
     ]
   },
   {
-    "key": "edu_api_doc",
-    "title": "NocoEdu - API chỉ đọc cho ứng dụng khác",
-    "grants": [
+    key: 'edu_api_doc',
+    title: 'NocoEdu - API chỉ đọc cho ứng dụng khác',
+    grants: [
       {
-        "resource": {
-          "type": "composite",
-          "id": "edu.ext"
+        resource: {
+          type: 'composite',
+          id: 'edu.ext'
         },
-        "actions": [
+        actions: [
           {
-            "action": "readStudents",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "student": "allRecords",
-                "class": "allRecords"
+            action: 'readStudents',
+            policy: {
+              type: 'composite',
+              scopes: {
+                student: 'allRecords',
+                class: 'allRecords'
               }
             }
           },
           {
-            "action": "readParents",
-            "policy": {
-              "type": "composite",
-              "scopes": {
-                "parent": "allRecords"
+            action: 'readParents',
+            policy: {
+              type: 'composite',
+              scopes: {
+                parent: 'allRecords'
               }
             }
           }

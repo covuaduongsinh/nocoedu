@@ -13,7 +13,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 
 import { anyOf, byId } from '../edu/filters.js';
-import { shortName } from '../edu/names.js';
+import { asText, shortName } from '../edu/names.js';
 import { needs, policyOf, type EduEnv } from './edu-support.js';
 
 /**
@@ -102,15 +102,15 @@ export default [
             .findMany({ filter: anyOf('id', lopIds) });
           for (const lop of found)
             lops.set(Number(lop.id), {
-              ma: String(lop.ma),
-              ten: String(lop.ten),
+              ma: asText(lop.ma),
+              ten: asText(lop.ten),
             });
         }
         return c.json({
           data: rows.map((row) => ({
-            ma: String(row.ma),
-            tenVietTat: shortName(String(row.hoTen)),
-            levelKey: String(row.levelKey),
+            ma: asText(row.ma),
+            tenVietTat: shortName(asText(row.hoTen)),
+            levelKey: asText(row.levelKey),
             levelOrder: Number(row.levelOrder),
             lop:
               row.lopId == null ? null : (lops.get(Number(row.lopId)) ?? null),
@@ -158,7 +158,7 @@ export default [
           parents.count({ filter }),
         ]);
         return c.json({
-          data: rows.map((row) => ({ ma: String(row.ma) })),
+          data: rows.map((row) => ({ ma: asText(row.ma) })),
           meta: { page, pageSize, total },
         });
       },

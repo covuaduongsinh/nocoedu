@@ -15,13 +15,13 @@ test('the seeded permission sets equal their declarations and are assigned to no
       .executeTakeFirstOrThrow();
     let grants: unknown = row.grants;
     while (typeof grants === 'string') grants = JSON.parse(grants) as unknown;
-    expect(grants, set.key).toEqual(JSON.parse(JSON.stringify(set.grants)));
+    expect(grants).toEqual(JSON.parse(JSON.stringify(set.grants)));
     const assignments = await connection.query
       .selectFrom('authorizationPermissionSetAssignments')
       .select('id')
       .where('permissionSetKey', '=', set.key)
       .execute();
-    expect(assignments, set.key).toEqual([]);
+    expect(assignments).toEqual([]);
   }
   expect(EDU_PERMISSION_SETS.map((set) => set.key)).toEqual([
     'edu_quan_tri',

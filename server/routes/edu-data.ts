@@ -22,7 +22,6 @@ import {
   lop,
   lopLich,
   phuHuynh,
-  type CollectionKey,
 } from '../edu/permissions.js';
 
 /**
@@ -34,7 +33,7 @@ import {
  */
 interface Exposure {
   readonly name: string;
-  readonly key: CollectionKey;
+  readonly key: keyof typeof FIELDS;
   readonly resource: { reference(): unknown };
   readonly create?: boolean;
   readonly update?: readonly string[];

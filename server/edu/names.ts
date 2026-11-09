@@ -24,3 +24,10 @@ export function normalizePhone(value: string): string {
 export function codeFromId(prefix: string, id: number): string {
   return `${prefix}${String(id).padStart(5, '0')}`;
 }
+
+/** A database value as text: strings and numbers only, anything else is empty. */
+export function asText(value: unknown): string {
+  return typeof value === 'string' || typeof value === 'number'
+    ? String(value)
+    : '';
+}

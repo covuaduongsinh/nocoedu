@@ -30,10 +30,10 @@ test('every NocoEdu record route answers 401 without a session', async ({
       },
       body: '{}',
     });
-    expect(response.status, path).toBe(401);
+    expect(response.status).toBe(401);
   }
   for (const path of ['/ext/hocVien', '/ext/phuHuynh']) {
-    expect((await request(path)).status, path).toBe(401);
+    expect((await request(path)).status).toBe(401);
   }
 });
 

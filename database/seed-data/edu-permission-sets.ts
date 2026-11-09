@@ -108,7 +108,7 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
 
 export const eduHlv = definePermissionSet('edu_hlv')
   .title('NocoEdu - Huấn luyện viên')
-  .grant(page(PAGES.home), page(PAGES.lop), page(PAGES.hocVien))
+  .grant(page(PAGES.lop), page(PAGES.hocVien))
   .grant(coSo.reference().grant({ view: { data: MY_CLASSES } }))
   .grant(lop.reference().grant({ view: { data: MY_CLASSES } }))
   .grant(lopLich.reference().grant({ view: { data: MY_CLASSES } }))
@@ -124,7 +124,6 @@ export const eduHlv = definePermissionSet('edu_hlv')
 export const eduKeToan = definePermissionSet('edu_ke_toan')
   .title('NocoEdu - Kế toán')
   .grant(
-    page(PAGES.home),
     page(PAGES.coSo),
     page(PAGES.lop),
     page(PAGES.hocVien),

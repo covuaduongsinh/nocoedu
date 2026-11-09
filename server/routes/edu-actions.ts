@@ -14,7 +14,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
 import { LEVEL_KEYS, levelOrder } from '../edu/levels.js';
-import { codeFromId, normalizePhone } from '../edu/names.js';
+import { asText, codeFromId, normalizePhone } from '../edu/names.js';
 import {
   currentUserId,
   eduError,
@@ -217,7 +217,7 @@ export default [
               'Student not found.',
             );
           }
-          const current = String(student.levelKey);
+          const current = asText(student.levelKey);
           const target = levelOrder(input.denLevelKey) ?? 0;
           if (target <= Number(student.levelOrder)) {
             throw eduError(

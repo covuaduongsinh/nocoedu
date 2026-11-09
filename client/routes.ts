@@ -1,12 +1,40 @@
 import { createAppClientConfig } from '@nocobase/app-client';
 import { readAppClientRuntimeConfig } from '@nocobase/app-client/runtime';
 import { includeNotificationTemplateRoutes } from './pages/settings/notification-routes.js';
-import { Home } from 'lucide-react';
+import { Building2, Contact, GraduationCap, Home, Users } from 'lucide-react';
+import systemSettingsRoutes from './pages/settings/routes.js';
 import settingsShellRoutes from './pages/settings/shell-routes.js';
 import {
   defineAppRoutes,
+  type AppClientRouteComponentLoader,
   type AppClientRouteContribution,
 } from '@nocobase/app-client/plugins';
+
+/**
+ * A NocoEdu page. `authz` names the page grant (`server/edu/pages.ts`); what a person may do on it is decided by the
+ * business actions of the server, so a page grant alone opens no data.
+ */
+function eduPage(
+  id: 'coSo' | 'lop' | 'hocVien' | 'phuHuynh',
+  path: string,
+  icon: typeof Home,
+  order: number,
+  componentLoader: AppClientRouteComponentLoader,
+) {
+  return [
+    {
+      auth: 'required' as const,
+      authz: {
+        resource: { type: 'page' as const, id: `edu.${id}` },
+        action: 'access',
+      },
+      componentLoader,
+      name: `edu-${id}`,
+      navigation: { title: `edu.nav.${id}`, icon, order },
+      path,
+    },
+  ];
+}
 
 const appRoutes: AppClientRouteContribution = defineAppRoutes([
   {
@@ -14,11 +42,39 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     // no permission change can leave a user signed in with nowhere to land.
     authz: 'skip',
     auth: 'required',
-    componentLoader: () => import('./pages/home/index.js'),
+    componentLoader: () => import('./pages/edu/home.js'),
     name: 'home',
-    navigation: { title: 'navigation.home', icon: Home },
+    navigation: { title: 'edu.nav.home', icon: Home, order: 0 },
     path: '/',
   },
+  ...eduPage(
+    'coSo',
+    '/co-so',
+    Building2,
+    1,
+    () => import('./pages/edu/co-so.js'),
+  ),
+  ...eduPage(
+    'lop',
+    '/lop',
+    GraduationCap,
+    2,
+    () => import('./pages/edu/lop.js'),
+  ),
+  ...eduPage(
+    'hocVien',
+    '/hoc-vien',
+    Users,
+    3,
+    () => import('./pages/edu/hoc-vien.js'),
+  ),
+  ...eduPage(
+    'phuHuynh',
+    '/phu-huynh',
+    Contact,
+    4,
+    () => import('./pages/edu/phu-huynh.js'),
+  ),
   {
     // Declares no navigation, so the application decides where its entry goes (for example a sidebar item with an
     // unread badge). The plugin's API answers each person's own messages only, so the page needs no authorization of
@@ -75,7 +131,7 @@ export function createApplicationRoutes(
 ): readonly AppClientRouteContribution[] {
   const config = createAppClientConfig({ rawConfig });
   return includeNotificationTemplateRoutes(
-    [appRoutes, settingsShellRoutes],
+    [appRoutes, settingsShellRoutes, systemSettingsRoutes],
     config.get<boolean>('notificationTemplates.invitationConfigured') === true,
   );
 }

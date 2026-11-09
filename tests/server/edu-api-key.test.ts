@@ -120,10 +120,11 @@ test('an API key of the read-only role reads the ext API and nothing else', asyn
     '/coSo/findMany',
     '/dongY/findMany',
   ]) {
-    expect(
-      (await request(path, withKey({ method: 'POST', body: '{}' }))).status,
+    const response = await request(
       path,
-    ).toBe(403);
+      withKey({ method: 'POST', body: '{}' }),
+    );
+    expect(`${path} ${response.status}`).toBe(`${path} 403`);
   }
   for (const path of [
     '/hocVien/taoMoi',
@@ -144,14 +145,14 @@ test('an API key of the read-only role reads the ext API and nothing else', asyn
         }),
       }),
     );
-    expect(response.status, path).toBe(403);
+    expect(response.status).toBe(403);
   }
   for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
     const response = await request(
       '/ext/hocVien',
       withKey({ method, body: method === 'DELETE' ? undefined : '{}' }),
     );
-    expect([403, 404, 405], method).toContain(response.status);
+    expect([403, 404, 405]).toContain(response.status);
   }
   expect(
     await connection.query.selectFrom('eduHocVien').select('id').execute(),
