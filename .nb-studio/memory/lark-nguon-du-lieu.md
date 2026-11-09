@@ -19,3 +19,5 @@ Quyết định của chủ dự án (09/11/2026, sau hai lần thử đều l�
 **Vì sao:** các giới hạn này không thấy được từ mã nguồn và tốn một lượt chạy để phát hiện; chủ dự án đã cấp quyền mà app vẫn bị chặn, nên không chờ thêm.
 
 **Cách áp dụng:** khi đọc Lark, xem `unreadableTables` trong kết quả của `node scripts/lark/giai-ma.mjs --only base`; bảng còn bị chặn thì làm theo quyết định trên. Đề xuất thay thế (gói mở đầu từ số dư chốt trên HocVien) nằm ở `docs/lark/anh-xa-nocoedu.md`, chờ duyệt. Không lưu file xuất từ Lark trong repo; script từ chối ghi vào repo.
+
+**Nhập vào NocoEdu (giai đoạn 3):** `pnpm nocobase app edu import-lark [--dry-run|--commit --user <id>]`, đọc 5 bảng (LopHoc, HocVien, hai bảng Nhận xét mỗi buổi, Level) qua `lark-cli`, chỉ trong bộ nhớ. Chỉ nhập thêm, không cập nhật. Học viên đã có trong NocoEdu được **ghép** (không nhân đôi) khi khớp đủ tên đã chuẩn hoá, năm sinh và SĐT phụ huynh: chỉ gán `externalId`/`externalCode`. Hướng dẫn chạy production và rollback: `docs/lark/nhap-production.md`. Rollback sau khi nhập là khôi phục bản sao lưu, không dùng `db rollback`.

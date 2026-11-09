@@ -87,7 +87,7 @@ async function resetStudent(
   // The stored rule belongs to a register that was marked; a fresh register stores it again.
   await q
     .updateTable('eduBuoiHoc')
-    .set({ truVangCoPhep: null })
+    .set({ truVangCoPhep: null, truVangKhongPhep: null })
     .allowAllRows()
     .execute();
   await q
@@ -220,6 +220,51 @@ test('correcting a history row imported from Lark never moves the balance', asyn
     .select(['trangThai', 'soBuoiDaTru'])
     .executeTakeFirstOrThrow();
   expect(row).toMatchObject({ trangThai: 'vang_khong_phep', soBuoiDaTru: 0 });
+});
+
+test('the setting for an absence without leave is fixed on the session at its first save', async ({
+  testApp,
+  connection,
+}) => {
+  const { hlvA, ids, sessionA } = await setup(testApp, connection);
+  const save = (trangThai: string) =>
+    post(hlvA.session, '/diemDanh/luu', {
+      buoiHocId: sessionA,
+      danhSach: [{ hocVienId: ids.hocVienA, trangThai }],
+    });
+  const stored = async () =>
+    (
+      await connection.query
+        .selectFrom('eduBuoiHoc')
+        .select('truVangKhongPhep')
+        .where('id', '=', sessionA)
+        .executeTakeFirstOrThrow()
+    ).truVangKhongPhep;
+  const previous = process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP;
+  try {
+    // Setting off at the first save: fixed as "not deducted".
+    delete process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP;
+    await resetStudent(connection, ids.hocVienA, 10);
+    expect(await stored()).toBeNull();
+    expect((await save('vang_khong_phep')).status).toBe(200);
+    expect(Boolean(await stored())).toBe(false);
+    // Turning it on afterwards does not reach this register: still not deducted, and a change to "present" costs 1.
+    process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP = 'true';
+    expect((await save('vang_khong_phep')).status).toBe(200);
+    expect(await balance(connection, ids.hocVienA)).toBe(10);
+    // A session that was never saved (null) takes the setting in force at its first save.
+    await resetStudent(connection, ids.hocVienA, 10);
+    expect((await save('vang_khong_phep')).status).toBe(200);
+    expect(Boolean(await stored())).toBe(true);
+    expect(await balance(connection, ids.hocVienA)).toBe(9);
+    // And switching it off later leaves that register deducting.
+    delete process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP;
+    expect((await save('vang_khong_phep')).status).toBe(200);
+    expect(await balance(connection, ids.hocVienA)).toBe(9);
+  } finally {
+    if (previous === undefined) delete process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP;
+    else process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP = previous;
+  }
 });
 
 test('two identical saves at once deduct one session', async ({
@@ -509,7 +554,7 @@ test('changing the branch setting does not move the balance of a register that w
   // The other way round: a make-up under "deducted" costs 0 and stays 0 when the setting is switched off.
   await connection.query
     .updateTable('eduBuoiHoc')
-    .set({ truVangCoPhep: null })
+    .set({ truVangCoPhep: null, truVangKhongPhep: null })
     .where('id', '=', sessionA)
     .execute();
   await setRule(true);

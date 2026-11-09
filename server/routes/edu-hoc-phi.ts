@@ -268,7 +268,7 @@ export default [
           // branch setting applies to the next sessions only, so saving an old register again never moves a balance.
           const stored = await connection.query
             .selectFrom('eduBuoiHoc')
-            .select('truVangCoPhep')
+            .select(['truVangCoPhep', 'truVangKhongPhep'])
             .where('id', '=', input.buoiHocId)
             .executeTakeFirstOrThrow();
           let excusedDeducts: boolean;
@@ -285,6 +285,24 @@ export default [
               .execute();
           } else {
             excusedDeducts = asBoolean(stored.truVangCoPhep);
+          }
+          // The same for an absence without leave: `EDU_TRU_BUOI_VANG_KHONG_PHEP` is read once, on the first save of a
+          // session (DS-60). A session saved before this column existed (`null`) takes the setting on its next save, so
+          // turning the setting on later never reaches a register that was already marked.
+          let unexcusedDeducts: boolean;
+          if (
+            stored.truVangKhongPhep === null ||
+            stored.truVangKhongPhep === undefined
+          ) {
+            unexcusedDeducts = unexcusedAbsenceDeducts(process.env);
+            await connection.query
+              .updateTable('eduBuoiHoc')
+              .set({ truVangKhongPhep: unexcusedDeducts })
+              .where('id', '=', input.buoiHocId)
+              .where('truVangKhongPhep', 'is', null)
+              .execute();
+          } else {
+            unexcusedDeducts = asBoolean(stored.truVangKhongPhep);
           }
           const attendance = connection
             .repository('eduDiemDanh')
@@ -334,7 +352,7 @@ export default [
                 : sessionsToDeduct(
                     entry.trangThai,
                     excusedDeducts,
-                    unexcusedAbsenceDeducts(process.env),
+                    unexcusedDeducts,
                   );
             let diemDanhId: number;
             let alreadyDeducted: number;
