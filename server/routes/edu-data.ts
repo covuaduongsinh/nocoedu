@@ -25,6 +25,7 @@ import {
   lienKet,
   lop,
   lopLich,
+  nhanXet,
   phuHuynh,
   soDu,
   thanhToan,
@@ -102,6 +103,7 @@ const EXPOSURES: readonly Exposure[] = [
   { name: 'diemDanh', key: 'diemDanh', resource: diemDanh },
   { name: 'goiHoc', key: 'goiHoc', resource: goiHoc },
   { name: 'thanhToan', key: 'thanhToan', resource: thanhToan },
+  { name: 'nhanXetThang', key: 'nhanXetThang', resource: nhanXet },
   { name: 'soDuNhatKy', key: 'soDuNhatKy', resource: soDu },
 ];
 

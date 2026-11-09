@@ -19,6 +19,7 @@ import {
   lienKet,
   lop,
   lopLich,
+  nhanXet,
   phuHuynh,
   soDu,
   thanhToan,
@@ -64,6 +65,7 @@ export default class EduAuthorizationProvider extends ServiceProvider<AppPluginA
     authz.ui.place(authz.compositeResources.define(goiHoc), section);
     authz.ui.place(authz.compositeResources.define(thanhToan), section);
     authz.ui.place(authz.compositeResources.define(soDu), section);
+    authz.ui.place(authz.compositeResources.define(nhanXet), section);
     authz.ui.place(authz.compositeResources.define(ext), section);
     return Promise.resolve();
   }

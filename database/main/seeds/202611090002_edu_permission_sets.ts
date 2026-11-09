@@ -64,6 +64,50 @@ const PERMISSION_SETS: readonly {
       },
       {
         resource: {
+          type: 'page',
+          id: 'edu.diemDanh'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'page',
+          id: 'edu.hocPhi'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'page',
+          id: 'edu.nhanXet'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'page',
+          id: 'edu.baoCao'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
           type: 'composite',
           id: 'edu.coSo'
         },
@@ -409,6 +453,32 @@ const PERMISSION_SETS: readonly {
             }
           }
         ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.nhanXet'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          },
+          {
+            action: 'write',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'allRecords'
+              }
+            }
+          }
+        ]
       }
     ]
   },
@@ -453,6 +523,50 @@ const PERMISSION_SETS: readonly {
         resource: {
           type: 'page',
           id: 'edu.phuHuynh'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'page',
+          id: 'edu.diemDanh'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'page',
+          id: 'edu.hocPhi'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'page',
+          id: 'edu.nhanXet'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'page',
+          id: 'edu.baoCao'
         },
         actions: [
           {
@@ -772,6 +886,32 @@ const PERMISSION_SETS: readonly {
             }
           }
         ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.nhanXet'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
+              }
+            }
+          },
+          {
+            action: 'write',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myBranches'
+              }
+            }
+          }
+        ]
       }
     ]
   },
@@ -794,6 +934,39 @@ const PERMISSION_SETS: readonly {
         resource: {
           type: 'page',
           id: 'edu.hocVien'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'page',
+          id: 'edu.diemDanh'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'page',
+          id: 'edu.nhanXet'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'page',
+          id: 'edu.baoCao'
         },
         actions: [
           {
@@ -956,6 +1129,32 @@ const PERMISSION_SETS: readonly {
             }
           }
         ]
+      },
+      {
+        resource: {
+          type: 'composite',
+          id: 'edu.nhanXet'
+        },
+        actions: [
+          {
+            action: 'view',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses'
+              }
+            }
+          },
+          {
+            action: 'write',
+            policy: {
+              type: 'composite',
+              scopes: {
+                data: 'edu.myClasses'
+              }
+            }
+          }
+        ]
       }
     ]
   },
@@ -1000,6 +1199,28 @@ const PERMISSION_SETS: readonly {
         resource: {
           type: 'page',
           id: 'edu.phuHuynh'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'page',
+          id: 'edu.hocPhi'
+        },
+        actions: [
+          {
+            action: 'access'
+          }
+        ]
+      },
+      {
+        resource: {
+          type: 'page',
+          id: 'edu.baoCao'
         },
         actions: [
           {

@@ -15,6 +15,7 @@ import { z } from 'zod';
 
 import { LEVEL_KEYS, levelOrder } from '../edu/levels.js';
 import { asText, codeFromId, normalizePhone } from '../edu/names.js';
+import { todayVn } from '../edu/so-du.js';
 import {
   currentUserId,
   eduError,
@@ -92,7 +93,7 @@ const declare = (summary: string, operationId: string) =>
     responses: { '200': dataResponse(ResultSchema), ...apiErrorResponses },
   });
 
-const today = (): string => new Date().toISOString().slice(0, 10);
+const today = (): string => todayVn();
 
 export default [
   defineApiRoutes<AppPluginApplication>((app) => {

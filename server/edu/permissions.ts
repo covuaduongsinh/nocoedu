@@ -253,6 +253,18 @@ export const FIELDS = {
       'nguoiGhiNhanId',
     ],
   },
+  nhanXetThang: {
+    read: [
+      'id',
+      'hocVienId',
+      'lopId',
+      'hlvId',
+      'thang',
+      'noiDung',
+      'trangThai',
+    ],
+    write: ['hocVienId', 'lopId', 'hlvId', 'thang', 'noiDung', 'trangThai'],
+  },
   soDuNhatKy: {
     read: [
       'id',
@@ -495,4 +507,25 @@ export const soDu = defineCompositeResource('edu.soDu', (r) =>
   r
     .title('Nhật ký số dư buổi')
     .action('view', (a) => a.title('Xem').grant('data', soDuRead)),
+);
+
+const nhanXetRead = perm('nhanXetThang', FIELDS.nhanXetThang);
+
+/** Monthly comments: view (and export as text), and write (a coach writes the comment of a student of their class). */
+export const nhanXet = defineCompositeResource('edu.nhanXet', (r) =>
+  r
+    .title('Nhận xét tháng')
+    .action('view', (a) =>
+      a.title('Xem và xuất văn bản').grant('data', nhanXetRead),
+    )
+    .action('write', (a) =>
+      a
+        .title('Viết nhận xét')
+        .grant(
+          'data',
+          nhanXetRead
+            .create([...FIELDS.nhanXetThang.write])
+            .update(['noiDung', 'trangThai']),
+        ),
+    ),
 );

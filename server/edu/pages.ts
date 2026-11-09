@@ -4,4 +4,8 @@ export const PAGES = {
   lop: 'edu.lop',
   hocVien: 'edu.hocVien',
   phuHuynh: 'edu.phuHuynh',
+  diemDanh: 'edu.diemDanh',
+  hocPhi: 'edu.hocPhi',
+  nhanXet: 'edu.nhanXet',
+  baoCao: 'edu.baoCao',
 } as const;

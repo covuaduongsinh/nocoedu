@@ -94,3 +94,15 @@ export function vietQrUrl(
   if (config.accountName) query.set('accountName', config.accountName);
   return `https://img.vietqr.io/image/${encodeURIComponent(config.bankId)}-${encodeURIComponent(config.accountNo)}-compact2.png?${query.toString()}`;
 }
+
+/** Today in Vietnam (UTC+7) as `YYYY-MM-DD`: the club's calendar day, whatever the server's time zone. */
+export function todayVn(now: Date = new Date()): string {
+  return new Date(now.getTime() + 7 * 3_600_000).toISOString().slice(0, 10);
+}
+
+/** `date` moved by `days` (negative goes back); `YYYY-MM-DD` in, `YYYY-MM-DD` out. */
+export function addDays(date: string, days: number): string {
+  return new Date(new Date(`${date}T00:00:00Z`).getTime() + days * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+}

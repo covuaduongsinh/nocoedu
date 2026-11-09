@@ -21,6 +21,7 @@ import {
   isLowBalance,
   LOW_BALANCE_THRESHOLD,
   sessionsToDeduct,
+  todayVn,
   vietQrConfig,
   vietQrUrl,
   weekdayOf,
@@ -83,7 +84,7 @@ const PaymentInput = z.object({
 
 const QrInput = z.object({ goiHocId: Id });
 
-const today = (): string => new Date().toISOString().slice(0, 10);
+const today = (): string => todayVn();
 
 const declare = (summary: string, operationId: string) =>
   describeRoute({

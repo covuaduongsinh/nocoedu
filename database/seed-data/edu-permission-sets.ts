@@ -13,6 +13,7 @@ import {
   lienKet,
   lop,
   lopLich,
+  nhanXet,
   phuHuynh,
   soDu,
   thanhToan,
@@ -79,6 +80,9 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
     thanhToan.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
   )
   .grant(soDu.reference().grant({ view: { data: ALL } }))
+  .grant(
+    nhanXet.reference().grant({ view: { data: ALL }, write: { data: ALL } }),
+  )
   .build();
 
 export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
@@ -140,11 +144,23 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
       .grant({ view: { data: MY_BRANCHES }, manage: { data: MY_BRANCHES } }),
   )
   .grant(soDu.reference().grant({ view: { data: MY_BRANCHES } }))
+  .grant(
+    nhanXet.reference().grant({
+      view: { data: MY_BRANCHES },
+      write: { data: MY_BRANCHES },
+    }),
+  )
   .build();
 
 export const eduHlv = definePermissionSet('edu_hlv')
   .title('NocoEdu - Huấn luyện viên')
-  .grant(page(PAGES.lop), page(PAGES.hocVien))
+  .grant(
+    page(PAGES.lop),
+    page(PAGES.hocVien),
+    page(PAGES.diemDanh),
+    page(PAGES.nhanXet),
+    page(PAGES.baoCao),
+  )
   .grant(coSo.reference().grant({ view: { data: MY_CLASSES } }))
   .grant(lop.reference().grant({ view: { data: MY_CLASSES } }))
   .grant(lopLich.reference().grant({ view: { data: MY_CLASSES } }))
@@ -166,6 +182,12 @@ export const eduHlv = definePermissionSet('edu_hlv')
       .grant({ view: { data: MY_CLASSES }, record: { data: MY_CLASSES } }),
   )
   .grant(soDu.reference().grant({ view: { data: MY_CLASSES } }))
+  .grant(
+    nhanXet.reference().grant({
+      view: { data: MY_CLASSES },
+      write: { data: MY_CLASSES },
+    }),
+  )
   .build();
 
 export const eduKeToan = definePermissionSet('edu_ke_toan')
@@ -175,6 +197,8 @@ export const eduKeToan = definePermissionSet('edu_ke_toan')
     page(PAGES.lop),
     page(PAGES.hocVien),
     page(PAGES.phuHuynh),
+    page(PAGES.hocPhi),
+    page(PAGES.baoCao),
   )
   .grant(coSo.reference().grant({ view: { data: ALL } }))
   .grant(lop.reference().grant({ view: { data: ALL } }))
