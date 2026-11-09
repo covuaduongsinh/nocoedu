@@ -66,11 +66,8 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
 export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
   .title('NocoEdu - Quản lý cơ sở')
   .grant(...everyPage)
-  .grant(
-    coSo
-      .reference()
-      .grant({ view: { data: MY_BRANCHES }, manage: { data: MY_BRANCHES } }),
-  )
+  // A branch manager reads their branch; creating or editing branches is for administrators.
+  .grant(coSo.reference().grant({ view: { data: MY_BRANCHES } }))
   .grant(
     lop
       .reference()

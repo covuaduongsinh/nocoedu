@@ -8,6 +8,7 @@ import {
   defineApiRoutes,
   defineRepositoryApiRoutes,
 } from '@nocobase/app-server/router';
+import { databaseManagerToken } from '@nocobase/db';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 
@@ -23,6 +24,7 @@ import {
   lopLich,
   phuHuynh,
 } from '../edu/permissions.js';
+import { eduError, policiesOf, type EduEnv } from './edu-support.js';
 
 /**
  * Standard record APIs (`POST /api/<name>/findMany|findOne|count|createOne|updateOne|deleteOne`) over the NocoEdu
@@ -47,7 +49,6 @@ const EXPOSURES: readonly Exposure[] = [
     resource: coSo,
     create: true,
     update: FIELDS.coSo.write,
-    remove: true,
   },
   {
     name: 'coSoQuanLy',
@@ -89,12 +90,21 @@ const EXPOSURES: readonly Exposure[] = [
     name: 'lienKet',
     key: 'lienKet',
     resource: lienKet,
-    create: true,
     update: ['quanHe', 'lienHeChinh'],
     remove: true,
   },
   { name: 'dongY', key: 'dongY', resource: dongY },
 ];
+
+/**
+ * A record created through the standard `createOne` must point at a parent the caller may see. The generated route
+ * scopes reads and edits but not the parent a new row names, so these checks run before it: a new class needs a
+ * branch in scope, a new timetable row needs a class in scope.
+ */
+const PARENT_OF_CREATE = {
+  lop: { field: 'coSoId', resource: 'edu.coSo', collection: 'eduCoSo' },
+  lopLich: { field: 'lopId', resource: 'edu.lop', collection: 'eduLop' },
+} as const;
 
 const repositoryRoutes = defineRepositoryApiRoutes({
   repositories: EXPOSURES.map((e) => ({
@@ -123,7 +133,8 @@ export default [
   defineApiRoutes<AppPluginApplication>(async (app) => {
     const auth = app.container.resolve(authenticationToken);
     const authz = app.container.resolve(authorizationToken);
-    const router = new Hono<AuthorizationEnv>();
+    const database = app.container.resolve(databaseManagerToken);
+    const router = new Hono<AuthorizationEnv & EduEnv>();
 
     for (const e of EXPOSURES) {
       // Only the generated method paths: the business routes in `edu-actions.ts` share the first path segment and
@@ -158,6 +169,35 @@ export default [
           guard,
         );
       }
+    }
+    for (const [name, parent] of Object.entries(PARENT_OF_CREATE)) {
+      router.use(`/${name}/createOne`, authz.middleware(), async (c, next) => {
+        const body = (await c.req.raw
+          .clone()
+          .json()
+          .catch(() => null)) as {
+          values?: Record<string, unknown>;
+        } | null;
+        const parentId = Number(body?.values?.[parent.field]);
+        const policy = (await policiesOf(c, parent.resource, 'view'))[
+          parent.collection
+        ];
+        const visible =
+          policy && Number.isInteger(parentId) && parentId > 0
+            ? await database
+                .repository(parent.collection)
+                .withPolicy(policy)
+                .findOne({ filter: { id: parentId } })
+            : null;
+        if (!visible) {
+          throw eduError(
+            'PERMISSION_DENIED',
+            'EDU_OUT_OF_SCOPE',
+            'You may not create a record here.',
+          );
+        }
+        await next();
+      });
     }
     router.route('/', await repositoryRoutes.createRouter(app));
     return new Hono().route('/', router);

@@ -10,3 +10,5 @@ Business code of the club's training system. Read this before changing students,
 - **Record scopes** that depend on a row of the request itself (a student's `coSoId`, a class's `hlvId`) must filter on that column, not on ids fetched earlier in the request, or a row created in the same request is out of scope.
 - **Ids** are auto-increment integers; `ma` (HS00001, PH00001) is the stable code shared with other apps.
 - **Tests** run one file at a time: `pnpm exec vitest run tests/server/edu-scope.test.ts`. They share one application per file, so each case resets the school with `seedSchool` in `tests/helpers/edu.ts`.
+
+- **Writes name a parent.** The generated `createOne` scopes reads and edits, not the parent a new row points at. `edu-data.ts` checks the branch of a new class and the class of a new timetable row; a student's class changes only through `/hocVien/chuyenLop`; parent links are created only by `/phuHuynh/taoMoi`, which reuses a phone number only for a parent the caller already sees. Add the same check for every new collection with a parent id.

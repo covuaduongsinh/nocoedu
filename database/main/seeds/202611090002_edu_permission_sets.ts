@@ -353,15 +353,6 @@ const PERMISSION_SETS: readonly {
                 data: 'edu.myBranches'
               }
             }
-          },
-          {
-            action: 'manage',
-            policy: {
-              type: 'composite',
-              scopes: {
-                data: 'edu.myBranches'
-              }
-            }
           }
         ]
       },

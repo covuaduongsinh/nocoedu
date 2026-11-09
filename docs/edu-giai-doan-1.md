@@ -35,7 +35,7 @@ Năm bộ quyền được tạo một lần bằng seed, không gán cho ai. Qu
 
 Đều cần đăng nhập (hoặc API key); chưa đăng nhập trả 401, thiếu quyền trả 403.
 
-- Bản ghi chuẩn `POST /api/<tên>/findMany|findOne|count|createOne|updateOne|deleteOne` với tên `coSo`, `coSoQuanLy`, `lop`, `lopLich`, `hocVien`, `phuHuynh`, `lienKet`, `dongY` (chỉ các thao tác mỗi tên được mở). Ghi cần header `Idempotency-Key`.
+- Bản ghi chuẩn `POST /api/<tên>/findMany|findOne|count|createOne|updateOne|deleteOne` với tên `coSo`, `coSoQuanLy`, `lop`, `lopLich`, `hocVien`, `phuHuynh`, `lienKet`, `dongY` (chỉ các thao tác mỗi tên được mở). Ghi cần header `Idempotency-Key`. `coSo` không xoá được (đóng cơ sở bằng trạng thái); `lienKet` không tạo được qua đường này (dùng `/api/phuHuynh/taoMoi`); `lop` và `lopLich` chỉ tạo được khi cơ sở hoặc lớp cha nằm trong phạm vi người gọi; đổi lớp của học viên dùng `/api/hocVien/chuyenLop`. Số điện thoại trùng với phụ huynh ngoài phạm vi thì tạo bản ghi phụ huynh riêng, Quản trị gộp sau.
 - Nghiệp vụ: `POST /api/hocVien/taoMoi`, `/hocVien/capNhatGhiChu`, `/hocVien/lenCap`, `/phuHuynh/taoMoi`, `/dongY/ghiNhan`, `/dongY/rutLai`.
 - Cho ứng dụng khác (chỉ đọc, phân trang `page`/`pageSize` tối đa 100): `GET /api/ext/hocVien` trả mã, tên viết tắt, cấp, lớp; `GET /api/ext/phuHuynh` trả mã. Chỉ học viên có đồng ý học tập còn hiệu lực.
 

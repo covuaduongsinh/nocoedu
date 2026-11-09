@@ -105,7 +105,8 @@ export const FIELDS = {
       'levelOrder',
       'soBuoiConLai',
     ],
-    edit: ['hoTen', 'namSinh', 'lopId', 'coSoId', 'trangThai', 'ghiChuHlv'],
+    // The class and the branch change through `/hocVien/chuyenLop`, which checks both stay in the caller's scope.
+    edit: ['hoTen', 'namSinh', 'trangThai', 'ghiChuHlv'],
   },
   lenCap: {
     read: [
@@ -215,10 +216,10 @@ function simple(
   );
 }
 
+// A branch is closed by its status, never deleted (it owns classes and students).
 export const coSo = simple('edu.coSo', 'Cơ sở', 'coSo', {
   create: true,
   update: FIELDS.coSo.write,
-  remove: true,
 });
 export const coSoQuanLy = simple(
   'edu.coSoQuanLy',
@@ -249,7 +250,7 @@ export const lienKet = simple(
   'Phụ huynh của học viên',
   'lienKet',
   {
-    create: true,
+    // Links are created by `/phuHuynh/taoMoi` only, which checks the parent is one the caller may see.
     update: ['quanHe', 'lienHeChinh'],
     remove: true,
   },

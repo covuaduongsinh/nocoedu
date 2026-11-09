@@ -58,6 +58,8 @@ const GhiChuInput = z.object({
   ghiChuHlv: z.string().trim().max(2000),
 });
 
+const ChuyenLopInput = z.object({ id: Id, lopId: Id.nullable() });
+
 const LenCapInput = z.object({
   hocVienId: Id,
   denLevelKey: z.enum(LEVEL_KEYS),
@@ -103,6 +105,7 @@ export default [
     for (const path of [
       '/hocVien/taoMoi',
       '/hocVien/capNhatGhiChu',
+      '/hocVien/chuyenLop',
       '/hocVien/lenCap',
       '/phuHuynh/taoMoi',
       '/dongY/ghiNhan',
@@ -204,6 +207,65 @@ export default [
     );
 
     router.post(
+      '/hocVien/chuyenLop',
+      declare(
+        'Move a student to another class of the same branch',
+        'moveStudent',
+      ),
+      needs('edu.hocVien', 'manage'),
+      apiValidator('json', ChuyenLopInput),
+      async (c) => {
+        const { id, lopId } = c.req.valid('json');
+        const classPolicy = (await policiesOf(c, 'edu.lop', 'view')).eduLop;
+        await database.transaction(async (connection) => {
+          const student = await connection
+            .repository('eduHocVien')
+            .withPolicy(policyOf(c, 'eduHocVien'))
+            .findOne({ filter: { id } });
+          if (!student) {
+            throw eduError(
+              'NOT_FOUND',
+              'EDU_STUDENT_NOT_FOUND',
+              'Student not found.',
+            );
+          }
+          if (lopId != null) {
+            // The class must be one the caller sees and must belong to the student's own branch.
+            const lop = classPolicy
+              ? await connection
+                  .repository('eduLop')
+                  .withPolicy(classPolicy)
+                  .findOne({ filter: { id: lopId } })
+              : null;
+            if (!lop) {
+              throw eduError(
+                'PERMISSION_DENIED',
+                'EDU_OUT_OF_SCOPE',
+                'You may not move a student to this class.',
+              );
+            }
+            if (Number(lop.coSoId) !== Number(student.coSoId)) {
+              throw eduError(
+                'INVALID_ARGUMENT',
+                'EDU_CLASS_NOT_IN_BRANCH',
+                'The class does not belong to this branch.',
+                'lopId',
+              );
+            }
+          }
+          // The policy of the manage action does not let the class column change through the repository; the
+          // checks above are what make this write safe.
+          await connection.query
+            .updateTable('eduHocVien')
+            .set({ lopId })
+            .where('id', '=', id)
+            .execute();
+        });
+        return c.json({ data: { id } });
+      },
+    );
+
+    router.post(
       '/hocVien/lenCap',
       declare('Confirm that a student moved up a level', 'confirmLevelUp'),
       needs('edu.hocVien', 'levelUp'),
@@ -237,11 +299,22 @@ export default [
               'denLevelKey',
             );
           }
-          // The expected current level is part of the predicate: a concurrent confirmation makes this fail.
-          await students.updateOne({
-            filter: { id: input.hocVienId, levelKey: current },
-            values: { levelKey: input.denLevelKey, levelOrder: target },
-          });
+          // The expected current level is part of the predicate: a concurrent confirmation matches no row, and the
+          // transaction stops here instead of writing a second history row.
+          const updated = await connection.query
+            .updateTable('eduHocVien')
+            .set({ levelKey: input.denLevelKey, levelOrder: target })
+            .where('id', '=', input.hocVienId)
+            .where('levelKey', '=', current)
+            .execute();
+          if (updated.updatedCount !== 1) {
+            throw eduError(
+              'FAILED_PRECONDITION',
+              'EDU_LEVEL_CHANGED',
+              'The level of the student has just changed. Reload and try again.',
+              'denLevelKey',
+            );
+          }
           const history = await connection
             .repository('eduHocVienLenCap')
             .withPolicy(historyPolicy)
@@ -300,17 +373,18 @@ export default [
               'Student not found.',
             );
           }
-          // One parent, several children: the same phone number reuses the existing parent record.
-          const existing = await connection.query
-            .selectFrom('eduPhuHuynh')
-            .select(['id', 'ma'])
-            .where('soDienThoai', '=', phone)
-            .executeTakeFirst();
+          // One parent, several children: the same phone number reuses the existing parent record, but only one
+          // the caller may already see. A parent of another branch is never reused (that would link the caller to
+          // it and expose its details); a separate record is created instead and an administrator merges them.
+          const existing = await connection
+            .repository('eduPhuHuynh')
+            .withPolicy(policyOf(c, 'eduPhuHuynh'))
+            .findOne({ filter: { soDienThoai: phone } });
           let id: number;
           let ma: string;
           if (existing) {
             id = Number(existing.id);
-            ma = String(existing.ma);
+            ma = asText(existing.ma);
           } else {
             const created = await connection
               .repository('eduPhuHuynh')

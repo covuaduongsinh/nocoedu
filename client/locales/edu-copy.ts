@@ -73,6 +73,18 @@ const ROWS: readonly Row[] = [
     '新级别必须高于当前级别。',
   ],
   [
+    'errors.EDU_LEVEL_CHANGED',
+    'Cấp của học viên vừa thay đổi. Hãy tải lại rồi thử lại.',
+    'The level of the student has just changed. Reload and try again.',
+    '学员级别刚刚发生变化，请刷新后重试。',
+  ],
+  [
+    'errors.EDU_OUT_OF_SCOPE',
+    'Bạn không được thao tác trên dữ liệu của cơ sở hoặc lớp này.',
+    'You may not work on the data of this branch or class.',
+    '您无权操作此分校或班级的数据。',
+  ],
+  [
     'errors.PERMISSION_DENIED',
     'Bạn không có quyền thực hiện thao tác này.',
     'You are not allowed to do this.',
