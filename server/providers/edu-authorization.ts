@@ -17,6 +17,8 @@ export default class EduAuthorizationProvider extends ServiceProvider<AppPluginA
   readonly name = 'app.edu-authorization';
 
   override boot(): Promise<void> {
+    // Without the authorization plugin (a runtime composed without it) there is nothing to register with.
+    if (!this.app.container.has(authorizationToken)) return Promise.resolve();
     const authz: AppAuthorization =
       this.app.container.resolve(authorizationToken);
     const database = this.app.container.resolve(databaseManagerToken);

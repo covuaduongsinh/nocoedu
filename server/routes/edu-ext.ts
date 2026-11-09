@@ -43,7 +43,8 @@ export default [
     const database = app.container.resolve(databaseManagerToken);
     const router = new Hono<EduEnv>();
 
-    router.use('/ext/*', auth.required(), authz.middleware());
+    router.use('/ext/hocVien', auth.required(), authz.middleware());
+    router.use('/ext/phuHuynh', auth.required(), authz.middleware());
 
     /** Student ids with a learning consent that was given and not withdrawn. */
     const consentedStudentIds = async (): Promise<number[]> => {

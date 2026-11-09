@@ -99,12 +99,22 @@ export default [
     const database = app.container.resolve(databaseManagerToken);
     const router = new Hono<EduEnv>();
 
-    router.use(
-      '*',
-      auth.required(),
-      authz.middleware(),
-      bodyLimit({ maxSize: 16 * 1024 }),
-    );
+    // Only the paths this router owns are guarded: a global `*` guard would answer 401 for paths no route owns.
+    for (const path of [
+      '/hocVien/taoMoi',
+      '/hocVien/capNhatGhiChu',
+      '/hocVien/lenCap',
+      '/phuHuynh/taoMoi',
+      '/dongY/ghiNhan',
+      '/dongY/rutLai',
+    ]) {
+      router.use(
+        path,
+        auth.required(),
+        authz.middleware(),
+        bodyLimit({ maxSize: 16 * 1024 }),
+      );
+    }
 
     // --- Student -----------------------------------------------------------------------------------------------
     router.post(

@@ -125,7 +125,6 @@ export default [
     const authz = app.container.resolve(authorizationToken);
     const router = new Hono<AuthorizationEnv>();
 
-    router.use('*', auth.required(), bodyLimit({ maxSize: 64 * 1024 }));
     for (const e of EXPOSURES) {
       // Only the generated method paths: the business routes in `edu-actions.ts` share the first path segment and
       // carry their own authorization.
@@ -150,7 +149,15 @@ export default [
           ...(e.remove ? { deleteOne: 'manage' } : {}),
         },
       } as never);
-      for (const method of methods) router.use(`/${e.name}/${method}`, guard);
+      // Scoped to the exposure's own method paths: a global `*` guard would answer 401 for paths no route owns.
+      for (const method of methods) {
+        router.use(
+          `/${e.name}/${method}`,
+          auth.required(),
+          bodyLimit({ maxSize: 64 * 1024 }),
+          guard,
+        );
+      }
     }
     router.route('/', await repositoryRoutes.createRouter(app));
     return new Hono().route('/', router);

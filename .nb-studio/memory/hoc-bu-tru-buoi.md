@@ -1,0 +1,12 @@
+---
+name: hoc-bu-tru-buoi
+description: Quy tắc tạm chốt cho buổi học bù khi trừ số dư buổi, chờ chủ dự án xác nhận.
+type: project
+modified: 2026-11-09
+---
+
+Buổi **học bù** trừ 1 buổi khi cơ sở để "vắng có phép không trừ", và trừ 0 khi cơ sở để "vắng có phép có trừ". Vắng có phép: trừ 0 hoặc 1 theo cấu hình của cơ sở (`eduCoSo.truBuoiVangCoPhep`). Có mặt và vắng không phép luôn trừ 1.
+
+**Vì sao:** mô tả DS-57 chỉ nêu "có mặt hoặc vắng không phép" bị trừ, không nói về học bù. Nếu học bù luôn trừ 0, học viên vắng có phép rồi đi học bù sẽ được thêm một buổi miễn phí. Đây là mặc định do Trưởng nhóm agent chốt theo khuyến nghị của approach, chưa phải quyết định của chủ dự án.
+
+**Cách áp dụng:** cài đặt ở bước B2 (điểm danh và số dư) theo đúng bảng trên; nêu lại quy tắc này trong báo cáo bàn giao để chủ dự án đổi nếu cần. Khi chủ dự án trả lời, sửa file này thay vì thêm file mới.
