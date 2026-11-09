@@ -200,38 +200,75 @@ export async function chayNhap(
 
   const startedAt = new Date();
   const userId = options.userId as string;
+  let result: Awaited<ReturnType<typeof ghiKeHoach>>;
   try {
-    const result = await ghiKeHoach(database, plan, { userId });
-    const done = {
-      ...report,
-      written: result.written,
-      ledgerRows: result.ledgerRows,
-    };
+    result = await ghiKeHoach(database, plan, { userId });
+  } catch (error) {
+    // The transaction rolled back. The failure is kept in its own row as codes and identifiers only (no message that
+    // could hold a value), and the command names the table or constraint that refused the write.
+    const hint = identifiersOf(error);
+    try {
+      await ghiNhatKy(database, {
+        batDauLuc: startedAt,
+        nguoiChayId: userId,
+        trangThai: 'that_bai',
+        tongKet: {
+          ...report,
+          // the balance table is left out of a failure row: it is large and says nothing about the failure
+          balance: { ...report.balance, rows: [] },
+          error: error instanceof LarkImportError ? error.code : 'GHI_THAT_BAI',
+          ...(hint ? { hint } : {}),
+        },
+      });
+    } catch {
+      // The write failed first; a log row that cannot be written changes nothing for the person reading the error.
+    }
+    throw error instanceof LarkImportError
+      ? error
+      : new LarkImportError(
+          'LARK_GHI_THAT_BAI',
+          `The write failed and was rolled back${hint ? ` (refused by: ${hint})` : ''}; see the log row of this run.`,
+        );
+  }
+
+  // The data is committed from here on. A failure to write the log row must not be reported as a rollback, and it
+  // must not add a "failed" row: running the command again shows every row as a duplicate.
+  const done = {
+    ...report,
+    written: result.written,
+    ledgerRows: result.ledgerRows,
+  };
+  try {
     await ghiNhatKy(database, {
       batDauLuc: startedAt,
       nguoiChayId: userId,
       trangThai: 'thanh_cong',
       tongKet: done,
     });
-    return done;
-  } catch (error) {
-    // The transaction rolled back; the failure is kept in its own row, as a code and no message that could hold a value.
-    await ghiNhatKy(database, {
-      batDauLuc: startedAt,
-      nguoiChayId: userId,
-      trangThai: 'that_bai',
-      tongKet: {
-        ...report,
-        // the balance table is left out of a failure row: it is large and says nothing about the failure
-        balance: { ...report.balance, rows: [] },
-        error: error instanceof LarkImportError ? error.code : 'GHI_THAT_BAI',
-      },
-    });
-    throw error instanceof LarkImportError
-      ? error
-      : new LarkImportError(
-          'LARK_GHI_THAT_BAI',
-          'The write failed and was rolled back; see the log row of this run.',
-        );
+  } catch {
+    throw new LarkImportError(
+      'LARK_DA_GHI_LOI_NHAT_KY',
+      'The data was written and committed, but the log row could not be written. Nothing was rolled back; run --dry-run to see every row as a duplicate.',
+    );
   }
+  return done;
+}
+
+/**
+ * Names of the tables, columns or constraints in a database error, never the values: `UNIQUE constraint failed:
+ * eduCoSo.ma` (SQLite) or `constraint "uq_edu_co_so_ma"` (PostgreSQL). Anything else gives an empty string.
+ */
+export function identifiersOf(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  const names: string[] = [];
+  const sqlite =
+    /(?:UNIQUE|NOT NULL|FOREIGN KEY|CHECK) constraint failed: ([\w.]+(?:, [\w.]+)*)/u.exec(
+      message,
+    );
+  if (sqlite?.[1]) names.push(sqlite[1]);
+  for (const match of message.matchAll(
+    /(?:constraint|relation|table|column) "(\w+)"/gu,
+  ))
+    if (match[1]) names.push(match[1]);
+  return [...new Set(names)].join('; ');
 }

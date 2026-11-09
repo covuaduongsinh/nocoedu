@@ -343,6 +343,65 @@ describe('what NocoEdu already holds', () => {
   });
 });
 
+describe('sessions the school already holds', () => {
+  it('reports a session typed by hand on the same class, day and hour instead of failing the whole run', () => {
+    const key = `lark:buoi:${IDS.lopA}:2025-02-03`;
+    const p = plan({
+      ...EMPTY_STATE,
+      sessions: new Set([`${IDS.lopA}|2025-02-03|18:15`]),
+    });
+    expect(p.problems).toContainEqual({
+      table: 'buoiHoc',
+      id: key,
+      code: 'BUOI_DA_CO',
+    });
+    // Both students of that session are left out of it; the rest of the run is unchanged.
+    expect(
+      p.problems.filter(
+        (x) => x.code === 'BUOI_DA_CO' && x.table === 'diemDanh',
+      ),
+    ).toHaveLength(2);
+    expect(p.buoiHoc.map((row) => row.externalId)).not.toContain(key);
+    expect(p.buoiHoc).toHaveLength(4);
+    // A session that came from an earlier run of this import is a duplicate, not a conflict.
+    const again = plan({
+      ...EMPTY_STATE,
+      sessions: new Set([`${IDS.lopA}|2025-02-03|18:15`]),
+      externalIds: { ...EMPTY_STATE.externalIds, buoiHoc: new Set([key]) },
+    });
+    expect(again.problems.some((x) => x.code === 'BUOI_DA_CO')).toBe(false);
+  });
+});
+
+describe('what is printed', () => {
+  it('never holds a phone number, even when a parent cannot be paired', () => {
+    const data = fixtureData();
+    const s1 = data.hocVien.find((r) => r.recordId === IDS.s1);
+    // Two names, one phone: the parent is left out and the student keeps a warning.
+    (s1?.fields as Record<string, unknown>)['Họ tên PH'] = {
+      type: 1,
+      value: [
+        { text: 'Phụ huynh Mẫu 01', type: 'text' },
+        { text: 'Phụ huynh Mẫu 99', type: 'text' },
+      ],
+    };
+    const p = lapKeHoach(data, EMPTY_STATE, { unexcusedAbsenceDeducts: false });
+    expect(p.problems).toContainEqual({
+      table: 'phuHuynh',
+      id: IDS.s1,
+      code: 'PH_KHONG_GHEP_DUOC',
+    });
+    const report = taoBaoCao(p, 'dry-run');
+    const text = [
+      ...inBaoCao(report),
+      JSON.stringify(report),
+      JSON.stringify(p.problems),
+      JSON.stringify(p.warnings),
+    ].join('\n');
+    expect(text).not.toMatch(/0900|900000|lark:ph:/u);
+  });
+});
+
 describe('the report and the options', () => {
   it('prints counts, codes and Lark ids, never a name, phone, email or date of birth', () => {
     const report = taoBaoCao(plan(), 'dry-run');

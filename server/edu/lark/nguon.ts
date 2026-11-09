@@ -117,6 +117,8 @@ export async function readLarkData(
 
 export interface LarkCliOptions {
   readonly env?: Readonly<Record<string, string | undefined>>;
+  /** Milliseconds a single `lark-cli` run may take before it is stopped. */
+  readonly callTimeoutMs?: number;
   /** Milliseconds to wait between two calls. */
   readonly delayMs?: number;
   /** Test hook: replaces the real wait. */
@@ -139,6 +141,43 @@ export interface LarkCliSource extends LarkSource {
 const defaultSleep = (milliseconds: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 
+/** Variables a child process may inherit: where to find programs, temporary files, proxies and certificates. */
+const CHILD_ENV_ALLOWED = new Set([
+  'PATH',
+  'HOME',
+  'TMPDIR',
+  'TMP',
+  'TEMP',
+  'LANG',
+  'LC_ALL',
+  'SSL_CERT_FILE',
+  'SSL_CERT_DIR',
+  'NODE_EXTRA_CA_CERTS',
+  'HTTP_PROXY',
+  'HTTPS_PROXY',
+  'ALL_PROXY',
+  'NO_PROXY',
+]);
+
+export function childEnvironment(
+  env: Readonly<Record<string, string | undefined>>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(env)) {
+    if (value === undefined) continue;
+    if (
+      CHILD_ENV_ALLOWED.has(name.toUpperCase()) ||
+      name.startsWith('LARKSUITE_CLI_')
+    )
+      out[name] = value;
+  }
+  return out;
+}
+
+/** A call that does not answer in this time is abandoned: the token request and each `lark-cli` run. */
+export const LARK_TOKEN_TIMEOUT_MS = 30_000;
+export const LARK_CALL_TIMEOUT_MS = 120_000;
+
 async function fetchTenantToken(credentials: {
   appId: string;
   appSecret: string;
@@ -156,8 +195,14 @@ async function fetchTenantToken(credentials: {
         app_id: credentials.appId,
         app_secret: credentials.appSecret,
       }),
+      signal: AbortSignal.timeout(LARK_TOKEN_TIMEOUT_MS),
     },
-  );
+  ).catch(() => {
+    throw new LarkImportError(
+      'LARK_TOKEN',
+      'The request for the tenant access token failed or timed out.',
+    );
+  });
   const body = (await response.json()) as {
     code?: number;
     tenant_access_token?: string;
@@ -206,9 +251,9 @@ export async function createLarkCliSource(
   const getToken = options.fetchToken ?? fetchTenantToken;
   const workDir = await mkdtemp(path.join(os.tmpdir(), 'lark-cli-'));
 
-  // The child gets the tenant token, not the app secret: the secret stays in this process.
-  const childEnv: Record<string, string | undefined> = { ...process.env };
-  delete childEnv.LARK_APP_SECRET;
+  // The child gets an allow-list, not the whole environment: it must never see the app secret, the database password,
+  // `APP_KEY` or any auth secret of the application. It gets the tenant token through `LARKSUITE_CLI_*` below.
+  const childEnv = childEnvironment(process.env);
   let token = '';
   let tokenExpiresAt = 0;
   let lastCall = 0;
@@ -247,6 +292,7 @@ export async function createLarkCliSource(
           {
             encoding: 'utf8',
             maxBuffer: 256 * 1024 * 1024,
+            timeout: options.callTimeoutMs ?? LARK_CALL_TIMEOUT_MS,
             env: {
               ...childEnv,
               LARKSUITE_CLI_APP_ID: credentials.appId,
@@ -265,7 +311,16 @@ export async function createLarkCliSource(
         stdout = child.stdout;
       } catch (error) {
         // `lark-cli` exits non-zero with the JSON error on stdout when Lark refuses; anything else is a real failure.
-        const failed = error as { stdout?: string; code?: string };
+        const failed = error as {
+          stdout?: string;
+          code?: string;
+          killed?: boolean;
+        };
+        if (failed.killed === true)
+          throw new LarkImportError(
+            'LARK_HET_GIO',
+            `lark-cli did not answer in time for GET ${template}.`,
+          );
         if (failed.code === 'ENOENT')
           throw new LarkImportError(
             'LARK_CLI_THIEU',

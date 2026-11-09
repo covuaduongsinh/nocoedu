@@ -372,15 +372,54 @@ test('a student already in NocoEdu is merged, not duplicated, and nothing of it 
   });
 });
 
-test('a failure rolls back everything and is logged as a failure with a code only', async ({
+test('a failure rolls back everything and is logged as a failure with a code and the refused names only', async ({
   database,
   connection,
 }) => {
   await reset(connection);
   const q = connection.query;
   const userId = await adminId(connection);
-  // A session typed by hand on the same class, day and hour as one from Lark: the unique index refuses the insert
-  // after branches, classes, parents and students were already written in the same transaction.
+  // A branch typed by hand with the code "KL" but another Lark id: the plan creates "KL", and the unique index on the
+  // code refuses it, after nothing else was written yet; everything done before the refusal must be undone.
+  await q
+    .insertInto('eduCoSo')
+    .values({ ma: 'KL', ten: 'Kim Liên', externalId: 'lark:coSo:khac' })
+    .execute();
+  const before = await counts(connection);
+
+  const failure = await chayNhap(
+    database,
+    fixtureSource(),
+    options(userId),
+  ).catch((error: Error & { code?: string }) => error);
+  expect(failure).toMatchObject({ code: 'LARK_GHI_THAT_BAI' });
+  // The message names the table and column that refused, never a value.
+  expect((failure as Error).message).toMatch(/edu_co_so\.ma|uq_edu_co_so_ma/u);
+  const after = await counts(connection);
+  expect({ ...after, eduNhapLarkNhatKy: 0 }).toEqual({
+    ...before,
+    eduNhapLarkNhatKy: 0,
+  });
+  const logRows = await q
+    .selectFrom('eduNhapLarkNhatKy')
+    .select(['trangThai', 'tongKet'])
+    .execute();
+  expect(logRows).toHaveLength(1);
+  expect(logRows[0].trangThai).toBe('that_bai');
+  expect(logRows[0].tongKet.error).toBe('GHI_THAT_BAI');
+  expect(logRows[0].tongKet.hint).toMatch(/edu_co_so\.ma|uq_edu_co_so_ma/u);
+  expect(JSON.stringify(logRows[0])).not.toMatch(
+    /Mẫu 0|0900|example\.com|constraint failed/iu,
+  );
+});
+
+test('a session typed by hand does not stop the run: it is reported and its attendance is left out', async ({
+  database,
+  connection,
+}) => {
+  await reset(connection);
+  const q = connection.query;
+  const userId = await adminId(connection);
   await q.insertInto('eduCoSo').values({ ma: 'KL', ten: 'Kim Liên' }).execute();
   const branch = await q
     .selectFrom('eduCoSo')
@@ -412,37 +451,63 @@ test('a failure rolls back everything and is logged as a failure with a code onl
       gioKetThuc: '19:15',
     })
     .execute();
-  const before = await counts(connection);
 
-  await expect(
-    chayNhap(database, fixtureSource(), options(userId)),
-  ).rejects.toMatchObject({
-    code: 'LARK_GHI_THAT_BAI',
-  });
-  const after = await counts(connection);
-  expect({ ...after, eduNhapLarkNhatKy: 0 }).toEqual({
-    ...before,
-    eduNhapLarkNhatKy: 0,
-  });
-  expect(
-    (
-      await q
-        .selectFrom('eduCoSo')
-        .select('externalId')
-        .where('ma', '=', 'KL')
-        .executeTakeFirstOrThrow()
-    ).externalId,
-  ).toBeNull();
-  const logRows = await q
-    .selectFrom('eduNhapLarkNhatKy')
-    .select(['trangThai', 'tongKet'])
-    .execute();
-  expect(logRows).toHaveLength(1);
-  expect(logRows[0].trangThai).toBe('that_bai');
-  expect(logRows[0].tongKet.error).toBe('GHI_THAT_BAI');
-  expect(JSON.stringify(logRows[0])).not.toMatch(
-    /Mẫu 0|0900|example\.com|unique|constraint/iu,
+  const report = await chayNhap(database, fixtureSource(), options(userId));
+  expect(report.problems).toContainEqual(
+    expect.objectContaining({ table: 'buoiHoc', code: 'BUOI_DA_CO', count: 1 }),
   );
+  // 4 sessions from Lark plus the one typed by hand; the 2 attendance rows of that session were not written.
+  expect(await q.selectFrom('eduBuoiHoc').select('id').execute()).toHaveLength(
+    5,
+  );
+  expect(await q.selectFrom('eduDiemDanh').select('id').execute()).toHaveLength(
+    4,
+  );
+  const s1 = await q
+    .selectFrom('eduHocVien')
+    .select('soBuoiConLai')
+    .where('externalId', '=', IDS.s1)
+    .executeTakeFirstOrThrow();
+  // 5 − the one session attended after the cut-off that was written (02-17).
+  expect(s1.soBuoiConLai).toBe(4);
+});
+
+test('a log row that cannot be written after the commit is reported as such, not as a rollback', async ({
+  database,
+  connection,
+}) => {
+  await reset(connection);
+  const userId = await adminId(connection);
+  // The first transaction writes the data; the second (the log row) fails.
+  let transactions = 0;
+  const flaky = new Proxy(database, {
+    get(target, property) {
+      if (property === 'transaction')
+        return (run: never) =>
+          ++transactions === 2
+            ? Promise.reject(new Error('the log could not be written'))
+            : target.transaction(run);
+      const value = Reflect.get(target, property);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  await expect(
+    chayNhap(flaky, fixtureSource(), options(userId)),
+  ).rejects.toMatchObject({
+    code: 'LARK_DA_GHI_LOI_NHAT_KY',
+  });
+  // The data is there, no "failed" row was added, and a second run finds only duplicates.
+  expect(
+    await connection.query.selectFrom('eduHocVien').select('id').execute(),
+  ).toHaveLength(3);
+  expect(
+    await connection.query
+      .selectFrom('eduNhapLarkNhatKy')
+      .select('id')
+      .execute(),
+  ).toHaveLength(0);
+  const again = await chayNhap(database, fixtureSource(), dry);
+  expect(again.tables.hocVien).toMatchObject({ tao: 0, trung: 3 });
 });
 
 test('--commit refuses a user that does not exist and a structure that changed, writing nothing', async ({

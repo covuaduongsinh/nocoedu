@@ -96,6 +96,24 @@ export async function docTrangThaiHienCo(
       .filter((phone) => phone !== ''),
     coSoDu: withPackage.has(Number(row.id)) || Number(row.soBuoiConLai) !== 0,
   }));
+  const importedClasses = new Map(
+    (
+      await query
+        .selectFrom('eduLop')
+        .select(['id', 'externalId'])
+        .where('externalId', 'is not', null)
+        .execute()
+    ).map((row) => [Number(row.id), asText(row.externalId)]),
+  );
+  const sessions = new Set<string>();
+  for (const row of await query
+    .selectFrom('eduBuoiHoc')
+    .select(['lopId', 'ngay', 'gioBatDau'])
+    .execute()) {
+    const lop = importedClasses.get(Number(row.lopId));
+    if (lop)
+      sessions.add(`${lop}|${asText(row.ngay)}|${asText(row.gioBatDau)}`);
+  }
   const usersByEmail = new Map<string, string>();
   for (const row of await query
     .selectFrom('user')
@@ -111,6 +129,7 @@ export async function docTrangThaiHienCo(
     parentsByPhone,
     students,
     usersByEmail,
+    sessions,
   };
 }
 

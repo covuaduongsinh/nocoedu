@@ -87,6 +87,11 @@ export interface ExistingState {
   readonly students: readonly ExistingStudent[];
   /** NocoEdu user ids by lower-case email, to match "GV Phụ trách". */
   readonly usersByEmail: ReadonlyMap<string, string>;
+  /**
+   * Sessions NocoEdu already holds for a class that came from Lark, as `<Lark class id>|<day>|<start time>`: the unique
+   * index (class, day, start) refuses a second one, so the plan reports it instead of letting the whole run fail.
+   */
+  readonly sessions: ReadonlySet<string>;
 }
 
 export const EMPTY_STATE: ExistingState = {
@@ -103,6 +108,7 @@ export const EMPTY_STATE: ExistingState = {
   parentsByPhone: new Map(),
   students: [],
   usersByEmail: new Map(),
+  sessions: new Set(),
 };
 
 export interface PlanOptions {
@@ -468,7 +474,7 @@ export function lapKeHoach(
         }
         const key = `lark:ph:${phone}`;
         if (!name) {
-          fail('phuHuynh', key, 'PH_THIEU_TEN');
+          fail('phuHuynh', id, 'PH_THIEU_TEN');
           continue;
         }
         if (!phuHuynh.has(key)) {
@@ -566,6 +572,7 @@ export function lapKeHoach(
   const diemDanh: DiemDanhRow[] = [];
   const balances: BalanceRow[] = [];
   const seenPairs = new Set<string>();
+  const conflictingSessions = new Set<string>();
 
   const byStudent = new Map<string, RawAttendance[]>();
   for (const row of raw)
@@ -631,6 +638,19 @@ export function lapKeHoach(
       const time = lichOf.get(row.lopKey);
       if (!time) {
         fail('diemDanh', row.id, 'GIO_BUOI_KHONG_RO');
+        continue;
+      }
+      const buoiKey = `lark:buoi:${row.lopKey}:${row.ngay}`;
+      if (
+        existing.sessions.has(`${row.lopKey}|${row.ngay}|${time.gioBatDau}`) &&
+        !existing.externalIds.buoiHoc.has(buoiKey)
+      ) {
+        // The school already holds a session of this class, day and hour that did not come from this import.
+        if (!conflictingSessions.has(buoiKey)) {
+          conflictingSessions.add(buoiKey);
+          fail('buoiHoc', buoiKey, 'BUOI_DA_CO');
+        }
+        fail('diemDanh', row.id, 'BUOI_DA_CO');
         continue;
       }
       const pair = `${row.lopKey}|${row.ngay}|${student.externalId}`;

@@ -41,6 +41,7 @@ afterEach(async () => {
 /** Writes the fake binary, the data it serves and the files it records into; returns the paths. */
 async function fakeCli(options: {
   rateLimitOnce?: boolean;
+  hang?: boolean;
   refuse?: string;
 }): Promise<{ bin: string; log: string }> {
   const data = fixtureData();
@@ -68,8 +69,10 @@ fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({
   args,
   token: process.env.LARKSUITE_CLI_TENANT_ACCESS_TOKEN,
   configDir: process.env.LARKSUITE_CLI_CONFIG_DIR,
+  envNames: Object.keys(process.env),
   hasSecretEnv: Object.values(process.env).some((v) => String(v).includes(${JSON.stringify(SECRET)})),
 }) + '\\n');
+if (${JSON.stringify(options.hang ?? false)}) setTimeout(() => {}, 60000);
 const match = /tables\\/(tbl\\w+)\\/(fields|records)$/.exec(apiPath);
 const out = (body) => process.stdout.write(JSON.stringify(body));
 if (!match || !tables[match[1]]) { out({ ok: false, error: { code: 1254041 } }); process.exit(1); }
@@ -110,6 +113,7 @@ const calls = async (log: string) =>
           token: string;
           configDir: string;
           hasSecretEnv: boolean;
+          envNames: string[];
         },
     );
 
@@ -211,6 +215,60 @@ describe('reading the Base through lark-cli', () => {
     });
     await expect(source.fieldNames('lopHoc')).rejects.toMatchObject({
       code: 'LARK_CLI_THIEU',
+    });
+    await source.close();
+  });
+});
+
+describe('what the child process may see and how long it may take', () => {
+  it('gets an allow-list of environment variables, never the secrets of the application', async () => {
+    const { bin, log } = await fakeCli({});
+    const secrets = {
+      DATABASE_PASSWORD: 'db-password-for-tests',
+      APP_KEY: 'app-key-for-tests',
+      BETTER_AUTH_SECRET: 'auth-secret-for-tests',
+      LARK_APP_SECRET: SECRET,
+    };
+    const previous = Object.fromEntries(
+      Object.keys(secrets).map((name) => [name, process.env[name]]),
+    );
+    Object.assign(process.env, secrets);
+    try {
+      const source = await createLarkCliSource({
+        env: env(bin),
+        delayMs: 0,
+        sleep: async () => {},
+        fetchToken: async () => ({ token: TOKEN, expiresInSeconds: 7200 }),
+      });
+      await source.fieldNames('lopHoc');
+      await source.close();
+    } finally {
+      for (const [name, value] of Object.entries(previous))
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+    }
+    const [first] = await calls(log);
+    const names = first?.envNames ?? [];
+    for (const secret of Object.keys(secrets))
+      expect(names).not.toContain(secret);
+    expect(names).toContain('PATH');
+    expect(names).toContain('LARKSUITE_CLI_TENANT_ACCESS_TOKEN');
+    const allowed =
+      /^(LARKSUITE_CLI_.*|PWD|PATH|HOME|TMPDIR|TMP|TEMP|LANG|LC_ALL|SSL_CERT_FILE|SSL_CERT_DIR|NODE_EXTRA_CA_CERTS|HTTPS?_PROXY|ALL_PROXY|NO_PROXY)$/iu;
+    expect(names.filter((name) => !allowed.test(name))).toEqual([]);
+  });
+
+  it('stops a lark-cli run that does not answer in time', async () => {
+    const { bin } = await fakeCli({ hang: true });
+    const source = await createLarkCliSource({
+      env: env(bin),
+      delayMs: 0,
+      callTimeoutMs: 300,
+      sleep: async () => {},
+      fetchToken: async () => ({ token: TOKEN, expiresInSeconds: 7200 }),
+    });
+    await expect(source.fieldNames('lopHoc')).rejects.toMatchObject({
+      code: 'LARK_HET_GIO',
     });
     await source.close();
   });

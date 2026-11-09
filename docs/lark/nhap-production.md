@@ -6,7 +6,7 @@ Framework đặt lệnh riêng của ứng dụng dưới topic `app`, nên lệ
 
 ## Lệnh làm gì
 
-1. Đọc **5 bảng** của Base qua `lark-cli api GET … --as bot` (app bot, không OAuth người dùng): LopHoc, HocVien, "2024 Nhận xét mỗi buổi", "2025 Nhận xét mỗi buổi" và Level (12 dòng, chỉ để biết tên cấp). Đọc theo trang 500 dòng, nghỉ `--delay-ms` (mặc định 1200 ms) giữa hai lần gọi, gặp lỗi tần suất `99991400` thì chờ lâu dần rồi thử lại. Khoảng 3.400 bản ghi, chừng 10 lần gọi.
+1. Đọc **5 bảng** của Base qua `lark-cli api GET … --as bot` (app bot, không OAuth người dùng): LopHoc, HocVien, "2024 Nhận xét mỗi buổi", "2025 Nhận xét mỗi buổi" và Level (12 dòng, chỉ để biết tên cấp). Đọc theo trang 500 dòng, mỗi lần gọi `lark-cli` tối đa 120 giây và yêu cầu token tối đa 30 giây (quá hạn thì dừng với `LARK_HET_GIO` hoặc `LARK_TOKEN`), nghỉ `--delay-ms` (mặc định 1200 ms) giữa hai lần gọi, gặp lỗi tần suất `99991400` thì chờ lâu dần rồi thử lại. Khoảng 3.400 bản ghi, chừng 10 lần gọi.
 2. Trước khi đọc bản ghi, kiểm danh sách trường của từng bảng. Thiếu hoặc đổi tên một trường thì dừng với `LARK_CAU_TRUC_DOI`, không đoán.
 3. Dữ liệu chỉ nằm trong bộ nhớ của lệnh; không ghi ra file, CSV hay log.
 4. Lập **một kế hoạch** (hàm thuần `lapKeHoach`) theo thứ tự cơ sở → lớp và lịch → phụ huynh → học viên → gói mở đầu → buổi và điểm danh. `--dry-run` chỉ in kế hoạch; `--commit` ghi đúng kế hoạch đó nên hai chế độ không thể lệch nhau.
@@ -23,15 +23,16 @@ Framework đặt lệnh riêng của ứng dụng dưới topic `app`, nên lệ
 
 ### Mã lỗi và cảnh báo
 
-| Mã                                                                                                | Ý nghĩa                                                                                              |
-| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `THIEU_HO_TEN`, `THIEU_NAM_SINH`, `CO_SO_KHONG_RO`, `CAP_KHONG_RO`, `TRANG_THAI_KHONG_RO`         | học viên bị bỏ                                                                                       |
-| `TRUNG_NHIEU`                                                                                     | khớp nhiều học viên có sẵn, bỏ dòng                                                                  |
-| `SDT_SAI`, `PH_THIEU_TEN`, `PH_KHONG_GHEP_DUOC`                                                   | phụ huynh bị bỏ; học viên vẫn nhập với cảnh báo `THIEU_PHU_HUYNH`                                    |
-| `SO_DU_KHONG_RO`, `THIEU_NGAY_CHOT`                                                               | không tạo gói mở đầu cho học viên đó                                                                 |
-| `DIEM_DANH_KHONG_RO`                                                                              | ô "có mặt" không phải `1`/`0`/`FALSE` (ví dụ `học lớp 2`, tên giáo viên): không nhập, không trừ buổi |
-| `HOC_VIEN_BI_BO`, `LOP_KHONG_RO`, `LOP_BI_BO`, `NGAY_KHONG_RO`, `GIO_BUOI_KHONG_RO`, `TRUNG_DONG` | dòng điểm danh bị bỏ                                                                                 |
-| `KHONG_CO_SO_DU`, `HLV_CHUA_GHEP`, `EMAIL_SAI`, `NHAN_XET_CAT`                                    | cảnh báo, vẫn nhập                                                                                   |
+| Mã                                                                                                | Ý nghĩa                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `THIEU_HO_TEN`, `THIEU_NAM_SINH`, `CO_SO_KHONG_RO`, `CAP_KHONG_RO`, `TRANG_THAI_KHONG_RO`         | học viên bị bỏ                                                                                                                                    |
+| `TRUNG_NHIEU`                                                                                     | khớp nhiều học viên có sẵn, bỏ dòng                                                                                                               |
+| `SDT_SAI`, `PH_THIEU_TEN`, `PH_KHONG_GHEP_DUOC`                                                   | phụ huynh bị bỏ; học viên vẫn nhập với cảnh báo `THIEU_PHU_HUYNH`                                                                                 |
+| `SO_DU_KHONG_RO`, `THIEU_NGAY_CHOT`                                                               | không tạo gói mở đầu cho học viên đó                                                                                                              |
+| `DIEM_DANH_KHONG_RO`                                                                              | ô "có mặt" không phải `1`/`0`/`FALSE` (ví dụ `học lớp 2`, tên giáo viên): không nhập, không trừ buổi                                              |
+| `BUOI_DA_CO`                                                                                      | NocoEdu đã có một buổi của lớp đó cùng ngày, cùng giờ (nhập tay, hoặc HLV đã điểm danh): buổi đó và điểm danh của nó bị bỏ, phần còn lại vẫn nhập |
+| `HOC_VIEN_BI_BO`, `LOP_KHONG_RO`, `LOP_BI_BO`, `NGAY_KHONG_RO`, `GIO_BUOI_KHONG_RO`, `TRUNG_DONG` | dòng điểm danh bị bỏ                                                                                                                              |
+| `KHONG_CO_SO_DU`, `HLV_CHUA_GHEP`, `EMAIL_SAI`, `NHAN_XET_CAT`                                    | cảnh báo, vẫn nhập                                                                                                                                |
 
 Output, nhật ký và log **chỉ** có số dòng, mã học viên cũ trên Lark (`HV-…`), mã bản ghi Lark (`rec…`) và mã lỗi; không có họ tên, SĐT, email, ngày sinh hay nhận xét.
 
@@ -49,17 +50,18 @@ Các bước dành cho người có quyền vào server (Dokploy). Không đưa 
    | `LARK_CLI`                                      | đường dẫn `lark-cli` (mặc định tìm `lark-cli` trên `PATH`)                                |
    | `EDU_TRU_BUOI_VANG_KHONG_PHEP`                  | không đặt (mặc định không trừ buổi khi vắng)                                              |
 
-   Secret chỉ dùng để xin token một lần; lệnh truyền token cho `lark-cli` qua biến môi trường của tiến trình con và **không** chuyển secret sang tiến trình con.
+   Secret chỉ dùng để xin token một lần; lệnh truyền token cho `lark-cli` qua biến môi trường của tiến trình con và tiến trình con `lark-cli` chỉ nhận một danh sách biến cho phép (`PATH`, `HOME`, `TMPDIR`, proxy, chứng chỉ, `LARKSUITE_CLI_*`): không có `LARK_APP_SECRET`, mật khẩu database, `APP_KEY` hay secret đăng nhập.
 
 4. **Chạy thử:** `node dist/cli/index.js app edu import-lark --dry-run` (thêm `--json` để lưu toàn bộ bảng so sánh số dư). Không ghi gì, kể cả nhật ký. Đọc:
    - bảng tổng kết (dòng | tạo | trùng | ghép | lỗi) từng bảng;
    - các dòng lỗi và cảnh báo theo mã, có ví dụ mã bản ghi để tra trên Lark;
    - **bảng so sánh số dư**: với mỗi học viên, "Số buổi còn lại" của buổi gần nhất trên Lark, số dư tính lại và chênh lệch. Chênh lệch là chỗ cần Thầy Tường xem trước khi ghi (công thức trên Lark có thể bị nhập tay đè).
-5. **Sao lưu ngay trước khi ghi thật:** `pg_dump -Fc -f /đường/dẫn/an/toàn/nocoedu-truoc-nhap-lark.dump <chuỗi kết nối>`. Dump chứa dữ liệu trẻ em: để ngoài repo, ngoài thư mục chia sẻ.
+     **Dừng nếu hình dạng ô Lark lệch.** Thấy nhiều dòng `*_KHONG_RO` hoặc `THIEU_*` (ví dụ gần như mọi học viên báo `CAP_KHONG_RO`, `THIEU_NAM_SINH` hoặc `SDT_SAI`; hoặc gần như mọi dòng điểm danh báo `HOC_VIEN_KHONG_RO`, `LOP_KHONG_RO`, `NGAY_KHONG_RO`) thì **không chạy `--commit`**: cách đọc ô liên kết, tra cứu, người hoặc ngày trong mã được dựng theo tài liệu `bitable/v1` và chưa đối chiếu với một lần đọc Lark thật. Gửi lại tổng kết của `--dry-run` (chỉ có số đếm và mã, không có dữ liệu cá nhân) để chỉnh mã trước.
+5. **Sao lưu ngay trước khi ghi thật.** Chạy `pg_dump` ở **container PostgreSQL** (image của ứng dụng không có `pg_dump`), ví dụ `docker exec <container-postgres> pg_dump -U <user> -Fc <tên-db> > /đường/dẫn/an/toàn/nocoedu-truoc-nhap-lark.dump`, hoặc dùng chức năng sao lưu của Dokploy cho dịch vụ database. Kiểm file không rỗng (`ls -l`) trước khi sang bước 6. Dump chứa dữ liệu trẻ em: để ngoài repo, ngoài thư mục chia sẻ.
 6. **Ghi thật:** `node dist/cli/index.js app edu import-lark --commit --user <id người chạy>`. `--user` phải là id có trong bảng người dùng (xem trong Quản lý người dùng); id này ghi làm người tạo gói buổi và người điểm danh, và vào nhật ký. Nên chạy ngoài giờ học, vì lúc ghi có thể trùng với việc HLV lưu điểm danh (lệnh dừng và hoàn tác nếu số dư thay đổi giữa chừng).
 7. **Kiểm tra:** bảng `eduNhapLarkNhatKy` có thêm một dòng `thanh_cong` (tổng kết theo bảng, chỉ mã). Chạy lại `--dry-run`: mọi dòng phải là "trùng", số "tạo" bằng 0.
 
-`--commit` ghi trong **một transaction**: có lỗi giữa chừng thì không có gì được ghi, một dòng `that_bai` (chỉ mã lỗi) được ghi vào nhật ký, và lệnh thoát khác 0. Mã thoát 2 là dùng sai (hai cờ cùng lúc, thiếu `--user`, thiếu biến `LARK_*`, `--user` không có trong hệ thống).
+`--commit` ghi trong **một transaction**: có lỗi giữa chừng thì không có gì được ghi, một dòng `that_bai` (chỉ mã lỗi) được ghi vào nhật ký, và lệnh thoát khác 0. Nếu dữ liệu đã ghi nhưng việc ghi dòng nhật ký lỗi (`LARK_DA_GHI_LOI_NHAT_KY`) thì **không** khôi phục: dữ liệu đã nằm trong NocoEdu, chạy `--dry-run` sẽ thấy mọi dòng là "trùng". Khi ghi thất bại, thông báo nêu tên bảng hoặc ràng buộc từ chối (không có giá trị). Mã thoát 2 là dùng sai (hai cờ cùng lúc, thiếu `--user`, thiếu biến `LARK_*`, `--user` không có trong hệ thống).
 
 ### Rollback
 
@@ -69,4 +71,4 @@ Các bước dành cho người có quyền vào server (Dokploy). Không đưa 
 
 ## Chưa làm
 
-Lệnh `--undo <lần chạy>`; đồng bộ định kỳ hoặc hai chiều; sách, giải đấu, đánh giá định kỳ; bảng nộp tiền và lịch sử thanh toán; quy trình xoá hoặc ẩn danh học viên (khi làm phải xử lý cả `ngaySinh`, `externalCode` và `email` phụ huynh); migration mới chỉ được kiểm trên SQLite, chưa kiểm trên PostgreSQL; hình dạng giá trị ô (liên kết, tra cứu, người) được dựng theo tài liệu `bitable/v1`, chưa kiểm bằng lần đọc Lark thật — `--dry-run` đầu tiên sẽ lộ chỗ lệch (các mã lỗi `*_KHONG_RO`, `THIEU_*`).
+Lệnh `--undo <lần chạy>`; đồng bộ định kỳ hoặc hai chiều; sách, giải đấu, đánh giá định kỳ; bảng nộp tiền và lịch sử thanh toán; quy trình xoá hoặc ẩn danh học viên (khi làm phải xử lý cả `ngaySinh`, `externalCode` và `email` phụ huynh); migration mới chỉ được kiểm trên SQLite, chưa kiểm trên PostgreSQL; hình dạng giá trị ô (liên kết, tra cứu, người) được dựng theo tài liệu `bitable/v1`, chưa kiểm bằng lần đọc Lark thật — xem điều kiện dừng ở bước 4.
