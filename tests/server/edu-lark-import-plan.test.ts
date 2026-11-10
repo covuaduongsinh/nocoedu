@@ -46,6 +46,7 @@ describe('the shape of the plan', () => {
     expect(p.hocVien.map((row) => row.externalId)).toEqual([
       IDS.s1,
       IDS.s2,
+      IDS.s4,
       IDS.s5,
     ]);
   });
@@ -99,14 +100,14 @@ describe('the shape of the plan', () => {
 });
 
 describe('rows that fail, and what goes with them', () => {
-  it('leaves out a student with no level or birth date, and the attendance of that student', () => {
+  it('leaves out a student with an unrecognized level, and keeps a student with missing birth date as a warning', () => {
     const p = plan();
     expect(p.problems).toContainEqual({
       table: 'hocVien',
       id: IDS.s3,
       code: 'CAP_KHONG_RO',
     });
-    expect(p.problems).toContainEqual({
+    expect(p.warnings).toContainEqual({
       table: 'hocVien',
       id: IDS.s4,
       code: 'THIEU_NAM_SINH',
@@ -255,7 +256,7 @@ describe('what NocoEdu already holds', () => {
       again.diemDanh.find((r) => r.externalId === 'recNhanXet2025b')?.action,
     ).toBe('trung');
     const totals = tongKetTheoBang(again);
-    expect(totals.hocVien).toMatchObject({ tao: 2, trung: 1 });
+    expect(totals.hocVien).toMatchObject({ tao: 3, trung: 1 });
     expect(tongKetTheoBang(first).hocVien.trung).toBe(0);
   });
 
@@ -412,7 +413,7 @@ describe('the report and the options', () => {
     expect(text).not.toMatch(
       /Mẫu 0|Phụ Huynh|0900|example\.com|2016-05-20|Ghi chú nhạy cảm/u,
     );
-    expect(report.balance).toMatchObject({ match: 1, differ: 1, unknown: 1 });
+    expect(report.balance).toMatchObject({ match: 1, differ: 1, unknown: 2 });
   });
 
   it('refuses --dry-run with --commit, --commit without --user, and a bad delay', () => {

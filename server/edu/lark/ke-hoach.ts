@@ -1,7 +1,12 @@
 import { LEVEL_KEYS, type LevelKey } from '../levels.js';
 import { nameKey } from '../import-csv.js';
 import type { AttendanceStatus } from '../so-du.js';
-import { BRANCH_EXCUSED_DEDUCTS, BRANCH_NAMES } from './chua-xac-nhan.js';
+import {
+  BRANCH_EXCUSED_DEDUCTS,
+  BRANCH_NAMES,
+  DEFAULT_BIRTH_YEAR,
+  DEFAULT_STUDENT_LEVEL,
+} from './chua-xac-nhan.js';
 import {
   birthDateVn,
   birthYearVn,
@@ -152,7 +157,7 @@ export interface HocVienRow {
   readonly externalCode: string | null;
   readonly hoTen: string;
   readonly namSinh: number;
-  readonly ngaySinh: string;
+  readonly ngaySinh: string | null;
   readonly coSoKey: string;
   readonly lopKey: string | null;
   readonly levelKey: LevelKey;
@@ -309,6 +314,11 @@ export function lapKeHoach(
     const key = branchKey(record.fields['cơ sở']);
     if (key) wanted.add(key);
   }
+  if (data.nhanXet2024.length > 0 || data.nhanXet2025.length > 0) {
+    for (const entry of Object.values(BRANCH_NAMES)) {
+      wanted.add(`lark:coSo:${entry.ten}`);
+    }
+  }
   const coSo: CoSoRow[] = [];
   for (const entry of Object.values(BRANCH_NAMES)) {
     const externalId = `lark:coSo:${entry.ten}`;
@@ -333,6 +343,7 @@ export function lapKeHoach(
     { ten: string; coSoKey: string; hlvId: string | null }
   >();
   const lich: LichRow[] = [];
+
   for (const record of data.lopHoc) {
     const id = record.recordId;
     const ten = normalizeFullName(textOf(record.fields['Tên lớp']));
@@ -370,14 +381,20 @@ export function lapKeHoach(
       action: existing.externalIds.lopLich.has(externalId) ? 'trung' : 'tao',
     });
   }
-  const lichOf = new Map(lich.map((row) => [row.lopKey, row]));
 
   // ── 3. Attendance rows of Lark, read once ────────────────────────────────────────────────────────────────
+  const studentBranch = new Map<string, string>();
+  for (const record of data.hocVien) {
+    const rawBranch = textOf(record.fields['cơ sở']).normalize('NFC').toLowerCase();
+    studentBranch.set(record.recordId, rawBranch);
+  }
+
+  const fallbackClassesNeeded = new Set<'lark:lop:kem-kl' | 'lark:lop:kem-vp'>();
   const raw: RawAttendance[] = [];
   for (const record of [...data.nhanXet2024, ...data.nhanXet2025]) {
     const id = record.recordId;
     const studentKey = linkIds(record.fields['Tên HS'])[0];
-    const lopKey = linkIds(record.fields['Lớp'])[0];
+    let lopKey = linkIds(record.fields['Lớp'])[0];
     const ngay =
       dateVn(record.fields['Ngày học - Day format']) ??
       parseDayMonthYear(record.fields['Ngày học']);
@@ -386,8 +403,12 @@ export function lapKeHoach(
       continue;
     }
     if (!lopKey) {
-      fail('diemDanh', id, 'LOP_KHONG_RO');
-      continue;
+      const sBranch = studentBranch.get(studentKey) ?? '';
+      const isVp = sBranch.includes('vĩnh phúc') || sBranch.includes('vp');
+      const fallbackKey = isVp ? 'lark:lop:kem-vp' : 'lark:lop:kem-kl';
+      fallbackClassesNeeded.add(fallbackKey);
+      lopKey = fallbackKey;
+      warn('diemDanh', id, 'LOP_MAC_DINH');
     }
     if (!ngay) {
       fail('diemDanh', id, 'NGAY_KHONG_RO');
@@ -395,6 +416,41 @@ export function lapKeHoach(
     }
     raw.push({ id, studentKey, lopKey, ngay, record });
   }
+
+  // Register fallback classes if needed by unassigned attendances
+  if (fallbackClassesNeeded.has('lark:lop:kem-kl')) {
+    lopRows.set('lark:lop:kem-kl', {
+      ten: 'Lớp kèm / Học bù (Kim Liên)',
+      coSoKey: 'lark:coSo:Kim Liên',
+      hlvId: null,
+    });
+    const lichId = 'lark:lop:kem-kl:lich';
+    lich.push({
+      externalId: lichId,
+      lopKey: 'lark:lop:kem-kl',
+      thu: 2,
+      gioBatDau: '08:00',
+      gioKetThuc: '21:00',
+      action: existing.externalIds.lopLich.has(lichId) ? 'trung' : 'tao',
+    });
+  }
+  if (fallbackClassesNeeded.has('lark:lop:kem-vp')) {
+    lopRows.set('lark:lop:kem-vp', {
+      ten: 'Lớp kèm / Học bù (Vĩnh Phúc)',
+      coSoKey: 'lark:coSo:Vĩnh Phúc',
+      hlvId: null,
+    });
+    const lichId = 'lark:lop:kem-vp:lich';
+    lich.push({
+      externalId: lichId,
+      lopKey: 'lark:lop:kem-vp',
+      thu: 2,
+      gioBatDau: '08:00',
+      gioKetThuc: '21:00',
+      action: existing.externalIds.lopLich.has(lichId) ? 'trung' : 'tao',
+    });
+  }
+  const lichOf = new Map(lich.map((row) => [row.lopKey, row]));
   raw.sort((a, b) =>
     a.ngay === b.ngay ? a.id.localeCompare(b.id) : a.ngay.localeCompare(b.ngay),
   );
@@ -425,9 +481,15 @@ export function lapKeHoach(
     const ms = millisecondsOf(f['Ngày sinh']);
     const year = birthYearVn(ms);
     const day = birthDateVn(ms);
-    if (!year.ok || !day.ok) {
-      fail('hocVien', id, 'THIEU_NAM_SINH');
-      continue;
+    let namSinh: number;
+    let ngaySinh: string | null;
+    if (year.ok && day.ok) {
+      namSinh = year.value;
+      ngaySinh = day.value;
+    } else {
+      namSinh = DEFAULT_BIRTH_YEAR;
+      ngaySinh = null;
+      warn('hocVien', id, 'THIEU_NAM_SINH');
     }
     const coSoKey = branchKey(f['cơ sở']);
     if (!coSoKey) {
@@ -439,10 +501,35 @@ export function lapKeHoach(
       linkTexts(f['Trình độ hiện tại'])[0] ??
       levelNames.get(linkIds(f['Trình độ hiện tại'])[0] ?? '') ??
       '';
-    const level = levelFromLark(levelText);
-    if (!level.ok) {
-      fail('hocVien', id, level.code);
-      continue;
+    let level: { ok: true; value: LevelKey } | { ok: false; code: string };
+    if (!levelText) {
+      const pastTexts = [
+        ...linkTexts(f['Các trình độ đã học tại CLB']),
+        textOf(f['Các trình độ đã học tại CLB']),
+      ]
+        .flatMap((t) => t.split(','))
+        .map((t) => t.trim())
+        .filter(Boolean);
+      let found: { ok: true; value: LevelKey } | null = null;
+      for (let i = pastTexts.length - 1; i >= 0; i--) {
+        const candidate = levelFromLark(pastTexts[i]);
+        if (candidate.ok) {
+          found = candidate;
+          break;
+        }
+      }
+      if (found) {
+        level = found;
+      } else {
+        level = { ok: true, value: DEFAULT_STUDENT_LEVEL };
+        warn('hocVien', id, 'CAP_MAC_DINH');
+      }
+    } else {
+      level = levelFromLark(levelText);
+      if (!level.ok) {
+        fail('hocVien', id, level.code);
+        continue;
+      }
     }
     const status = statusFromLark(f['Tình trạng học']);
     if (!status.ok) {
@@ -517,7 +604,7 @@ export function lapKeHoach(
       existingId = already.id;
     } else {
       const candidates = (
-        byNameYear.get(`${nameKey(hoTen)}|${year.value}`) ?? []
+        byNameYear.get(`${nameKey(hoTen)}|${namSinh}`) ?? []
       ).filter(
         (s) =>
           !claimedExisting.has(s.id) &&
@@ -539,8 +626,8 @@ export function lapKeHoach(
       externalId: id,
       externalCode: textOf(f['ID Học viên']).slice(0, 32) || null,
       hoTen,
-      namSinh: year.value,
-      ngaySinh: day.value,
+      namSinh,
+      ngaySinh,
       coSoKey,
       lopKey,
       levelKey: level.value,
