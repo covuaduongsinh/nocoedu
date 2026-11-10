@@ -30,6 +30,7 @@ import {
   soDu,
   thanhToan,
 } from '../edu/permissions.js';
+import { checkUpdate } from '../edu/sua-ban-ghi.js';
 import { eduError, policiesOf, type EduEnv } from './edu-support.js';
 
 /**
@@ -181,30 +182,64 @@ export default [
         );
       }
     }
+    // A new class or timetable row must name a parent in scope; so must an edit that moves it to another parent
+    // (a branch manager must not move a class into a branch they do not manage).
     for (const [name, parent] of Object.entries(PARENT_OF_CREATE)) {
-      router.use(`/${name}/createOne`, authz.middleware(), async (c, next) => {
+      for (const method of ['createOne', 'updateOne']) {
+        router.use(
+          `/${name}/${method}`,
+          authz.middleware(),
+          async (c, next) => {
+            const body = (await c.req.raw
+              .clone()
+              .json()
+              .catch(() => null)) as {
+              values?: Record<string, unknown>;
+            } | null;
+            const named = body?.values?.[parent.field];
+            // An edit that leaves the parent alone has nothing to check here.
+            if (method === 'updateOne' && named === undefined) {
+              await next();
+              return;
+            }
+            const parentId = Number(named);
+            const policy = (await policiesOf(c, parent.resource, 'view'))[
+              parent.collection
+            ];
+            const visible =
+              policy && Number.isInteger(parentId) && parentId > 0
+                ? await database
+                    .repository(parent.collection)
+                    .withPolicy(policy)
+                    .findOne({ filter: { id: parentId } })
+                : null;
+            if (!visible) {
+              throw eduError(
+                'PERMISSION_DENIED',
+                'EDU_OUT_OF_SCOPE',
+                'You may not create a record here.',
+              );
+            }
+            await next();
+          },
+        );
+      }
+    }
+    // What an edit holds: a status from the allowed list, a phone number in its stored form, a level key that agrees
+    // with its order. The field list of the generated route says which fields may change, not what they may become.
+    for (const name of ['coSo', 'lop', 'hocVien', 'phuHuynh'] as const) {
+      router.use(`/${name}/updateOne`, authz.middleware(), async (c, next) => {
         const body = (await c.req.raw
           .clone()
           .json()
-          .catch(() => null)) as {
-          values?: Record<string, unknown>;
-        } | null;
-        const parentId = Number(body?.values?.[parent.field]);
-        const policy = (await policiesOf(c, parent.resource, 'view'))[
-          parent.collection
-        ];
-        const visible =
-          policy && Number.isInteger(parentId) && parentId > 0
-            ? await database
-                .repository(parent.collection)
-                .withPolicy(policy)
-                .findOne({ filter: { id: parentId } })
-            : null;
-        if (!visible) {
+          .catch(() => null)) as { values?: Record<string, unknown> } | null;
+        const problem = checkUpdate(name, body?.values ?? {});
+        if (problem) {
           throw eduError(
-            'PERMISSION_DENIED',
-            'EDU_OUT_OF_SCOPE',
-            'You may not create a record here.',
+            'INVALID_ARGUMENT',
+            problem.reason,
+            'The value is not valid.',
+            problem.field,
           );
         }
         await next();

@@ -112,6 +112,7 @@ export default [
       '/hocVien/chuyenLop',
       '/hocVien/lenCap',
       '/phuHuynh/taoMoi',
+      '/phuHuynh/xoa',
       '/dongY/ghiNhan',
       '/dongY/rutLai',
     ]) {
@@ -468,6 +469,53 @@ export default [
           return { id, ma };
         });
         return c.json({ data: result }, 201);
+      },
+    );
+
+    // A parent is deleted for good only when nothing points at it: no student link and no consent. Otherwise the
+    // links are removed first (`/lienKet/deleteOne`); consents are kept as evidence and so block the deletion.
+    router.post(
+      '/phuHuynh/xoa',
+      declare('Delete a parent that nothing refers to', 'deleteParent'),
+      needs('edu.phuHuynh', 'manage'),
+      apiValidator('json', z.object({ id: Id })),
+      async (c) => {
+        const { id } = c.req.valid('json');
+        await database.transaction(async (connection) => {
+          const parent = await connection
+            .repository('eduPhuHuynh')
+            .withPolicy(policyOf(c, 'eduPhuHuynh'))
+            .findOne({ filter: { id } });
+          if (!parent) {
+            throw eduError(
+              'NOT_FOUND',
+              'EDU_PARENT_NOT_FOUND',
+              'Parent not found.',
+            );
+          }
+          const link = await connection.query
+            .selectFrom('eduHocVienPhuHuynh')
+            .select('id')
+            .where('phuHuynhId', '=', id)
+            .executeTakeFirst();
+          const consent = await connection.query
+            .selectFrom('eduDongY')
+            .select('id')
+            .where('phuHuynhId', '=', id)
+            .executeTakeFirst();
+          if (link || consent) {
+            throw eduError(
+              'FAILED_PRECONDITION',
+              'EDU_PARENT_IN_USE',
+              'The parent is still linked to a student or has a consent on record.',
+            );
+          }
+          await connection.query
+            .deleteFrom('eduPhuHuynh')
+            .where('id', '=', id)
+            .execute();
+        });
+        return c.json({ data: { id } });
       },
     );
 

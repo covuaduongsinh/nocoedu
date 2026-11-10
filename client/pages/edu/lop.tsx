@@ -19,6 +19,7 @@ import {
   useRows,
 } from './kit.js';
 import { ListPage } from './list-page.js';
+import { RowManage } from './sua-xoa.js';
 
 const EMPTY = { ma: '', ten: '', coSoId: '', hlvId: '', levelKey: 'tot' };
 
@@ -56,6 +57,9 @@ export default function LopPage(): ReactElement {
         emptyHint={t('edu.lop.emptyHint')}
         loaded={loaded}
         onRetry={reload}
+        rowActions={(row) => (
+          <RowManage kind='lop' row={row} onChanged={reload} />
+        )}
         paging={{ page: list.page, total, onPage: list.setPage }}
         search={{
           value: list.search,

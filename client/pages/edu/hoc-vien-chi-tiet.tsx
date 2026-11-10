@@ -28,6 +28,7 @@ import {
   type Row,
 } from './kit.js';
 import { RowsTable } from './list-page.js';
+import { NoteButton, RowManage, UnlinkButton } from './sua-xoa.js';
 
 const fmt = (value: unknown): string => Number(value).toLocaleString('vi-VN');
 
@@ -98,14 +99,20 @@ export default function HocVienChiTietPage(): ReactElement {
         />
       </PageContainer>
     );
-  return <StudentFile student={student} />;
+  return <StudentFile student={student} onChanged={reload} />;
 }
 
 function useCanView(id: string): boolean {
   return useCan({ resource: { type: 'composite', id }, action: 'view' }).can;
 }
 
-function StudentFile({ student }: { readonly student: Row }): ReactElement {
+function StudentFile({
+  student,
+  onChanged,
+}: {
+  readonly student: Row;
+  readonly onChanged: () => void;
+}): ReactElement {
   const { t } = useTranslation();
   // A tab is offered only to a person who may view what it lists (a coach sees no parents' phones and no tuition).
   const canParents = useCanView('edu.phuHuynh');
@@ -127,6 +134,12 @@ function StudentFile({ student }: { readonly student: Row }): ReactElement {
       <PageHeader
         title={text(student.hoTen)}
         description={`${text(student.ma)} · ${t(`edu.level.${text(student.levelKey)}`)}`}
+        actions={
+          <div className='flex flex-wrap gap-2'>
+            <NoteButton row={student} onChanged={onChanged} />
+            <RowManage kind='hocVien' row={student} onChanged={onChanged} />
+          </div>
+        }
       />
       <Tabs defaultValue='info'>
         <TabsList>
@@ -261,6 +274,9 @@ function Parents({ studentId }: { readonly studentId: number }): ReactElement {
             row.lienHeChinh === true ? t('edu.common.yes') : '',
         },
       ]}
+      rowActions={(row) => (
+        <UnlinkButton linkId={row.id} onChanged={links.reload} />
+      )}
     />
   );
 }

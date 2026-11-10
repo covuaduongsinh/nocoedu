@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
 
 import { text, usePagedRows, useRequest, useRows, type Row } from './kit.js';
 import { RowsTable } from './list-page.js';
+import { RowManage } from './sua-xoa.js';
 
 function Detail(props: {
   readonly label: string;
@@ -71,10 +72,16 @@ export default function LopChiTietPage(): ReactElement {
         />
       </PageContainer>
     );
-  return <ClassFile lop={lop} />;
+  return <ClassFile lop={lop} onChanged={reload} />;
 }
 
-function ClassFile({ lop }: { readonly lop: Row }): ReactElement {
+function ClassFile({
+  lop,
+  onChanged,
+}: {
+  readonly lop: Row;
+  readonly onChanged: () => void;
+}): ReactElement {
   const { t } = useTranslation();
   const branches = useRows('coSo').loaded;
   const branch =
@@ -86,6 +93,7 @@ function ClassFile({ lop }: { readonly lop: Row }): ReactElement {
       <PageHeader
         title={text(lop.ten)}
         description={`${text(lop.ma)} · ${t(`edu.level.${text(lop.levelKey)}`)}`}
+        actions={<RowManage kind='lop' row={lop} onChanged={onChanged} />}
       />
       <Tabs defaultValue='info'>
         <TabsList>

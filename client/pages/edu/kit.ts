@@ -289,6 +289,40 @@ export function createOne(
     .createOne({ values, idempotencyKey: operationKey() } as never);
 }
 
+export function updateOne(
+  api: ApiClient,
+  name: string,
+  id: number,
+  values: Record<string, unknown>,
+): Promise<unknown> {
+  return api.repository(name).updateOne({
+    filter: { id },
+    values,
+    idempotencyKey: operationKey(),
+  } as never);
+}
+
+export function deleteOne(
+  api: ApiClient,
+  name: string,
+  id: number,
+): Promise<unknown> {
+  return api
+    .repository(name)
+    .deleteOne({ filter: { id }, idempotencyKey: operationKey() });
+}
+
+/** A phone number the way the server stores it: digits only, `+84` or `84` become the leading 0. */
+export function normalizePhone(value: string): string {
+  const digits = value.replace(/[^\d+]/gu, '');
+  const plain = digits.startsWith('+84')
+    ? `0${digits.slice(3)}`
+    : digits.startsWith('84') && digits.length >= 11
+      ? `0${digits.slice(2)}`
+      : digits;
+  return plain.replace(/\D/gu, '');
+}
+
 export function post(
   api: ApiClient,
   path: string,
