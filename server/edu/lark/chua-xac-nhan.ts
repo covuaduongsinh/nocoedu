@@ -41,17 +41,31 @@ export const OPENING_BALANCE_RULE = {
   noOpeningBalanceCode: 'KHONG_CO_SO_DU',
 } as const;
 
-/** CONFIRMED, question 6 — the level written on Lark → level key. Anything else (`Test`, empty) is an error. */
+/** CONFIRMED, question 6 — the level written on Lark → level key. The 6 club levels: tot, ma, tuong, xe, hau, vua. */
 export const LEVEL_CODES: Readonly<Record<string, LevelKey>> = {
   nm1: 'tot',
   nm2: 'tot',
+  'nhập môn': 'tot',
   tốt: 'tot',
+  'cb mã': 'ma',
+  'tc mã': 'ma',
   mã: 'ma',
+  'cb tượng': 'tuong',
+  'tc tượng': 'tuong',
   tượng: 'tuong',
+  'cb xe': 'xe',
+  'tc xe': 'xe',
   xe: 'xe',
+  'cb hậu': 'hau',
+  'tc hậu': 'hau',
   hậu: 'hau',
+  'cb vua': 'vua',
+  'tc vua': 'vua',
   vua: 'vua',
 };
+
+export const DEFAULT_STUDENT_LEVEL: LevelKey = 'tot';
+export const DEFAULT_BIRTH_YEAR = 2018;
 
 /** DEFAULT, question 7 — a class has no level on Lark; `classLevel()` takes the most common level of its students. */
 

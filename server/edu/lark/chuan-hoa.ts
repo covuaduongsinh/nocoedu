@@ -59,8 +59,17 @@ export function birthDateVn(milliseconds: number): Converted<string> {
 }
 
 export function levelFromLark(raw: unknown): Converted<LevelKey> {
-  const level = LEVEL_CODES[key(raw)];
-  return level ? ok(level) : fail('CAP_KHONG_RO');
+  const k = key(raw);
+  if (!k) return fail('CAP_KHONG_RO');
+  const level = LEVEL_CODES[k];
+  if (level) return ok(level);
+  if (k.includes('vua')) return ok('vua');
+  if (k.includes('hậu')) return ok('hau');
+  if (k.includes('xe')) return ok('xe');
+  if (k.includes('tượng')) return ok('tuong');
+  if (k.includes('mã')) return ok('ma');
+  if (k.includes('tốt') || k.includes('nm')) return ok('tot');
+  return fail('CAP_KHONG_RO');
 }
 
 export function relationFromLark(raw: unknown): Converted<string> {
