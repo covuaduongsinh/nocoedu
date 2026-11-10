@@ -1,7 +1,7 @@
-import { usePageBreadcrumb } from '@nocobase/app-client';
+import { useApiClient, usePageBreadcrumb } from '@nocobase/app-client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { useState, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useState, type ReactElement, type ReactNode } from 'react';
 import { useParams } from 'react-router';
 
 import { PageContainer } from '#components/page-container';
@@ -9,9 +9,17 @@ import { PageHeader } from '#components/page-header';
 import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
 import { Button } from '#components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '#components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
 
 import {
+  post,
   text,
   usePagedRows,
   useRequest,
@@ -311,52 +319,160 @@ function Sessions({ studentId }: { readonly studentId: number }): ReactElement {
   );
 }
 
+interface PackageDetail {
+  readonly daDung: number;
+  readonly conLai: number;
+  readonly vuotSoDu: number;
+  readonly cacBuoi: readonly {
+    readonly stt: number;
+    readonly diemDanhId: number | null;
+    readonly ngay: string | null;
+    readonly lopId: number | null;
+    readonly trangThai: string | null;
+    readonly soBuoi: number;
+  }[];
+}
+
+/** The sessions the server deducted from one package, first in first out; nothing is computed here. */
+function PackageSessions(props: {
+  readonly goiHocId: number;
+  readonly onClose: () => void;
+}): ReactElement {
+  const { t } = useTranslation();
+  const api = useApiClient();
+  const [state, setState] = useState<
+    | { readonly s: 'loading' }
+    | { readonly s: 'error' }
+    | { readonly s: 'ready'; readonly detail: PackageDetail }
+  >({ s: 'loading' });
+  useEffect(() => {
+    let live = true;
+    post(api, '/goiHoc/chiTiet', { goiHocId: props.goiHocId })
+      .then((response) => {
+        if (live)
+          setState({
+            s: 'ready',
+            detail: (response as { data: PackageDetail }).data,
+          });
+      })
+      .catch(() => {
+        if (live) setState({ s: 'error' });
+      });
+    return () => {
+      live = false;
+    };
+  }, [api, props.goiHocId]);
+  return (
+    <Dialog open onOpenChange={(open) => (open ? undefined : props.onClose())}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('edu.goiHoc.sessionsTitle')}</DialogTitle>
+          <DialogDescription>{t('edu.goiHoc.sessionsHint')}</DialogDescription>
+        </DialogHeader>
+        {state.s === 'loading' ? (
+          <p role='status' className='text-sm text-muted-foreground'>
+            {t('edu.common.loading')}
+          </p>
+        ) : state.s === 'error' ? (
+          <p role='alert' className='text-sm text-destructive'>
+            {t('edu.common.loadError')}
+          </p>
+        ) : (
+          <div className='flex flex-col gap-3'>
+            <p className='text-sm'>
+              {t('edu.goiHoc.usage', {
+                used: state.detail.daDung,
+                left: state.detail.conLai,
+              })}
+            </p>
+            {state.detail.cacBuoi.length === 0 ? (
+              <p className='text-sm text-muted-foreground'>
+                {t('edu.goiHoc.noSessions')}
+              </p>
+            ) : (
+              <ul className='flex flex-col gap-1 text-sm'>
+                {state.detail.cacBuoi.map((entry) => (
+                  <li key={entry.stt}>
+                    {entry.ngay
+                      ? `${entry.ngay} · ${t(`edu.diemDanh.s.${text(entry.trangThai)}`)}`
+                      : t('edu.goiHoc.adjustment')}
+                    {entry.soBuoi > 1 ? ` · ${entry.soBuoi}` : ''}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {state.detail.vuotSoDu > 0 ? (
+              <p className='text-sm text-destructive'>
+                {t('edu.goiHoc.over', { count: state.detail.vuotSoDu })}
+              </p>
+            ) : null}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function Packages({ studentId }: { readonly studentId: number }): ReactElement {
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
+  const [opened, setOpened] = useState<number>();
   const packs = usePagedRows('goiHoc', {
     page,
     where: { hocVienId: studentId },
     descending: true,
   });
   return (
-    <RowsTable
-      loaded={packs.loaded}
-      onRetry={packs.reload}
-      emptyTitle={t('edu.hocVien.noPackages')}
-      emptyHint={t('edu.hocVien.noPackagesHint')}
-      paging={{ page, total: packs.total, onPage: setPage }}
-      columns={[
-        {
-          key: 'ngayMua',
-          label: t('edu.hocVien.ngayMua'),
-          render: (row) => day(row.ngayMua),
-        },
-        {
-          key: 'soBuoi',
-          label: t('edu.hocPhi.sessions'),
-          render: (row) => text(row.soBuoi),
-        },
-        {
-          key: 'donGia',
-          label: t('edu.hocVien.donGia'),
-          render: (row) => fmt(row.donGia),
-        },
-        {
-          key: 'thanhTien',
-          label: t('edu.hocVien.thanhTien'),
-          render: (row) => fmt(row.thanhTien),
-        },
-        {
-          key: 'trangThai',
-          label: t('edu.hocVien.trangThai'),
-          render: (row) =>
-            t(`edu.hocVien.goiStatus.${text(row.trangThai)}`, {
-              defaultValue: text(row.trangThai),
-            }),
-        },
-      ]}
-    />
+    <>
+      <RowsTable
+        loaded={packs.loaded}
+        onRetry={packs.reload}
+        emptyTitle={t('edu.hocVien.noPackages')}
+        emptyHint={t('edu.hocVien.noPackagesHint')}
+        paging={{ page, total: packs.total, onPage: setPage }}
+        rowActions={(row) => (
+          <Button size='sm' variant='outline' onClick={() => setOpened(row.id)}>
+            {t('edu.goiHoc.viewSessions')}
+          </Button>
+        )}
+        columns={[
+          {
+            key: 'ngayMua',
+            label: t('edu.hocVien.ngayMua'),
+            render: (row) => day(row.ngayMua),
+          },
+          {
+            key: 'soBuoi',
+            label: t('edu.hocPhi.sessions'),
+            render: (row) => text(row.soBuoi),
+          },
+          {
+            key: 'donGia',
+            label: t('edu.hocVien.donGia'),
+            render: (row) => fmt(row.donGia),
+          },
+          {
+            key: 'thanhTien',
+            label: t('edu.hocVien.thanhTien'),
+            render: (row) => fmt(row.thanhTien),
+          },
+          {
+            key: 'trangThai',
+            label: t('edu.hocVien.trangThai'),
+            render: (row) =>
+              t(`edu.hocVien.goiStatus.${text(row.trangThai)}`, {
+                defaultValue: text(row.trangThai),
+              }),
+          },
+        ]}
+      />
+      {opened === undefined ? null : (
+        <PackageSessions
+          goiHocId={opened}
+          onClose={() => setOpened(undefined)}
+        />
+      )}
+    </>
   );
 }
 

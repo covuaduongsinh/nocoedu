@@ -132,6 +132,27 @@ const api = vi.fn(({ method, path, json }: ApiCall) => {
       ],
     };
   if (path === 'goiHoc/count') return { data: 1 };
+  if (path === 'goiHoc/chiTiet')
+    return {
+      data: {
+        goiHoc: { id: 41, soBuoi: 12 },
+        daDung: 1,
+        conLai: 11,
+        vuotSoDu: 0,
+        cacBuoi: [
+          {
+            stt: 1,
+            diemDanhId: 21,
+            buoiHocId: 31,
+            lopId: 3,
+            ngay: '2026-11-03',
+            gioBatDau: '18:00',
+            trangThai: 'co_mat',
+            soBuoi: 1,
+          },
+        ],
+      },
+    };
   if (path === 'soDuNhatKy/findMany')
     return {
       data: [
@@ -235,6 +256,16 @@ describe('student file', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Gói học' }));
     expect(await screen.findByText('Còn hiệu lực')).toBeInTheDocument();
     expect(screen.getByText('1.800.000')).toBeInTheDocument();
+    // A package opens the sessions the server deducted from it.
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Xem buổi đã trừ' }),
+    );
+    expect(
+      await screen.findByText('Đã dùng 1 buổi, còn 11 buổi.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('2026-11-03 · Có mặt')).toBeInTheDocument();
+    expect(callsTo('goiHoc/chiTiet')[0]?.json).toEqual({ goiHocId: 41 });
+    await userEvent.keyboard('{Escape}');
 
     await userEvent.click(screen.getByRole('tab', { name: 'Sổ số dư' }));
     expect(await screen.findByText('-1')).toBeInTheDocument();

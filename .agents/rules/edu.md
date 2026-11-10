@@ -20,3 +20,15 @@ Business code of the club's training system. Read this before changing students,
 - **CSV import** is `server/edu/import-csv.ts` behind `cli/commands/edu/import-hoc-vien.ts`: all or nothing, reports line numbers and reason codes only. **Sample data** (`server/edu/sample-data.ts`, registered in `server/providers/edu-sample-data.ts`) loads only under `APP_SAMPLE_DATA`; names say "Mẫu", no real data, no password in the repository.
 - **Lark import** (`pnpm nocobase app edu import-lark`, DS-60): `cli/commands/edu/import-lark.ts` → `server/edu/lark/`: `nguon.ts` reads the Base through `lark-cli` (a `LarkSource`; tests use `tests/helpers/lark-fixture.ts`), `ke-hoach.ts` builds the whole plan as a pure function, `ghi.ts` writes it in one transaction, `nhap.ts` runs and reports. Dry run is the default and writes nothing, not even the log (`eduNhapLarkNhatKy`). Unconfirmed rules live in one file, `chua-xac-nhan.ts`. `externalId` is never `''` (use `externalIdOrNull`). Output and log hold counts, Lark ids and codes, never a name, phone, email or date of birth. Run guide and rollback: `docs/lark/nhap-production.md`. The setting `EDU_TRU_BUOI_VANG_KHONG_PHEP` is fixed on a session at its first save (`eduBuoiHoc.truVangKhongPhep`), like `truVangCoPhep`.
 - **Lists and detail pages** (DS-60): list pages read one page of 25 on the server (`usePagedRows` in `client/pages/edu/kit.ts`: `limit`, `offset`, a filter built with `buildFilter`, the total from `count`; search is a case-insensitive `includes` over the page's fields). `useRows` is only for lookups (names of classes and branches) and reads every page up to 2,000 rows. The student file (`/hoc-vien/:id`) and the class page (`/lop/:id`) are read-only and reuse the page grant of their list; they read through the record APIs, so scope and field policy decide what shows, and a record out of scope is "not found". A tab shows only if the person may `view` its composite (`edu.phuHuynh`, `edu.diemDanh`, `edu.goiHoc`, `edu.soDu`). Tests: `tests/client/edu-detail.test.tsx`, `tests/server/edu-detail-scope.test.ts`.
+
+## Which sessions were deducted from which package (DS-60 PR 3)
+
+`POST /goiHoc/chiTiet` (`server/routes/edu-hoc-phi.ts`) answers `{ goiHocId }` with the package, `daDung`, `conLai`, the
+sessions deducted from it (`cacBuoi`) and `vuotSoDu` (sessions beyond everything the student bought). It needs
+`edu.goiHoc` `view` for the package (so a coach gets 403 and a branch manager sees their branch only) and `edu.soDu`
+`view` for the ledger. Nothing is stored: `server/edu/phan-bo-goi.ts` works the allocation out on every read, first in
+first out, from the packages (by `ngayMua`, then id) and the ledger (the sum per attendance row, so a refund cancels its
+deduction; a positive `dieu_chinh` without a package counts as a package of its own, a negative one as a deduction
+without a session). A deduction takes the earliest package with room, whatever the date of the session; the rules are
+at the top of that file and are the only place to change them. `useRows(name, { newestFirst: true })` reads a growing
+collection (sessions) newest first, so its cap of 2,000 rows never drops the newest.

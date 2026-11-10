@@ -57,7 +57,7 @@ export default function DiemDanhPage(): ReactElement {
   const api = useApiClient();
   const message = useErrorMessage();
   const [params, setParams] = useSearchParams();
-  const sessions = useRows('buoiHoc');
+  const sessions = useRows('buoiHoc', { newestFirst: true });
   const classes = useRows('lop').loaded;
   const students = useRows('hocVien').loaded;
   const { can: canRecord } = useCan({

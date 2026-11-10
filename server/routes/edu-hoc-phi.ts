@@ -15,6 +15,11 @@ import { z } from 'zod';
 
 import { asText } from '../edu/names.js';
 import {
+  allocateFifo,
+  fromLedger,
+  type PackageInput,
+} from '../edu/phan-bo-goi.js';
+import {
   ATTENDANCE_STATUSES,
   asBoolean,
   datesBetween,
@@ -92,6 +97,7 @@ const PaymentInput = z.object({
 });
 
 const QrInput = z.object({ goiHocId: Id });
+const DetailInput = z.object({ goiHocId: Id });
 
 const today = (): string => todayVn();
 
@@ -120,6 +126,7 @@ export default [
       '/buoiHoc/taoTheoLich',
       '/diemDanh/luu',
       '/goiHoc/taoMoi',
+      '/goiHoc/chiTiet',
       '/thanhToan/ghiNhan',
       '/thanhToan/vietQr',
       '/soDu/canhBao',
@@ -617,6 +624,139 @@ export default [
       },
     );
 
+    // --- Which sessions were deducted from a package (first in, first out), worked out when read ------------------
+    router.post(
+      '/goiHoc/chiTiet',
+      declare(
+        'The sessions deducted from a package, first in first out',
+        'packageDetail',
+      ),
+      needs('edu.goiHoc', 'view'),
+      apiValidator('json', DetailInput),
+      async (c) => {
+        const { goiHocId } = c.req.valid('json');
+        const packagePolicy = policyOf(c, 'eduGoiHoc');
+        const pack = await database
+          .repository('eduGoiHoc')
+          .withPolicy(packagePolicy)
+          .findOne({ filter: { id: goiHocId } });
+        if (!pack)
+          throw notFound('EDU_PACKAGE_NOT_FOUND', 'Package not found.');
+        const hocVienId = Number(pack.hocVienId);
+        // The ledger needs its own permission: whoever may see packages but not the ledger is refused here.
+        const ledgerPolicy = (await policiesOf(c, 'edu.soDu', 'view'))[
+          'eduSoDuNhatKy'
+        ];
+        if (!ledgerPolicy)
+          throw eduError(
+            'PERMISSION_DENIED',
+            'EDU_PERMISSION_DENIED',
+            'This action is not allowed.',
+          );
+        const packages = await readAll(async (limit, offset) =>
+          database
+            .repository('eduGoiHoc')
+            .withPolicy(packagePolicy)
+            .findMany({
+              filter: (f) => f.number('hocVienId').eq(hocVienId),
+              sort: (s) => s.field('id').asc(),
+              limit,
+              offset,
+            }),
+        );
+        const ledger = await readAll(async (limit, offset) =>
+          database
+            .repository('eduSoDuNhatKy')
+            .withPolicy(ledgerPolicy)
+            .findMany({
+              filter: (f) => f.number('hocVienId').eq(hocVienId),
+              sort: (s) => s.field('id').asc(),
+              limit,
+              offset,
+            }),
+        );
+        const attendanceIds = [
+          ...new Set(
+            ledger
+              .filter((row) => row.diemDanhId != null)
+              .map((row) => Number(row.diemDanhId)),
+          ),
+        ];
+        const sessions = await sessionsOf(database.connection(), attendanceIds);
+        const sessionTime = new Map(
+          [...sessions].map(([id, info]) => [
+            id,
+            `${info.ngay} ${info.gioBatDau}`,
+          ]),
+        );
+        const { deductions, adjustments } = fromLedger(
+          ledger.map((row) => ({
+            id: Number(row.id),
+            thayDoi: Number(row.thayDoi),
+            lyDo: asText(row.lyDo),
+            goiHocId: row.goiHocId == null ? null : Number(row.goiHocId),
+            diemDanhId: row.diemDanhId == null ? null : Number(row.diemDanhId),
+            ngay: toDay(row.createdAt),
+          })),
+          sessionTime,
+        );
+        const inputs: PackageInput[] = [
+          ...packages.map((row) => ({
+            goiHocId: Number(row.id),
+            soBuoi: Number(row.soBuoi),
+            ngayMua: asText(row.ngayMua),
+            thuTu: Number(row.id),
+            hieuLuc: asText(row.trangThai) === 'hieu_luc',
+            loai:
+              asText(row.loai) === 'chuyen_so_du'
+                ? ('chuyen_so_du' as const)
+                : ('mua' as const),
+          })),
+          ...adjustments,
+        ];
+        const result = allocateFifo(inputs, deductions);
+        const mine = result.cacGoi.find((entry) => entry.goiHocId === goiHocId);
+        if (!mine)
+          throw notFound('EDU_PACKAGE_NOT_FOUND', 'Package not found.');
+        const describe = (diemDanhId: number | null, soBuoi: number) => {
+          const info =
+            diemDanhId === null ? undefined : sessions.get(diemDanhId);
+          return {
+            diemDanhId,
+            soBuoi,
+            buoiHocId: info?.buoiHocId ?? null,
+            lopId: info?.lopId ?? null,
+            ngay: info?.ngay ?? null,
+            gioBatDau: info?.gioBatDau ?? null,
+            trangThai: info?.trangThai ?? null,
+          };
+        };
+        return c.json({
+          data: {
+            goiHoc: {
+              id: goiHocId,
+              hocVienId,
+              soBuoi: mine.soBuoi,
+              ngayMua: mine.ngayMua,
+              loai: mine.loai,
+              trangThai: asText(pack.trangThai),
+            },
+            daDung: mine.daDung,
+            conLai: mine.conLai,
+            cacBuoi: mine.cacLanTru.map((entry, index) => ({
+              stt: index + 1,
+              ...describe(entry.diemDanhId, entry.soBuoi),
+            })),
+            // Sessions the student attended beyond everything they paid for.
+            vuotSoDu: result.vuotSoDu.reduce(
+              (sum, entry) => sum + entry.soBuoi,
+              0,
+            ),
+          },
+        });
+      },
+    );
+
     // --- Low balance --------------------------------------------------------------------------------------------
     router.post(
       '/soDu/canhBao',
@@ -660,6 +800,82 @@ const conflict = () =>
     'EDU_BALANCE_CONFLICT',
     'The attendance or balance was changed at the same time. Reload and try again.',
   );
+
+const toDay = (value: unknown): string =>
+  value instanceof Date
+    ? value.toISOString().slice(0, 10)
+    : asText(value).slice(0, 10);
+
+/** Reads every page of a query (the server returns at most 100 rows at a time). */
+async function readAll(
+  page: (
+    limit: number,
+    offset: number,
+  ) => Promise<readonly Record<string, unknown>[]>,
+): Promise<Record<string, unknown>[]> {
+  const rows: Record<string, unknown>[] = [];
+  for (let offset = 0; offset < 20_000; offset += 100) {
+    const batch = await page(100, offset);
+    rows.push(...batch);
+    if (batch.length < 100) break;
+  }
+  return rows;
+}
+
+/** The session behind each attendance row: day, start time, class and status. */
+async function sessionsOf(
+  connection: Queryable,
+  attendanceIds: readonly number[],
+): Promise<
+  Map<
+    number,
+    {
+      buoiHocId: number;
+      lopId: number;
+      ngay: string;
+      gioBatDau: string;
+      trangThai: string;
+    }
+  >
+> {
+  const result = new Map<
+    number,
+    {
+      buoiHocId: number;
+      lopId: number;
+      ngay: string;
+      gioBatDau: string;
+      trangThai: string;
+    }
+  >();
+  for (let i = 0; i < attendanceIds.length; i += 200) {
+    const chunk = attendanceIds.slice(i, i + 200);
+    const marks = await connection.query
+      .selectFrom('eduDiemDanh')
+      .select(['id', 'buoiHocId', 'trangThai'])
+      .where('id', 'in', chunk)
+      .execute();
+    const sessionIds = [...new Set(marks.map((row) => Number(row.buoiHocId)))];
+    if (sessionIds.length === 0) continue;
+    const sessions = await connection.query
+      .selectFrom('eduBuoiHoc')
+      .select(['id', 'lopId', 'ngay', 'gioBatDau'])
+      .where('id', 'in', sessionIds)
+      .execute();
+    const byId = new Map(sessions.map((row) => [Number(row.id), row]));
+    for (const mark of marks) {
+      const session = byId.get(Number(mark.buoiHocId));
+      result.set(Number(mark.id), {
+        buoiHocId: Number(mark.buoiHocId),
+        lopId: Number(session?.lopId),
+        ngay: asText(session?.ngay),
+        gioBatDau: asText(session?.gioBatDau),
+        trangThai: asText(mark.trangThai),
+      });
+    }
+  }
+  return result;
+}
 
 async function balanceOf(
   connection: Queryable,

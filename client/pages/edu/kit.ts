@@ -44,9 +44,13 @@ const byIdDescending = buildSort((sort) => sort.field('id').desc());
 
 /**
  * Loads a whole collection for a lookup (the name of a class, the choices of a form): pages of 100 until the server
- * has no more. `reload` fetches again. A list a person reads page by page uses `usePagedRows` instead.
+ * has no more. `reload` fetches again. A collection that keeps growing (sessions) is read `newestFirst`, so the cap of
+ * 2,000 rows drops the oldest rows and never the newest ones. A list a person reads page by page uses `usePagedRows` instead.
  */
-export function useRows(name: string): {
+export function useRows(
+  name: string,
+  options: { readonly newestFirst?: boolean } = {},
+): {
   loaded: Loaded<Row>;
   reload: () => void;
 } {
@@ -54,7 +58,8 @@ export function useRows(name: string): {
   const [version, setVersion] = useState(0);
   // The result remembers which request produced it; a result of an older request counts as still loading.
   const [result, setResult] = useState<{ key: string; value: Loaded<Row> }>();
-  const key = `${name}:${version}`;
+  const newestFirst = options.newestFirst === true;
+  const key = `${name}:${newestFirst ? 'new' : 'old'}:${version}`;
   useEffect(() => {
     const controller = new AbortController();
     void (async () => {
@@ -63,7 +68,7 @@ export function useRows(name: string): {
         const batch = (await api.repository(name).findMany({
           limit: SERVER_LIMIT,
           offset: page * SERVER_LIMIT,
-          sort: byIdAscending,
+          sort: newestFirst ? byIdDescending : byIdAscending,
           signal: controller.signal,
         } as never)) as unknown as Row[];
         rows.push(...batch);
@@ -80,7 +85,7 @@ export function useRows(name: string): {
           setResult({ key, value: { state: 'error' } });
       });
     return () => controller.abort();
-  }, [api, name, key]);
+  }, [api, name, key, newestFirst]);
   const reload = useCallback(() => setVersion((value) => value + 1), []);
   const loaded: Loaded<Row> =
     result?.key === key ? result.value : { state: 'loading' };
