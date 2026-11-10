@@ -19,6 +19,7 @@ import {
   type Row,
 } from './kit.js';
 import { ListPage } from './list-page.js';
+import { RowManage } from './sua-xoa.js';
 
 const NEW_STUDENT = {
   hoTen: '',
@@ -121,40 +122,36 @@ export default function HocVienPage(): ReactElement {
             ),
           },
         ]}
-        rowActions={
-          canLevelUp || canAddParent
-            ? (row) => (
-                <div className='flex flex-wrap gap-2'>
-                  {canLevelUp ? (
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      disabled={Number(row.levelOrder) >= 6}
-                      onClick={() =>
-                        setLevelUp({
-                          row,
-                          levelKey:
-                            LEVEL_KEYS[Math.min(Number(row.levelOrder), 5)] ??
-                            'ma',
-                        })
-                      }
-                    >
-                      {t('edu.hocVien.levelUp')}
-                    </Button>
-                  ) : null}
-                  {canAddParent ? (
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      onClick={() => setParent({ row, form: NEW_PARENT })}
-                    >
-                      {t('edu.hocVien.addParent')}
-                    </Button>
-                  ) : null}
-                </div>
-              )
-            : undefined
-        }
+        rowActions={(row) => (
+          <div className='flex flex-wrap gap-2'>
+            {canLevelUp ? (
+              <Button
+                size='sm'
+                variant='outline'
+                disabled={Number(row.levelOrder) >= 6}
+                onClick={() =>
+                  setLevelUp({
+                    row,
+                    levelKey:
+                      LEVEL_KEYS[Math.min(Number(row.levelOrder), 5)] ?? 'ma',
+                  })
+                }
+              >
+                {t('edu.hocVien.levelUp')}
+              </Button>
+            ) : null}
+            {canAddParent ? (
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={() => setParent({ row, form: NEW_PARENT })}
+              >
+                {t('edu.hocVien.addParent')}
+              </Button>
+            ) : null}
+            <RowManage kind='hocVien' row={row} onChanged={reload} />
+          </div>
+        )}
       />
 
       {student ? (

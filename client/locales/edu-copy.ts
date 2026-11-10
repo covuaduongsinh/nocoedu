@@ -4,6 +4,7 @@
  * step. Keys are dotted paths below the `edu` group.
  */
 import { EDU_DETAIL_ROWS } from './edu-copy-detail.js';
+import { EDU_EDIT_ROWS } from './edu-copy-edit.js';
 import { EDU_MORE_ROWS } from './edu-copy-more.js';
 
 type Row = readonly [key: string, vi: string, en: string, zh: string];
@@ -302,7 +303,12 @@ type Tree = { [key: string]: string | Tree };
 
 function build(index: 1 | 2 | 3): Tree {
   const root: Tree = {};
-  for (const row of [...ROWS, ...EDU_MORE_ROWS, ...EDU_DETAIL_ROWS]) {
+  for (const row of [
+    ...ROWS,
+    ...EDU_MORE_ROWS,
+    ...EDU_DETAIL_ROWS,
+    ...EDU_EDIT_ROWS,
+  ]) {
     const parts = row[0].split('.');
     let node = root;
     for (const part of parts.slice(0, -1)) {

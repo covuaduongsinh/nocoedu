@@ -32,3 +32,16 @@ deduction; a positive `dieu_chinh` without a package counts as a package of its 
 without a session). A deduction takes the earliest package with room, whatever the date of the session; the rules are
 at the top of that file and are the only place to change them. `useRows(name, { newestFirst: true })` reads a growing
 collection (sessions) newest first, so its cap of 2,000 rows never drops the newest.
+
+## Editing and removing (DS-60 PR 4)
+
+Edit buttons and dialogs live in `client/pages/edu/sua-xoa.tsx` (`RowManage` for branch, class, student and parent;
+`NoteButton` for a coach's note; `UnlinkButton` for a student–parent link). They use the standard `updateOne` and
+follow the person's `manage` grant, but the server decides: `server/routes/edu-data.ts` checks the grant, the record
+scope and the allowed fields, and `server/edu/sua-ban-ghi.ts` (`checkUpdate`, pure, no database) checks the values (a
+status from the list, a phone number already normalised, a class level key that agrees with its order). A class or a
+timetable row cannot be moved to a parent outside the caller's scope. **Nothing is deleted except a parent that no
+student link and no consent refer to** (`POST /phuHuynh/xoa`): a branch is set to `tam_dung`, a class to `da_dong`, a
+student to `da_nghi`, so attendance, packages and the balance ledger stay. Never add a hard delete for those three. A
+student's class changes only through `/hocVien/chuyenLop`; the balance and the level never through `updateOne`. Removing
+a package is not offered; when it is, it must write a ledger row that returns its sessions (see `phan-bo-goi.ts`).

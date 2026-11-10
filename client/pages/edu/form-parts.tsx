@@ -100,7 +100,9 @@ export function FormDialog(props: {
   readonly description?: string;
   readonly onClose: () => void;
   readonly onSubmit: () => Promise<void>;
-  readonly children: ReactNode;
+  /** The text of the submit button; "Save" by default. */
+  readonly submitLabel?: string;
+  readonly children?: ReactNode;
 }): ReactElement {
   const { t } = useTranslation();
   const message = useErrorMessage();
@@ -149,7 +151,9 @@ export function FormDialog(props: {
               {t('edu.common.cancel')}
             </Button>
             <Button type='submit' disabled={busy}>
-              {busy ? t('edu.common.saving') : t('edu.common.save')}
+              {busy
+                ? t('edu.common.saving')
+                : (props.submitLabel ?? t('edu.common.save'))}
             </Button>
           </DialogFooter>
         </form>

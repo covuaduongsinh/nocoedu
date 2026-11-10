@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 
 import { text, useListState, usePagedRows } from './kit.js';
 import { ListPage } from './list-page.js';
+import { RowManage } from './sua-xoa.js';
 
 export default function PhuHuynhPage(): ReactElement {
   const { t } = useTranslation();
@@ -20,6 +21,9 @@ export default function PhuHuynhPage(): ReactElement {
       emptyHint={t('edu.phuHuynh.emptyHint')}
       loaded={loaded}
       onRetry={reload}
+      rowActions={(row) => (
+        <RowManage kind='phuHuynh' row={row} onChanged={reload} />
+      )}
       paging={{ page: list.page, total, onPage: list.setPage }}
       search={{
         value: list.search,

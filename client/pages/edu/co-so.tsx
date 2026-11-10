@@ -10,6 +10,7 @@ import { StatusBadge } from '#components/status-badge';
 import { FormDialog, TextField } from './form-parts.js';
 import { createOne, useListState, usePagedRows } from './kit.js';
 import { ListPage } from './list-page.js';
+import { RowManage } from './sua-xoa.js';
 
 const EMPTY = { ma: '', ten: '', diaChi: '', truBuoiVangCoPhep: false };
 
@@ -37,6 +38,9 @@ export default function CoSoPage(): ReactElement {
         emptyHint={t('edu.coSo.emptyHint')}
         loaded={loaded}
         onRetry={reload}
+        rowActions={(row) => (
+          <RowManage kind='coSo' row={row} onChanged={reload} />
+        )}
         paging={{ page: list.page, total, onPage: list.setPage }}
         search={{
           value: list.search,
