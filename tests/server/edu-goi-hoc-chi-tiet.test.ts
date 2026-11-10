@@ -151,3 +151,130 @@ test('the detail of a package lists the sessions deducted from it, first in firs
     400,
   );
 });
+
+test('the packages add up to the balance of the student: leftover minus beyond-the-purchase equals the balance', async ({
+  testApp,
+  connection,
+}) => {
+  const admin = await adminSession(testApp);
+  const hlvA = await userWithRole(testApp, admin, 'hlv-a', 'edu_hlv');
+  const hlvB = await userWithRole(testApp, admin, 'hlv-b', 'edu_hlv');
+  const managerA = await userWithRole(
+    testApp,
+    admin,
+    'quanly-a',
+    'edu_quan_ly_co_so',
+  );
+  const ids = await seedSchool(connection, {
+    hlvA: hlvA.id,
+    hlvB: hlvB.id,
+    managerA: managerA.id,
+  });
+  const q = connection.query;
+  const goiIds: number[] = [];
+  let balance = 0;
+  const ledger = async (
+    thayDoi: number,
+    lyDo: string,
+    extra: Record<string, unknown> = {},
+  ) => {
+    balance += thayDoi;
+    await q
+      .insertInto('eduSoDuNhatKy')
+      .values({
+        hocVienId: ids.hocVienA,
+        thayDoi,
+        soDuSau: balance,
+        lyDo,
+        createdAt: new Date().toISOString(),
+        ...extra,
+      })
+      .execute();
+  };
+  for (const [soBuoi, ngayMua] of [
+    [2, '2026-09-01'],
+    [1, '2026-09-15'],
+  ] as const) {
+    await q
+      .insertInto('eduGoiHoc')
+      .values({
+        hocVienId: ids.hocVienA,
+        soBuoi,
+        donGia: 100000,
+        thanhTien: soBuoi * 100000,
+        ngayMua,
+        nguoiTaoId: 'seed',
+      })
+      .execute();
+    const row = await q
+      .selectFrom('eduGoiHoc')
+      .select('id')
+      .where('hocVienId', '=', ids.hocVienA)
+      .where('ngayMua', '=', ngayMua)
+      .executeTakeFirstOrThrow();
+    goiIds.push(Number(row.id));
+    await ledger(soBuoi, 'mua_goi', { goiHocId: Number(row.id) });
+  }
+  // Five sessions are deducted; the first is refunded (a correction), then a manual deduction of one.
+  const marks: number[] = [];
+  for (const [index, ngay] of [
+    '2026-10-02',
+    '2026-10-09',
+    '2026-10-16',
+    '2026-10-23',
+    '2026-10-30',
+  ].entries()) {
+    await q
+      .insertInto('eduBuoiHoc')
+      .values({
+        lopId: ids.lopA,
+        ngay,
+        gioBatDau: '18:00',
+        gioKetThuc: '19:30',
+        trangThai: 'da_diem_danh',
+      })
+      .execute();
+    const session = await q
+      .selectFrom('eduBuoiHoc')
+      .select('id')
+      .where('lopId', '=', ids.lopA)
+      .where('ngay', '=', ngay)
+      .executeTakeFirstOrThrow();
+    await q
+      .insertInto('eduDiemDanh')
+      .values({
+        buoiHocId: Number(session.id),
+        hocVienId: ids.hocVienA,
+        trangThai: 'co_mat',
+        soBuoiDaTru: index === 0 ? 0 : 1,
+      })
+      .execute();
+    const mark = await q
+      .selectFrom('eduDiemDanh')
+      .select('id')
+      .where('buoiHocId', '=', Number(session.id))
+      .executeTakeFirstOrThrow();
+    marks.push(Number(mark.id));
+    await ledger(-1, 'diem_danh', { diemDanhId: Number(mark.id) });
+  }
+  await ledger(1, 'diem_danh_sua', { diemDanhId: marks[0] });
+  await ledger(-1, 'dieu_chinh');
+  await q
+    .updateTable('eduHocVien')
+    .set({ soBuoiConLai: balance })
+    .where('id', '=', ids.hocVienA)
+    .execute();
+  expect(balance).toBe(-2);
+
+  let leftover = 0;
+  let beyond = 0;
+  for (const goiHocId of goiIds) {
+    const res = await post(admin, '/goiHoc/chiTiet', { goiHocId });
+    expect(res.status).toBe(200);
+    const data = ((await res.json()) as Detail).data;
+    leftover += data.conLai;
+    beyond = data.vuotSoDu;
+  }
+  expect(leftover - beyond).toBe(balance);
+  expect(beyond).toBe(2);
+});

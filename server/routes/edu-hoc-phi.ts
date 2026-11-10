@@ -801,10 +801,18 @@ const conflict = () =>
     'The attendance or balance was changed at the same time. Reload and try again.',
   );
 
-const toDay = (value: unknown): string =>
-  value instanceof Date
-    ? value.toISOString().slice(0, 10)
-    : asText(value).slice(0, 10);
+/**
+ * The club's calendar day (Vietnam time) of a stored value. A timestamp is read as UTC, so an entry made at 02:00 on
+ * the 11th in Hanoi (19:00 on the 10th UTC) belongs to the 11th; a plain `YYYY-MM-DD` is already a calendar day.
+ */
+const toDay = (value: unknown): string => {
+  if (value instanceof Date) return todayVn(value);
+  const raw = asText(value);
+  if (raw.length <= 10) return raw;
+  const iso = raw.replace(' ', 'T');
+  const stamp = new Date(/(?:Z|[+-]\d\d:?\d\d)$/u.test(iso) ? iso : `${iso}Z`);
+  return Number.isNaN(stamp.getTime()) ? raw.slice(0, 10) : todayVn(stamp);
+};
 
 /** Reads every page of a query (the server returns at most 100 rows at a time). */
 async function readAll(
