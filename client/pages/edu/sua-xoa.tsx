@@ -154,12 +154,12 @@ function statusField(
 function EditCoSo({ row, onChanged, onClose }: DialogProps): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     ten: text(row.ten),
     diaChi: text(row.diaChi),
     truBuoiVangCoPhep: row.truBuoiVangCoPhep === true,
     trangThai: text(row.trangThai),
-  });
+  }));
   return (
     <FormDialog
       open
@@ -215,12 +215,12 @@ function EditLop({ row, onChanged, onClose }: DialogProps): ReactElement {
     '/hlv/danhSach',
     {},
   ).result;
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     ten: text(row.ten),
     hlvId: text(row.hlvId),
     levelKey: text(row.levelKey) || 'tot',
     trangThai: text(row.trangThai),
-  });
+  }));
   const coachRows = coaches.state === 'ready' ? coaches.data : [];
   return (
     <FormDialog
@@ -281,13 +281,13 @@ function EditHocVien({ row, onChanged, onClose }: DialogProps): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
   const classes = useRows('lop').loaded;
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     hoTen: text(row.hoTen),
     namSinh: text(row.namSinh),
     lopId: row.lopId == null ? '' : text(row.lopId),
     trangThai: text(row.trangThai),
     ghiChuHlv: text(row.ghiChuHlv),
-  });
+  }));
   const classRows = classes.state === 'ready' ? classes.rows : [];
   return (
     <FormDialog
@@ -334,7 +334,11 @@ function EditHocVien({ row, onChanged, onClose }: DialogProps): ReactElement {
         allowEmpty
         onChange={(lopId) => setForm({ ...form, lopId })}
         options={classRows
-          .filter((cls) => cls.coSoId === row.coSoId)
+          .filter(
+            (cls) =>
+              cls.coSoId === row.coSoId &&
+              (cls.trangThai !== 'da_dong' || cls.id === row.lopId),
+          )
           .map((cls) => ({ value: String(cls.id), label: text(cls.ten) }))}
       />
       {statusField(
@@ -357,12 +361,12 @@ function EditHocVien({ row, onChanged, onClose }: DialogProps): ReactElement {
 function EditPhuHuynh({ row, onChanged, onClose }: DialogProps): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     hoTen: text(row.hoTen),
     soDienThoai: text(row.soDienThoai),
     zalo: text(row.zalo),
     ghiChu: text(row.ghiChu),
-  });
+  }));
   return (
     <FormDialog
       open

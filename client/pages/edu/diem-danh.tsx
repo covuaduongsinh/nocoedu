@@ -351,10 +351,12 @@ export default function DiemDanhPage(): ReactElement {
             value={generate.lopId}
             required
             onChange={(lopId) => setGenerate({ ...generate, lopId })}
-            options={classRows.map((row) => ({
-              value: String(row.id),
-              label: text(row.ten),
-            }))}
+            options={classRows
+              .filter((row) => row.trangThai !== 'da_dong')
+              .map((row) => ({
+                value: String(row.id),
+                label: text(row.ten),
+              }))}
           />
           <TextField
             id='gen-from'

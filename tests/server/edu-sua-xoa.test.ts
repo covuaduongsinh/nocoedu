@@ -229,3 +229,33 @@ test('a parent phone is stored in its normal form and a parent is deleted only w
   expect((await post(admin, '/phuHuynh/xoa', { id: parent })).status).toBe(200);
   expect((await post(admin, '/phuHuynh/xoa', { id: parent })).status).toBe(404);
 });
+
+test('the fields that belong to business routes are refused on a record edit and leave the database unchanged', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin, ids } = await setup(testApp, connection);
+  const read = () =>
+    connection.query
+      .selectFrom('eduHocVien')
+      .selectAll()
+      .where('id', '=', ids.hocVienA)
+      .executeTakeFirstOrThrow();
+  const before = JSON.stringify(await read());
+  const forbidden: Record<string, unknown> = {
+    soBuoiConLai: 99,
+    levelKey: 'vua',
+    levelOrder: 6,
+    coSoId: ids.coSoB,
+    lopId: ids.lopB,
+    ma: 'HV-DOI',
+    externalId: 'recX',
+  };
+  for (const [field, value] of Object.entries(forbidden)) {
+    const status = (
+      await update(admin, 'hocVien', ids.hocVienA, { [field]: value })
+    ).status;
+    expect(`${field} ${status}`).toBe(`${field} 403`);
+  }
+  expect(JSON.stringify(await read())).toBe(before);
+});

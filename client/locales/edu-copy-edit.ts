@@ -46,9 +46,9 @@ export const EDU_EDIT_ROWS: readonly (readonly [
   ],
   [
     'edit.removeHint.phuHuynh',
-    'Chỉ xóa được khi phụ huynh không còn gắn với học viên nào và không có bản ghi đồng ý. Nếu còn, hãy gỡ liên kết trước.',
-    'Only possible when the parent is linked to no student and has no consent on record. Unlink first otherwise.',
-    '仅当家长未关联任何学员且无同意记录时才能删除，否则请先解除关联。',
+    'Chỉ Quản trị xóa được, và chỉ khi phụ huynh không còn gắn với học viên nào và không có bản ghi đồng ý. Nếu còn, hãy gỡ liên kết trước.',
+    'Only an administrator can delete, and only when the parent is linked to no student and has no consent on record. Unlink first otherwise.',
+    '仅管理员可删除，且仅当家长未关联任何学员且无同意记录时才能删除，否则请先解除关联。',
   ],
   ['status.hoc_thu', 'Học thử', 'Trial', '试课'],
   [
