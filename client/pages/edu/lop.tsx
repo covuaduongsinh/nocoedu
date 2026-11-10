@@ -4,6 +4,7 @@ import { useTranslation } from '@nocobase/i18n/client';
 import { useState, type ReactElement } from 'react';
 
 import { Button } from '#components/ui/button';
+import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
 
 import { FormDialog, SelectField, TextField } from './form-parts.js';
@@ -12,6 +13,8 @@ import {
   LEVEL_KEYS,
   LEVEL_ORDER,
   text,
+  useListState,
+  usePagedRows,
   useRequest,
   useRows,
 } from './kit.js';
@@ -22,7 +25,12 @@ const EMPTY = { ma: '', ten: '', coSoId: '', hlvId: '', levelKey: 'tot' };
 export default function LopPage(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
-  const { loaded, reload } = useRows('lop');
+  const list = useListState();
+  const { loaded, total, reload } = usePagedRows('lop', {
+    page: list.page,
+    search: list.applied,
+    searchFields: ['ma', 'ten'],
+  });
   const branches = useRows('coSo').loaded;
   // The coaches to choose from; a person who may not manage classes gets no list, and cannot open the form anyway.
   const coaches = useRequest<{ id: string; name: string }[]>(
@@ -48,6 +56,12 @@ export default function LopPage(): ReactElement {
         emptyHint={t('edu.lop.emptyHint')}
         loaded={loaded}
         onRetry={reload}
+        paging={{ page: list.page, total, onPage: list.setPage }}
+        search={{
+          value: list.search,
+          label: t('edu.common.search'),
+          onChange: list.setSearch,
+        }}
         actions={
           canManage ? (
             <Button onClick={() => setForm(EMPTY)}>{t('edu.lop.new')}</Button>
@@ -55,7 +69,13 @@ export default function LopPage(): ReactElement {
         }
         columns={[
           { key: 'ma', label: t('edu.lop.ma') },
-          { key: 'ten', label: t('edu.lop.ten') },
+          {
+            key: 'ten',
+            label: t('edu.lop.ten'),
+            render: (row) => (
+              <RecordLink to={`/lop/${row.id}`}>{text(row.ten)}</RecordLink>
+            ),
+          },
           {
             key: 'coSoId',
             label: t('edu.lop.coSo'),

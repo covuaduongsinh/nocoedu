@@ -1,12 +1,17 @@
 import { useTranslation } from '@nocobase/i18n/client';
 import type { ReactElement } from 'react';
 
-import { text, useRows } from './kit.js';
+import { text, useListState, usePagedRows } from './kit.js';
 import { ListPage } from './list-page.js';
 
 export default function PhuHuynhPage(): ReactElement {
   const { t } = useTranslation();
-  const { loaded, reload } = useRows('phuHuynh');
+  const list = useListState();
+  const { loaded, total, reload } = usePagedRows('phuHuynh', {
+    page: list.page,
+    search: list.applied,
+    searchFields: ['ma', 'hoTen', 'soDienThoai'],
+  });
   return (
     <ListPage
       title={t('edu.phuHuynh.title')}
@@ -15,6 +20,12 @@ export default function PhuHuynhPage(): ReactElement {
       emptyHint={t('edu.phuHuynh.emptyHint')}
       loaded={loaded}
       onRetry={reload}
+      paging={{ page: list.page, total, onPage: list.setPage }}
+      search={{
+        value: list.search,
+        label: t('edu.common.search'),
+        onChange: list.setSearch,
+      }}
       columns={[
         { key: 'ma', label: t('edu.phuHuynh.ma') },
         { key: 'hoTen', label: t('edu.phuHuynh.hoTen') },

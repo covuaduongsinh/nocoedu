@@ -8,7 +8,7 @@ import { Checkbox } from '#components/ui/checkbox';
 import { StatusBadge } from '#components/status-badge';
 
 import { FormDialog, TextField } from './form-parts.js';
-import { createOne, useRows } from './kit.js';
+import { createOne, useListState, usePagedRows } from './kit.js';
 import { ListPage } from './list-page.js';
 
 const EMPTY = { ma: '', ten: '', diaChi: '', truBuoiVangCoPhep: false };
@@ -16,7 +16,12 @@ const EMPTY = { ma: '', ten: '', diaChi: '', truBuoiVangCoPhep: false };
 export default function CoSoPage(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
-  const { loaded, reload } = useRows('coSo');
+  const list = useListState();
+  const { loaded, total, reload } = usePagedRows('coSo', {
+    page: list.page,
+    search: list.applied,
+    searchFields: ['ma', 'ten'],
+  });
   const { can: canManage } = useCan({
     resource: { type: 'composite', id: 'edu.coSo' },
     action: 'manage',
@@ -32,6 +37,12 @@ export default function CoSoPage(): ReactElement {
         emptyHint={t('edu.coSo.emptyHint')}
         loaded={loaded}
         onRetry={reload}
+        paging={{ page: list.page, total, onPage: list.setPage }}
+        search={{
+          value: list.search,
+          label: t('edu.common.search'),
+          onChange: list.setSearch,
+        }}
         actions={
           canManage ? (
             <Button onClick={() => setForm(EMPTY)}>{t('edu.coSo.new')}</Button>
