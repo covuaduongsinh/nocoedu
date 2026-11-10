@@ -71,8 +71,8 @@ test('a dry run reads and plans but writes nothing, not even the log', async ({
   await reset(connection);
   const report = await chayNhap(database, fixtureSource(), dry);
   expect(report.mode).toBe('dry-run');
-  expect(report.tables.hocVien).toMatchObject({ tao: 3, loi: 2 });
-  expect(report.balance).toMatchObject({ match: 1, differ: 1, unknown: 1 });
+  expect(report.tables.hocVien).toMatchObject({ tao: 4, loi: 1 });
+  expect(report.balance).toMatchObject({ match: 1, differ: 1, unknown: 2 });
   expect(Object.values(await counts(connection)).every((n) => n === 0)).toBe(
     true,
   );
@@ -90,7 +90,7 @@ test('--commit writes the plan once, with the ledger and the log; a second run a
     lop: 2,
     lopLich: 2,
     phuHuynh: 1,
-    hocVien: 3,
+    hocVien: 4,
     goiHoc: 2,
     buoiHoc: 5,
     diemDanh: 6,
@@ -248,7 +248,7 @@ test('--commit writes the plan once, with the ledger and the log; a second run a
     eduNhapLarkNhatKy: 0,
   });
   expect(after2.eduNhapLarkNhatKy).toBe(2);
-  expect(again.tables.hocVien).toMatchObject({ tao: 0, trung: 3 });
+  expect(again.tables.hocVien).toMatchObject({ tao: 0, trung: 4 });
   expect(again.tables.diemDanh).toMatchObject({ tao: 0, trung: 6 });
   const balances = await q
     .selectFrom('eduHocVien')
@@ -315,7 +315,7 @@ test('a student already in NocoEdu is merged, not duplicated, and nothing of it 
     .execute();
 
   const report = await chayNhap(database, fixtureSource(), dry);
-  expect(report.tables.hocVien).toMatchObject({ tao: 2, ghep: 1 });
+  expect(report.tables.hocVien).toMatchObject({ tao: 3, ghep: 1 });
   await chayNhap(database, fixtureSource(), options(userId));
 
   const merged = await q
@@ -341,7 +341,7 @@ test('a student already in NocoEdu is merged, not duplicated, and nothing of it 
   });
   expect(merged.ngaySinh).toBeNull();
   expect(await q.selectFrom('eduHocVien').select('id').execute()).toHaveLength(
-    3,
+    4,
   );
   expect(await q.selectFrom('eduPhuHuynh').select('id').execute()).toHaveLength(
     1,
@@ -499,7 +499,7 @@ test('a log row that cannot be written after the commit is reported as such, not
   // The data is there, no "failed" row was added, and a second run finds only duplicates.
   expect(
     await connection.query.selectFrom('eduHocVien').select('id').execute(),
-  ).toHaveLength(3);
+  ).toHaveLength(4);
   expect(
     await connection.query
       .selectFrom('eduNhapLarkNhatKy')
@@ -507,7 +507,7 @@ test('a log row that cannot be written after the commit is reported as such, not
       .execute(),
   ).toHaveLength(0);
   const again = await chayNhap(database, fixtureSource(), dry);
-  expect(again.tables.hocVien).toMatchObject({ tao: 0, trung: 3 });
+  expect(again.tables.hocVien).toMatchObject({ tao: 0, trung: 4 });
 });
 
 test('--commit refuses a user that does not exist and a structure that changed, writing nothing', async ({
@@ -536,4 +536,39 @@ test('--commit refuses a user that does not exist and a structure that changed, 
       'LARK_THIEU_BIEN',
     ]),
   );
+});
+
+test('a second run adds the missing parent links to imported students and then adds nothing', async ({
+  database,
+  connection,
+}) => {
+  await reset(connection);
+  const userId = await adminId(connection);
+  await chayNhap(database, fixtureSource(), options(userId));
+  const q = connection.query;
+  const linkCount = async () =>
+    (await q.selectFrom('eduHocVienPhuHuynh').select('id').execute()).length;
+  const whole = await linkCount();
+  expect(whole).toBeGreaterThan(0);
+  // Like a run made before the phone cells were read correctly: the students exist, the links do not.
+  await q.deleteFrom('eduHocVienPhuHuynh').allowAllRows().execute();
+  const parentsBefore = (
+    await q.selectFrom('eduPhuHuynh').select('id').execute()
+  ).length;
+
+  const preview = await chayNhap(database, fixtureSource(), dry);
+  expect(preview.tables.hocVien).toMatchObject({ tao: 0, trung: 4 });
+  expect(preview.tables.hocVien.boSung).toBeGreaterThan(0);
+  expect(await linkCount()).toBe(0);
+
+  const filled = await chayNhap(database, fixtureSource(), options(userId));
+  expect(filled.boSung).toBe(whole);
+  expect(await linkCount()).toBe(whole);
+  expect(
+    (await q.selectFrom('eduPhuHuynh').select('id').execute()).length,
+  ).toBe(parentsBefore);
+
+  const again = await chayNhap(database, fixtureSource(), options(userId));
+  expect(again.boSung).toBe(0);
+  expect(await linkCount()).toBe(whole);
 });

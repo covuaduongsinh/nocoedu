@@ -163,6 +163,8 @@ async function idsByExternalId(
 export interface WriteTotals {
   readonly written: Readonly<Record<PlanTable, number>>;
   readonly ledgerRows: number;
+  /** Links added to students that were already in NocoEdu (`bo_sung`). */
+  readonly boSung: number;
 }
 
 /**
@@ -188,6 +190,7 @@ export async function ghiKeHoach(
     ].map((table) => [table, 0]),
   ) as Record<PlanTable, number>;
   let ledgerRows = 0;
+  let boSung = 0;
 
   await database.transaction(async (connection) => {
     const q = connection.query;
@@ -342,6 +345,31 @@ export async function ghiKeHoach(
       ),
     );
 
+    // The parents of a student that was already in NocoEdu: only the links it does not have yet.
+    const supplements = plan.hocVien.flatMap((row) =>
+      row.action === 'tao' || row.boSungPhuHuynh.length === 0
+        ? []
+        : row.boSungPhuHuynh.flatMap((parent) => {
+            const hocVienId =
+              row.action === 'ghep'
+                ? row.existingId
+                : studentIds.get(row.externalId);
+            const phuHuynhId = parentIdOf(parent.key);
+            return hocVienId === undefined || phuHuynhId === undefined
+              ? []
+              : [
+                  {
+                    hocVienId,
+                    phuHuynhId,
+                    quanHe: parent.quanHe,
+                    lienHeChinh: parent.lienHeChinh,
+                  },
+                ];
+          }),
+    );
+    await insertAll(q, 'eduHocVienPhuHuynh', supplements);
+    boSung = supplements.length;
+
     // 5. Opening packages
     const newPackages = plan.goiHoc.filter((row) => row.action === 'tao');
     await insertAll(
@@ -478,7 +506,7 @@ export async function ghiKeHoach(
         );
     }
   });
-  return { written, ledgerRows };
+  return { written, ledgerRows, boSung };
 }
 
 /** One row of `eduNhapLarkNhatKy`: counts and reason codes only. Written in its own transaction so a failure is kept. */

@@ -344,6 +344,47 @@ describe('what NocoEdu already holds', () => {
   });
 });
 
+describe('parents of students already in NocoEdu', () => {
+  const imported = (phones: string[]): ExistingState => ({
+    ...EMPTY_STATE,
+    externalIds: { ...EMPTY_STATE.externalIds, hocVien: new Set([IDS.s1]) },
+    students: [
+      {
+        id: 7,
+        hoTen: 'x',
+        namSinh: 2016,
+        externalId: IDS.s1,
+        phones,
+        coSoDu: true,
+      },
+    ],
+  });
+
+  it('reads the phone cell as Lark sends it ([{ fullPhoneNum }]) and pairs it with the name', () => {
+    const p = plan();
+    expect(p.problems.some((x) => x.code === 'PH_KHONG_GHEP_DUOC')).toBe(false);
+    expect(p.hocVien[0]?.parents).toHaveLength(1);
+    expect(p.phuHuynh.map((row) => row.soDienThoai)).toEqual(['0900000001']);
+  });
+
+  it('adds a link for an imported student that has none, and leaves one that has it', () => {
+    const missing = plan(imported([]));
+    expect(missing.hocVien[0]).toMatchObject({ action: 'trung' });
+    expect(missing.hocVien[0]?.boSungPhuHuynh).toEqual([
+      expect.objectContaining({ lienHeChinh: true }),
+    ]);
+    expect(tongKetTheoBang(missing).hocVien.boSung).toBe(1);
+    // A parent typed by hand with another phone stays; the Lark one is added, not as the main contact.
+    const manual = plan(imported(['0911111111']));
+    expect(manual.hocVien[0]?.boSungPhuHuynh).toEqual([
+      expect.objectContaining({ lienHeChinh: false }),
+    ]);
+    const has = plan(imported(['0900000001']));
+    expect(has.hocVien[0]?.boSungPhuHuynh).toEqual([]);
+    expect(tongKetTheoBang(has).hocVien.boSung).toBe(0);
+  });
+});
+
 describe('sessions the school already holds', () => {
   it('reports a session typed by hand on the same class, day and hour instead of failing the whole run', () => {
     const key = `lark:buoi:${IDS.lopA}:2025-02-03`;
@@ -371,6 +412,21 @@ describe('sessions the school already holds', () => {
       externalIds: { ...EMPTY_STATE.externalIds, buoiHoc: new Set([key]) },
     });
     expect(again.problems.some((x) => x.code === 'BUOI_DA_CO')).toBe(false);
+  });
+
+  it('warns about a session of the same class and day at another hour, and still imports it', () => {
+    const key = `lark:buoi:${IDS.lopA}:2025-02-03`;
+    const p = plan({
+      ...EMPTY_STATE,
+      sessions: new Set([`${IDS.lopA}|2025-02-03|09:00`]),
+    });
+    expect(p.warnings).toContainEqual({
+      table: 'buoiHoc',
+      id: key,
+      code: 'BUOI_CUNG_NGAY_KHAC_GIO',
+    });
+    expect(p.problems.some((x) => x.code === 'BUOI_DA_CO')).toBe(false);
+    expect(p.buoiHoc.map((row) => row.externalId)).toContain(key);
   });
 });
 

@@ -23,6 +23,8 @@ export function flatValues(cell: Json): (string | number | boolean)[] {
   if (isObject(cell)) {
     if ('value' in cell) return flatValues(cell.value);
     if (typeof cell.text === 'string') return [cell.text];
+    // A phone cell: `{ fullPhoneNum, phoneNum, ... }`.
+    if (typeof cell.fullPhoneNum === 'string') return [cell.fullPhoneNum];
   }
   return [];
 }

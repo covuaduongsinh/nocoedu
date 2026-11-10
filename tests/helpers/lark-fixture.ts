@@ -116,7 +116,7 @@ export function buildFixture(): { [K in LarkTableKey]: LarkRecord[] } {
         'Tình trạng học': 'Đang học',
         'Họ tên PH': lookupText('phụ huynh mẫu 01'),
         'Quan hệ': 'Mẹ',
-        'SDT PH': { type: 1, value: [{ text: '0900 000 001', type: 'text' }] },
+        'SDT PH': [{ fullPhoneNum: '0900 000 001' }],
         'Trình độ hiện tại': link('recLevel1', 'NM1'),
         'số buổi tồn update (vào ngày thống kê)': { type: 2, value: [5] },
         'Ngày update gần nhất về HP': ms('2025-02-01'),
@@ -144,7 +144,7 @@ export function buildFixture(): { [K in LarkTableKey]: LarkRecord[] } {
         'Tình trạng học': 'Đang học',
         'Họ tên PH': lookupText('Phụ huynh Mẫu 03'),
         'Quan hệ': 'Bố',
-        'SDT PH': { type: 1, value: [{ text: '0900000003', type: 'text' }] },
+        'SDT PH': [{ fullPhoneNum: '0900000003' }],
         'Trình độ hiện tại': link('recLevelTest', 'Test'),
       }),
       rec(IDS.s4, {

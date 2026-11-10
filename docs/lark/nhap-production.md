@@ -23,16 +23,17 @@ Framework đặt lệnh riêng của ứng dụng dưới topic `app`, nên lệ
 
 ### Mã lỗi và cảnh báo
 
-| Mã                                                                                                | Ý nghĩa                                                                                                                                           |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `THIEU_HO_TEN`, `THIEU_NAM_SINH`, `CO_SO_KHONG_RO`, `CAP_KHONG_RO`, `TRANG_THAI_KHONG_RO`         | học viên bị bỏ                                                                                                                                    |
-| `TRUNG_NHIEU`                                                                                     | khớp nhiều học viên có sẵn, bỏ dòng                                                                                                               |
-| `SDT_SAI`, `PH_THIEU_TEN`, `PH_KHONG_GHEP_DUOC`                                                   | phụ huynh bị bỏ; học viên vẫn nhập với cảnh báo `THIEU_PHU_HUYNH`                                                                                 |
-| `SO_DU_KHONG_RO`, `THIEU_NGAY_CHOT`                                                               | không tạo gói mở đầu cho học viên đó                                                                                                              |
-| `DIEM_DANH_KHONG_RO`                                                                              | ô "có mặt" không phải `1`/`0`/`FALSE` (ví dụ `học lớp 2`, tên giáo viên): không nhập, không trừ buổi                                              |
-| `BUOI_DA_CO`                                                                                      | NocoEdu đã có một buổi của lớp đó cùng ngày, cùng giờ (nhập tay, hoặc HLV đã điểm danh): buổi đó và điểm danh của nó bị bỏ, phần còn lại vẫn nhập |
-| `HOC_VIEN_BI_BO`, `LOP_KHONG_RO`, `LOP_BI_BO`, `NGAY_KHONG_RO`, `GIO_BUOI_KHONG_RO`, `TRUNG_DONG` | dòng điểm danh bị bỏ                                                                                                                              |
-| `KHONG_CO_SO_DU`, `HLV_CHUA_GHEP`, `EMAIL_SAI`, `NHAN_XET_CAT`                                    | cảnh báo, vẫn nhập                                                                                                                                |
+| Mã                                                                                                | Ý nghĩa                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `THIEU_HO_TEN`, `THIEU_NAM_SINH`, `CO_SO_KHONG_RO`, `CAP_KHONG_RO`, `TRANG_THAI_KHONG_RO`         | học viên bị bỏ                                                                                                                                                                                |
+| `TRUNG_NHIEU`                                                                                     | khớp nhiều học viên có sẵn, bỏ dòng                                                                                                                                                           |
+| `SDT_SAI`, `PH_THIEU_TEN`, `PH_KHONG_GHEP_DUOC`                                                   | phụ huynh bị bỏ; học viên vẫn nhập với cảnh báo `THIEU_PHU_HUYNH`                                                                                                                             |
+| `SO_DU_KHONG_RO`, `THIEU_NGAY_CHOT`                                                               | không tạo gói mở đầu cho học viên đó                                                                                                                                                          |
+| `DIEM_DANH_KHONG_RO`                                                                              | ô "có mặt" không phải `1`/`0`/`FALSE` (ví dụ `học lớp 2`, tên giáo viên): không nhập, không trừ buổi                                                                                          |
+| `BUOI_DA_CO`                                                                                      | NocoEdu đã có một buổi của lớp đó cùng ngày, cùng giờ (nhập tay, hoặc HLV đã điểm danh): buổi đó và điểm danh của nó bị bỏ, phần còn lại vẫn nhập                                             |
+| `BUOI_CUNG_NGAY_KHAC_GIO`                                                                         | NocoEdu đã có một buổi của lớp đó cùng ngày nhưng khác giờ (học bù, đổi ca): buổi của Lark vẫn nhập, nên học viên có thể bị trừ hai buổi trong một ngày; xem lại các mã buổi này sau khi nhập |
+| `HOC_VIEN_BI_BO`, `LOP_KHONG_RO`, `LOP_BI_BO`, `NGAY_KHONG_RO`, `GIO_BUOI_KHONG_RO`, `TRUNG_DONG` | dòng điểm danh bị bỏ                                                                                                                                                                          |
+| `KHONG_CO_SO_DU`, `HLV_CHUA_GHEP`, `EMAIL_SAI`, `NHAN_XET_CAT`                                    | cảnh báo, vẫn nhập                                                                                                                                                                            |
 
 Output, nhật ký và log **chỉ** có số dòng, mã học viên cũ trên Lark (`HV-…`), mã bản ghi Lark (`rec…`) và mã lỗi; không có họ tên, SĐT, email, ngày sinh hay nhận xét.
 
@@ -62,6 +63,17 @@ Các bước dành cho người có quyền vào server (Dokploy). Không đưa 
 7. **Kiểm tra:** bảng `eduNhapLarkNhatKy` có thêm một dòng `thanh_cong` (tổng kết theo bảng, chỉ mã). Chạy lại `--dry-run`: mọi dòng phải là "trùng", số "tạo" bằng 0.
 
 `--commit` ghi trong **một transaction**: có lỗi giữa chừng thì không có gì được ghi, một dòng `that_bai` (chỉ mã lỗi) được ghi vào nhật ký, và lệnh thoát khác 0. Nếu dữ liệu đã ghi nhưng việc ghi dòng nhật ký lỗi (`LARK_DA_GHI_LOI_NHAT_KY`) thì **không** khôi phục: dữ liệu đã nằm trong NocoEdu, chạy `--dry-run` sẽ thấy mọi dòng là "trùng". Khi ghi thất bại, thông báo nêu tên bảng hoặc ràng buộc từ chối (không có giá trị). Mã thoát 2 là dùng sai (hai cờ cùng lúc, thiếu `--user`, thiếu biến `LARK_*`, `--user` không có trong hệ thống).
+
+### Bổ sung phụ huynh sau lần nhập đầu
+
+Lần nhập đầu đọc sai ô "SDT PH" (`[{ fullPhoneNum }]`), nên các học viên đã nhập chưa có phụ huynh. Bản sửa không cần migration. Cách bổ sung:
+
+1. Deploy bản mới, rồi chạy `--dry-run`. Cột "bổ sung" của bảng `hocVien` là số học viên đã có trong NocoEdu sẽ được thêm liên kết tới phụ huynh; cột "tạo" của `phuHuynh` là số phụ huynh mới. Chỉ khoảng 30/179 học viên có SĐT phụ huynh trên Lark, nên số này nhỏ là bình thường; số còn lại nhập tay.
+2. Sao lưu bằng `pg_dump` như ở bước 5 phía trên.
+3. Chạy `--commit --user <id>`. Lệnh chỉ thêm phụ huynh mới và liên kết còn thiếu (theo số điện thoại); không sửa, không xoá phụ huynh hoặc liên kết đã có, kể cả loại nhập tay.
+4. Chạy lại `--dry-run`: cột "bổ sung" phải bằng 0 (chạy lại `--commit` cũng không tạo thêm dòng).
+
+Rollback bằng cách khôi phục bản `pg_dump` ở bước 2.
 
 ### Rollback
 

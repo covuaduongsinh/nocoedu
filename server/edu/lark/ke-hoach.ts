@@ -167,6 +167,15 @@ export interface HocVienRow {
     quanHe: string;
     lienHeChinh: boolean;
   }[];
+  /**
+   * Parents of Lark the student already in NocoEdu (`trung` or `ghep`) is not linked to yet: the command adds the link
+   * (`bo_sung`) and never touches the parents NocoEdu holds.
+   */
+  readonly boSungPhuHuynh: readonly {
+    key: string;
+    quanHe: string;
+    lienHeChinh: boolean;
+  }[];
   readonly action: Action;
   readonly existingId?: number;
 }
@@ -385,11 +394,15 @@ export function lapKeHoach(
   // ── 3. Attendance rows of Lark, read once ────────────────────────────────────────────────────────────────
   const studentBranch = new Map<string, string>();
   for (const record of data.hocVien) {
-    const rawBranch = textOf(record.fields['cơ sở']).normalize('NFC').toLowerCase();
+    const rawBranch = textOf(record.fields['cơ sở'])
+      .normalize('NFC')
+      .toLowerCase();
     studentBranch.set(record.recordId, rawBranch);
   }
 
-  const fallbackClassesNeeded = new Set<'lark:lop:kem-kl' | 'lark:lop:kem-vp'>();
+  const fallbackClassesNeeded = new Set<
+    'lark:lop:kem-kl' | 'lark:lop:kem-vp'
+  >();
   const raw: RawAttendance[] = [];
   for (const record of [...data.nhanXet2024, ...data.nhanXet2025]) {
     const id = record.recordId;
@@ -620,6 +633,22 @@ export function lapKeHoach(
         claimedExisting.add(candidates[0].id);
       }
     }
+    // Parents the existing student is not linked to yet (matched by phone); a manual parent stays as it is.
+    const existingStudentRow =
+      existingId === undefined
+        ? undefined
+        : existing.students.find((s) => s.id === existingId);
+    const boSungPhuHuynh = existingStudentRow
+      ? parents
+          .filter((p) => {
+            const phone = phuHuynh.get(p.key)?.soDienThoai;
+            return !!phone && !existingStudentRow.phones.includes(phone);
+          })
+          .map((p, index) => ({
+            ...p,
+            lienHeChinh: existingStudentRow.phones.length === 0 && index === 0,
+          }))
+      : [];
     studentLevel.set(id, level.value);
     studentPhones.set(id, studentPhoneList);
     students.push({
@@ -633,6 +662,7 @@ export function lapKeHoach(
       levelKey: level.value,
       trangThai: status.value,
       parents,
+      boSungPhuHuynh,
       action,
       ...(existingId !== undefined ? { existingId } : {}),
     });
@@ -660,6 +690,10 @@ export function lapKeHoach(
   const balances: BalanceRow[] = [];
   const seenPairs = new Set<string>();
   const conflictingSessions = new Set<string>();
+  const warnedSameDay = new Set<string>();
+  const sessionDays = new Set(
+    [...existing.sessions].map((key) => key.split('|').slice(0, 2).join('|')),
+  );
 
   const byStudent = new Map<string, RawAttendance[]>();
   for (const row of raw)
@@ -739,6 +773,16 @@ export function lapKeHoach(
         }
         fail('diemDanh', row.id, 'BUOI_DA_CO');
         continue;
+      }
+      if (
+        sessionDays.has(`${row.lopKey}|${row.ngay}`) &&
+        !existing.externalIds.buoiHoc.has(buoiKey) &&
+        !existing.sessions.has(`${row.lopKey}|${row.ngay}|${time.gioBatDau}`) &&
+        !warnedSameDay.has(buoiKey)
+      ) {
+        // Same class and day, another hour (a make-up or a changed shift): both would deduct the student.
+        warnedSameDay.add(buoiKey);
+        warn('buoiHoc', buoiKey, 'BUOI_CUNG_NGAY_KHAC_GIO');
       }
       const pair = `${row.lopKey}|${row.ngay}|${student.externalId}`;
       if (seenPairs.has(pair)) {
@@ -844,6 +888,8 @@ export interface TableTotals {
   readonly tao: number;
   readonly trung: number;
   readonly ghep: number;
+  /** Students already in NocoEdu that get a link to a parent they did not have (`bo_sung`). */
+  readonly boSung: number;
   readonly loi: number;
 }
 
@@ -859,6 +905,10 @@ export function tongKetTheoBang(plan: Plan): Record<PlanTable, TableTotals> {
       tao: count('tao'),
       trung: count('trung'),
       ghep: count('ghep'),
+      boSung:
+        table === 'hocVien'
+          ? plan.hocVien.filter((row) => row.boSungPhuHuynh.length > 0).length
+          : 0,
       loi,
     };
   }
