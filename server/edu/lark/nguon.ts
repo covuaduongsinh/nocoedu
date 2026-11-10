@@ -313,6 +313,7 @@ export async function createLarkCliSource(
         // `lark-cli` exits non-zero with the JSON error on stdout when Lark refuses; anything else is a real failure.
         const failed = error as {
           stdout?: string;
+          stderr?: string;
           code?: string;
           killed?: boolean;
         };
@@ -326,7 +327,7 @@ export async function createLarkCliSource(
             'LARK_CLI_THIEU',
             `lark-cli was not found (looked for "${bin}"); set LARK_CLI to its path.`,
           );
-        stdout = failed.stdout ?? '';
+        stdout = (failed.stdout && failed.stdout.trim() !== '') ? failed.stdout : (failed.stderr ?? '');
       }
       lastCall = Date.now();
       let body: {
