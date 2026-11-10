@@ -27,6 +27,7 @@ const getSession = vi.fn(async () => ({ data: null }));
 const api = vi.fn(({ method, path }: ApiCall) => {
   if (method === 'GET' && path === 'authorization/permissions')
     return { data: permissions };
+  if (path === 'hocVien/count') return { data: 60 };
   if (path === 'hocVien/findMany')
     return {
       data: [
@@ -118,6 +119,46 @@ describe('students page', () => {
           json: { hocVienId: 1, denLevelKey: 'ma' },
         }),
       ),
+    );
+  });
+
+  it('links each name to the student file and pages and searches on the server', async () => {
+    await render();
+    expect(
+      await screen.findByRole('link', { name: 'Học viên Mẫu 01' }),
+    ).toHaveAttribute('href', expect.stringMatching(/\/hoc-vien\/1$/));
+    // 60 students at 25 a page: three pages, and the first page asks for 25 from offset 0.
+    expect(screen.getByText('Trang 1 / 3')).toBeInTheDocument();
+    const firstRead = api.mock.calls
+      .map(([call]) => call)
+      .find((call) => call.path === 'hocVien/findMany');
+    expect(firstRead?.json).toMatchObject({ limit: 25, offset: 0 });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sau' }));
+    await waitFor(() =>
+      expect(
+        api.mock.calls.some(
+          ([call]) =>
+            call.path === 'hocVien/findMany' &&
+            (call.json as { offset?: number }).offset === 25,
+        ),
+      ).toBe(true),
+    );
+
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Tìm theo tên hoặc mã' }),
+      'Mẫu',
+    );
+    // The search goes to the server (a filter on name and code), and returns to page 1.
+    await waitFor(() =>
+      expect(
+        api.mock.calls.some(
+          ([call]) =>
+            call.path === 'hocVien/findMany' &&
+            JSON.stringify(call.json).includes('Mẫu') &&
+            (call.json as { offset?: number }).offset === 0,
+        ),
+      ).toBe(true),
     );
   });
 });

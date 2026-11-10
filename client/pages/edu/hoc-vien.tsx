@@ -3,6 +3,7 @@ import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useState, type ReactElement } from 'react';
 
+import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
 import { Button } from '#components/ui/button';
 
@@ -12,6 +13,8 @@ import {
   LEVEL_ORDER,
   post,
   text,
+  useListState,
+  usePagedRows,
   useRows,
   type Row,
 } from './kit.js';
@@ -30,7 +33,12 @@ const RELATIONS = ['bo', 'me', 'ong', 'ba', 'nguoi_giam_ho', 'khac'] as const;
 export default function HocVienPage(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
-  const { loaded, reload } = useRows('hocVien');
+  const list = useListState();
+  const { loaded, total, reload } = usePagedRows('hocVien', {
+    page: list.page,
+    search: list.applied,
+    searchFields: ['ma', 'hoTen'],
+  });
   const classes = useRows('lop').loaded;
   const branches = useRows('coSo').loaded;
   const { can: canCreate } = useCan({
@@ -66,6 +74,12 @@ export default function HocVienPage(): ReactElement {
         emptyHint={t('edu.hocVien.emptyHint')}
         loaded={loaded}
         onRetry={reload}
+        paging={{ page: list.page, total, onPage: list.setPage }}
+        search={{
+          value: list.search,
+          label: t('edu.common.search'),
+          onChange: list.setSearch,
+        }}
         actions={
           canCreate ? (
             <Button onClick={() => setStudent(NEW_STUDENT)}>
@@ -75,7 +89,15 @@ export default function HocVienPage(): ReactElement {
         }
         columns={[
           { key: 'ma', label: t('edu.hocVien.ma') },
-          { key: 'hoTen', label: t('edu.hocVien.hoTen') },
+          {
+            key: 'hoTen',
+            label: t('edu.hocVien.hoTen'),
+            render: (row) => (
+              <RecordLink to={`/hoc-vien/${row.id}`}>
+                {text(row.hoTen)}
+              </RecordLink>
+            ),
+          },
           { key: 'namSinh', label: t('edu.hocVien.namSinh') },
           {
             key: 'levelKey',

@@ -185,6 +185,9 @@ describe('app client routes', () => {
     // Permission management pages stay behind the platform's own user and permission-set permissions.
     expect(pageAuthorizations(resolved.routes)).toEqual([
       { name: 'home', authorizedAs: null },
+      // The student file and the class page open with the grant of their list.
+      { name: 'edu-lop-chi-tiet', authorizedAs: 'edu.lop' },
+      { name: 'edu-hocVien-chi-tiet', authorizedAs: 'edu.hocVien' },
       { name: 'inbox', authorizedAs: null },
       { name: 'edu-coSo', authorizedAs: 'edu.coSo' },
       { name: 'edu-lop', authorizedAs: 'edu.lop' },

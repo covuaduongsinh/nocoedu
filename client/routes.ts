@@ -54,6 +54,26 @@ function eduPage(
   ];
 }
 
+function eduDetailPage(
+  id: 'lop' | 'hocVien',
+  path: string,
+  componentLoader: AppClientRouteComponentLoader,
+) {
+  return [
+    {
+      auth: 'required' as const,
+      authz: {
+        resource: { type: 'page' as const, id: `edu.${id}` },
+        action: 'access',
+      },
+      breadcrumb: { title: `edu.${id}.detail` },
+      componentLoader,
+      name: `edu-${id}-chi-tiet`,
+      path,
+    },
+  ];
+}
+
 const appRoutes: AppClientRouteContribution = defineAppRoutes([
   {
     // Every signed-in user reaches the landing page. `authz: 'skip'` takes it out of page authorization entirely, so
@@ -85,6 +105,18 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     Users,
     3,
     () => import('./pages/edu/hoc-vien.js'),
+  ),
+  // Detail pages share the grant of their list (`edu.lop`, `edu.hocVien`): what a person sees is decided by the record
+  // APIs, so these open no data the list does not. They carry no navigation; the shell trail comes from the page.
+  ...eduDetailPage(
+    'lop',
+    '/lop/:id',
+    () => import('./pages/edu/lop-chi-tiet.js'),
+  ),
+  ...eduDetailPage(
+    'hocVien',
+    '/hoc-vien/:id',
+    () => import('./pages/edu/hoc-vien-chi-tiet.js'),
   ),
   ...eduPage(
     'phuHuynh',
