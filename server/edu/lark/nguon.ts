@@ -327,7 +327,10 @@ export async function createLarkCliSource(
             'LARK_CLI_THIEU',
             `lark-cli was not found (looked for "${bin}"); set LARK_CLI to its path.`,
           );
-        stdout = (failed.stdout && failed.stdout.trim() !== '') ? failed.stdout : (failed.stderr ?? '');
+        stdout =
+          failed.stdout && failed.stdout.trim() !== ''
+            ? failed.stdout
+            : (failed.stderr ?? '');
       }
       lastCall = Date.now();
       let body: {

@@ -139,4 +139,36 @@ export const EDU_DETAIL_ROWS: readonly (readonly [
     '请在点名页面按课表创建课程。',
   ],
   ['lop.notMarked', 'Chưa điểm danh', 'Not marked', '未点名'],
+  ['goiHoc.viewSessions', 'Xem buổi đã trừ', 'View sessions', '查看已扣课程'],
+  [
+    'goiHoc.sessionsTitle',
+    'Các buổi đã trừ vào gói',
+    'Sessions deducted from the package',
+    '该课时包已扣的课程',
+  ],
+  [
+    'goiHoc.sessionsHint',
+    'Buổi trừ vào gói mua trước (vào trước, ra trước).',
+    'Sessions are deducted from the earliest package first.',
+    '课程先从最早购买的课时包扣除。',
+  ],
+  [
+    'goiHoc.usage',
+    'Đã dùng {{used}} buổi, còn {{left}} buổi.',
+    'Used {{used}}, {{left}} left.',
+    '已用 {{used}} 节，剩余 {{left}} 节。',
+  ],
+  [
+    'goiHoc.noSessions',
+    'Chưa có buổi nào trừ vào gói này.',
+    'No session has been deducted from this package yet.',
+    '该课时包尚未扣除任何课程。',
+  ],
+  ['goiHoc.adjustment', 'Điều chỉnh tay', 'Manual adjustment', '手动调整'],
+  [
+    'goiHoc.over',
+    'Học viên đã học vượt số đã mua {{count}} buổi.',
+    'The student attended {{count}} more than they bought.',
+    '学员已超出所购课时 {{count}} 节。',
+  ],
 ];

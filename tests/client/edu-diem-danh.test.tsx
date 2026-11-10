@@ -114,6 +114,15 @@ describe('attendance and report pages', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('reads the sessions newest first, so the cap on a lookup never drops the newest ones', async () => {
+    await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
+    await screen.findByText('Học viên Mẫu 01');
+    const call = api.mock.calls.find(
+      ([request]) => request.path === 'buoiHoc/findMany',
+    )?.[0];
+    expect(JSON.stringify(call?.json)).toContain('desc');
+  });
+
   it('saves the register through the business route and warns when few sessions are left', async () => {
     permissions = {
       unrestricted: false,

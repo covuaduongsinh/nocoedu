@@ -14,7 +14,14 @@ import {
 } from '#components/ui/dialog';
 
 import { FormDialog, SelectField, TextField } from './form-parts.js';
-import { post, text, todayVn, useRows, type Row } from './kit.js';
+import {
+  post,
+  text,
+  todayVn,
+  useListState,
+  usePagedRows,
+  type Row,
+} from './kit.js';
 import { ListPage } from './list-page.js';
 
 const fmt = (value: unknown): string => Number(value).toLocaleString('vi-VN');
@@ -32,7 +39,12 @@ interface Qr {
 export default function HocPhiPage(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
-  const { loaded, reload } = useRows('hocVien');
+  const list = useListState();
+  const { loaded, total, reload } = usePagedRows('hocVien', {
+    page: list.page,
+    search: list.applied,
+    searchFields: ['ma', 'hoTen'],
+  });
   const { can: canSell } = useCan({
     resource: { type: 'composite', id: 'edu.goiHoc' },
     action: 'manage',
@@ -100,6 +112,12 @@ export default function HocPhiPage(): ReactElement {
         emptyHint={t('edu.hocVien.emptyHint')}
         loaded={loaded}
         onRetry={reload}
+        paging={{ page: list.page, total, onPage: list.setPage }}
+        search={{
+          value: list.search,
+          label: t('edu.common.search'),
+          onChange: list.setSearch,
+        }}
         columns={[
           { key: 'ma', label: t('edu.hocVien.ma') },
           { key: 'hoTen', label: t('edu.hocVien.hoTen') },
