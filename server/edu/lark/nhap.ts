@@ -89,6 +89,7 @@ export interface ImportReport {
   readonly skippedTables: readonly string[];
   readonly written?: Readonly<Record<PlanTable, number>>;
   readonly ledgerRows?: number;
+  readonly boSung?: number;
 }
 
 export function taoBaoCao(
@@ -119,12 +120,12 @@ export function inBaoCao(report: ImportReport, maxBalanceRows = 200): string[] {
   const lines: string[] = [
     `Chế độ: ${report.mode === 'commit' ? 'GHI THẬT (--commit)' : 'CHẠY THỬ (--dry-run), không ghi gì'}`,
     '',
-    'Tổng kết theo bảng (dòng | tạo | trùng | ghép | lỗi):',
+    'Tổng kết theo bảng (dòng | tạo | trùng | ghép | bổ sung | lỗi):',
   ];
   for (const table of PLAN_TABLES) {
     const t = report.tables[table];
     lines.push(
-      `  ${table.padEnd(9)} ${String(t.rows).padStart(6)} | ${String(t.tao).padStart(6)} | ${String(t.trung).padStart(5)} | ${String(t.ghep).padStart(5)} | ${String(t.loi).padStart(5)}`,
+      `  ${table.padEnd(9)} ${String(t.rows).padStart(6)} | ${String(t.tao).padStart(6)} | ${String(t.trung).padStart(5)} | ${String(t.ghep).padStart(5)} | ${String(t.boSung).padStart(8)} | ${String(t.loi).padStart(5)}`,
     );
   }
   lines.push('');
@@ -164,7 +165,7 @@ export function inBaoCao(report: ImportReport, maxBalanceRows = 200): string[] {
   if (report.written)
     lines.push(
       '',
-      `Đã ghi: ${PLAN_TABLES.map((t) => `${t} ${report.written?.[t] ?? 0}`).join(', ')}; sổ số dư ${report.ledgerRows ?? 0} dòng.`,
+      `Đã ghi: ${PLAN_TABLES.map((t) => `${t} ${report.written?.[t] ?? 0}`).join(', ')}; sổ số dư ${report.ledgerRows ?? 0} dòng; liên kết phụ huynh bổ sung ${report.boSung ?? 0}.`,
     );
   return lines;
 }
@@ -237,6 +238,7 @@ export async function chayNhap(
     ...report,
     written: result.written,
     ledgerRows: result.ledgerRows,
+    boSung: result.boSung,
   };
   try {
     await ghiNhatKy(database, {
