@@ -151,7 +151,7 @@ describe('reading the Base through lark-cli', () => {
     expect(data.nhanXet).toHaveLength(12);
     expect(data.hocVien[0]?.fields['Học viên']).toBe(' học  viên mẫu 01 ');
     const made = await calls(log);
-    // The list of tables, then 6 tables × (fields + records), each cut into pages of two.
+    // The list of tables, then 8 tables × (fields + records), each cut into pages of two.
     expect(made.length).toBeGreaterThan(15);
     expect(made[0]?.args[2]).toMatch(/\/tables$/u);
     expect(

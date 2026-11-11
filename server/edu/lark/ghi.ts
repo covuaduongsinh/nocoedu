@@ -263,6 +263,7 @@ export async function ghiKeHoach(
         hoTen: row.hoTen,
         soDienThoai: row.soDienThoai,
         email: row.email,
+        zalo: row.zalo,
         externalId: row.externalId,
       })),
     );
@@ -370,7 +371,7 @@ export async function ghiKeHoach(
     await insertAll(q, 'eduHocVienPhuHuynh', supplements);
     boSung = supplements.length;
 
-    // 5. Opening packages
+    // 5. Packages: the Deal rows, or the opening balance of a student without any
     const newPackages = plan.goiHoc.filter((row) => row.action === 'tao');
     await insertAll(
       q,
@@ -383,7 +384,8 @@ export async function ghiKeHoach(
         ngayMua: row.ngayChot,
         trangThai: 'hieu_luc',
         nguoiTaoId: options.userId,
-        loai: 'chuyen_so_du',
+        // `chuyen_so_du`: an opening balance; `mua`: a payment of `Deal HP`. Lark holds no amount, so the price is 0.
+        loai: row.loai,
         ghiChu: 'chuyen_tu_lark',
         externalId: row.externalId,
       })),

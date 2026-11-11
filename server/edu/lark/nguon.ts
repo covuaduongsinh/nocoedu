@@ -21,14 +21,17 @@ export class LarkImportError extends Error {
 export const LARK_BASE_TOKEN = 'V7DHb5fvQaqnrGsH6fFlysuJgme';
 
 /**
- * The fixed tables the import reads. The payment and parent tables (`tblHp1PGPz52eZBz`, `tblZUIXmpdt13j4x`) are not read
- * by this command; `Level` (12 rows, no personal data) is read only to turn the link of a level into its name when the
- * API sends the record id alone. The attendance tables are found by name (see `NHAN_XET_TEN`).
+ * The fixed tables the import reads: classes, students, the parents' contacts (`Contact`) and the payments (`Deal HP`).
+ * `Level` (12 rows, no personal data) is read only to turn the link of a level into its name when the API sends the
+ * record id alone. The attendance tables are found by name (see `NHAN_XET_TEN`). A table the app cannot see answers
+ * `LARK_KHONG_DOC_DUOC`.
  */
 export const LARK_TABLES = {
   lopHoc: { id: 'tblKvdbs97cDCMF9', title: 'LopHoc' },
   hocVien: { id: 'tblv524wVlgIsH5H', title: 'HocVien' },
   level: { id: 'tblvjJoqGcHsoxQr', title: 'Level' },
+  contact: { id: 'tblZUIXmpdt13j4x', title: 'Contact' },
+  dealHp: { id: 'tblHp1PGPz52eZBz', title: 'Deal HP' },
 } as const;
 
 export type LarkTableKey = keyof typeof LARK_TABLES;
@@ -70,14 +73,32 @@ export const REQUIRED_FIELDS: Readonly<
     'email PH',
     'cơ sở',
     'Tình trạng học',
-    'Họ tên PH',
     'Quan hệ',
-    'SDT PH',
     'Trình độ hiện tại',
     'số buổi tồn update (vào ngày thống kê)',
     'Ngày update gần nhất về HP',
   ],
   level: [],
+  // The parents. The columns of address, Facebook, job, notes and photos are never read (knowledge document 05).
+  contact: [
+    'Họ và tên PH contact',
+    'MQH với HS',
+    'Tên con số 1',
+    'Tên con số 2',
+    'Số đt',
+    'số zalo',
+    'email',
+  ],
+  // The payments. `Đã nộp` is a flag (1), not an amount: Lark holds no money amount.
+  dealHp: [
+    'Học viên',
+    'Ngày nộp HP',
+    'Ngày bắt đầu',
+    'Đã nộp',
+    'Số buổi nộp',
+    'Số buổi đã học chưa thống kê',
+    'Số buổi còn tồn',
+  ],
 };
 
 export interface LarkRecord {
@@ -107,6 +128,8 @@ export interface LarkData {
   readonly lopHoc: readonly LarkRecord[];
   readonly hocVien: readonly LarkRecord[];
   readonly level: readonly LarkRecord[];
+  readonly contact: readonly LarkRecord[];
+  readonly dealHp: readonly LarkRecord[];
   /** The rows of every yearly attendance table, oldest year first. */
   readonly nhanXet: readonly LarkRecord[];
 }
@@ -202,10 +225,12 @@ export async function readLarkData(
   const lopHoc = await read('lopHoc', LARK_TABLES.lopHoc.id);
   const hocVien = await read('hocVien', LARK_TABLES.hocVien.id);
   const level = await read('level', LARK_TABLES.level.id);
+  const contact = await read('contact', LARK_TABLES.contact.id);
+  const dealHp = await read('dealHp', LARK_TABLES.dealHp.id);
   const nhanXet: LarkRecord[] = [];
   for (const { year, id } of yearly)
     nhanXet.push(...(await read(`nhanXet${year}`, id)));
-  return { lopHoc, hocVien, level, nhanXet };
+  return { lopHoc, hocVien, level, contact, dealHp, nhanXet };
 }
 
 export interface LarkCliOptions {

@@ -37,10 +37,6 @@ const link = (id: string, text: string) => [
   },
 ];
 const oldLink = (id: string) => ({ link_record_ids: [id] });
-const lookupText = (...values: string[]) => ({
-  type: 1,
-  value: values.map((text) => ({ text, type: 'text' })),
-});
 
 export const IDS = {
   lopA: 'recLopMauA',
@@ -50,6 +46,13 @@ export const IDS = {
   s3: 'recHocVienMau03',
   s4: 'recHocVienMau04',
   s5: 'recHocVienMau05',
+  s6: 'recHocVienMau06',
+  s7: 'recHocVienMau07',
+  contactMe: 'recContactMau01',
+  contactBo: 'recContactMau03',
+  contactNoPhone: 'recContactMau04',
+  contactLead: 'recContactLead',
+  contactGrand: 'recContactMau06',
 } as const;
 
 const attendance = (
@@ -82,6 +85,8 @@ export type FixtureTables = Record<
   | 'level'
   | 'lopHoc'
   | 'hocVien'
+  | 'contact'
+  | 'dealHp'
   | 'nhanXet2024'
   | 'nhanXet2025'
   | 'nhanXet2026',
@@ -126,9 +131,7 @@ export function buildFixture(): FixtureTables {
         'email PH': 'phuhuynh.mau01@example.com',
         'cơ sở': 'Kim Liên',
         'Tình trạng học': 'Đang học',
-        'Họ tên PH': lookupText('phụ huynh mẫu 01'),
         'Quan hệ': 'Mẹ',
-        'SDT PH': [{ fullPhoneNum: '0900 000 001' }],
         'Trình độ hiện tại': link('recLevel1', 'NM1'),
         'số buổi tồn update (vào ngày thống kê)': { type: 2, value: [5] },
         'Ngày update gần nhất về HP': ms('2025-02-01'),
@@ -141,9 +144,7 @@ export function buildFixture(): FixtureTables {
         'Ngày sinh': ms('2018-01-02'),
         'cơ sở': 'Kim Liên',
         'Tình trạng học': 'Mới học thử',
-        'Họ tên PH': lookupText('Phụ huynh Mẫu 01'),
         'Quan hệ': 'Mẹ',
-        'SDT PH': { type: 2, value: [900000001] },
         'Trình độ hiện tại': oldLink('recLevel2'),
         'số buổi tồn update (vào ngày thống kê)': { type: 2, value: [4] },
         'Ngày update gần nhất về HP': ms('2025-02-01'),
@@ -154,9 +155,7 @@ export function buildFixture(): FixtureTables {
         'Ngày sinh': ms('2017-03-03'),
         'cơ sở': 'Vĩnh Phúc',
         'Tình trạng học': 'Đang học',
-        'Họ tên PH': lookupText('Phụ huynh Mẫu 03'),
         'Quan hệ': 'Bố',
-        'SDT PH': [{ fullPhoneNum: '0900000003' }],
         'Trình độ hiện tại': link('recLevelTest', 'Test'),
       }),
       rec(IDS.s4, {
@@ -175,6 +174,38 @@ export function buildFixture(): FixtureTables {
         'Trình độ hiện tại': link('recLevel1', 'NM1'),
       }),
     ],
+    contact: [
+      // The parent of s1 (first contact) and of s2 (second contact): one parent record, two links.
+      rec(IDS.contactMe, {
+        'Họ và tên PH contact': ' phụ huynh  mẫu 01 ',
+        'MQH với HS': 'mẹ',
+        'Tên con số 1': link(IDS.s1, 'Học viên Mẫu 01'),
+        'Tên con số 2': link(IDS.s2, 'Học viên Mẫu 02'),
+        'Số đt': '0900 000 001',
+        'số zalo': '0900 000 011',
+        email: 'phuhuynh.mau01@example.com',
+        'Địa chỉ': 'Địa chỉ nhạy cảm mẫu',
+        'Ghi chú': 'Ghi chú nhạy cảm mẫu',
+      }),
+      rec(IDS.contactBo, {
+        'Họ và tên PH contact': 'Phụ huynh Mẫu 03',
+        'MQH với HS': 'bố',
+        'Tên con số 1': link(IDS.s3, 'Học viên Mẫu 03'),
+        'Số đt': '0900000003',
+      }),
+      // A contact with no phone number: not imported, the student is left without a parent.
+      rec(IDS.contactNoPhone, {
+        'Họ và tên PH contact': 'Phụ huynh Mẫu 04',
+        'MQH với HS': 'mẹ',
+        'Tên con số 1': link(IDS.s4, 'Học viên Mẫu 04'),
+      }),
+      // A lead: no child, never imported.
+      rec(IDS.contactLead, {
+        'Họ và tên PH contact': 'Khách Mẫu',
+        'Số đt': '0900000099',
+      }),
+    ],
+    dealHp: [],
     nhanXet2024: [
       attendance('recNhanXet2024a', IDS.s1, IDS.lopA, '2024-12-02', '1'),
     ],
@@ -219,6 +250,8 @@ export function fixtureData(tables: FixtureTables = buildFixture()): LarkData {
     lopHoc: tables.lopHoc,
     hocVien: tables.hocVien,
     level: tables.level,
+    contact: tables.contact,
+    dealHp: tables.dealHp,
     nhanXet: [
       ...tables.nhanXet2024,
       ...tables.nhanXet2025,
@@ -311,3 +344,78 @@ export function fixtureSource(
 export const TABLE_IDS = Object.fromEntries(
   fixtureTableList().map((entry) => [entry.key, entry.id]),
 );
+
+/**
+ * Adds to a fixture the students and rows the payment rules need (DS-60 phase 3), all made up:
+ * - `s6`: two paid Deals (one without the payment date, one with "chưa thống kê"), a grandparent as second contact on
+ *   `Tên con số 2`, and attendance in 2025 and 2026 with one absence;
+ * - `s7`: a Deal that was never paid, a paid Deal with no date at all and an empty Deal row.
+ * A student's balance is then Σ packages − Σ sessions attended, with no cut-off date.
+ */
+export function withDealStudents(tables: FixtureTables): FixtureTables {
+  tables.hocVien.push(
+    rec(IDS.s6, {
+      'Học viên': 'Học Viên Mẫu 06',
+      'ID Học viên': 'HV-20240101-006',
+      'Ngày sinh': ms('2014-04-04'),
+      'cơ sở': 'Kim Liên',
+      'Tình trạng học': 'Đang học',
+      'Quan hệ': 'Bố',
+      'Trình độ hiện tại': link('recLevel1', 'NM1'),
+      'số buổi tồn update (vào ngày thống kê)': { type: 2, value: [3] },
+      'Ngày update gần nhất về HP': ms('2026-01-01'),
+    }),
+    rec(IDS.s7, {
+      'Học viên': 'Học Viên Mẫu 07',
+      'ID Học viên': 'HV-20240101-007',
+      'Ngày sinh': ms('2013-07-07'),
+      'cơ sở': 'Kim Liên',
+      'Tình trạng học': 'Đang học',
+      'Trình độ hiện tại': link('recLevel1', 'NM1'),
+    }),
+  );
+  tables.contact.push(
+    rec(IDS.contactGrand, {
+      'Họ và tên PH contact': 'Ông Bà Mẫu 06',
+      'MQH với HS': 'ông / bà',
+      'Tên con số 2': link(IDS.s6, 'Học viên Mẫu 06'),
+      'Số đt': '0900000006',
+    }),
+    // Listed after the grandparent but on `Tên con số 1`: the main contact of s6.
+    rec('recContactMau06b', {
+      'Họ và tên PH contact': 'Phụ huynh Mẫu 06',
+      'Tên con số 1': link(IDS.s6, 'Học viên Mẫu 06'),
+      'Số đt': '0900000066',
+    }),
+  );
+  const deal = (id: string, student: string, fields: Record<string, unknown>) =>
+    rec(id, { 'Học viên': link(student, 'Học viên Mẫu'), ...fields });
+  tables.dealHp.push(
+    deal('recDealMau06a', IDS.s6, {
+      'Ngày nộp HP': ms('2025-01-10'),
+      'Đã nộp': 1,
+      'Số buổi nộp': 10,
+      'Số buổi đã học chưa thống kê': 2,
+      'Số buổi còn tồn': 1,
+    }),
+    // No payment date: the start date stands in for it.
+    deal('recDealMau06b', IDS.s6, {
+      'Ngày bắt đầu': ms('2026-01-05'),
+      'Đã nộp': 1,
+      'Số buổi nộp': 8,
+      'Số buổi còn tồn': 6,
+    }),
+    deal('recDealMau07a', IDS.s7, { 'Số buổi nộp': 4 }),
+    deal('recDealMau07b', IDS.s7, { 'Đã nộp': 1, 'Số buổi nộp': 5 }),
+    rec('recDealTrong', {}),
+  );
+  tables.nhanXet2025.push(
+    attendance('recNhanXet2025s6a', IDS.s6, IDS.lopA, '2025-03-03', '1'),
+    attendance('recNhanXet2025s6b', IDS.s6, IDS.lopA, '2025-03-10', '0'),
+    attendance('recNhanXet2025s6c', IDS.s6, IDS.lopA, '2025-03-17', '1'),
+  );
+  tables.nhanXet2026.push(
+    attendance('recNhanXet2026s6a', IDS.s6, IDS.lopA, '2026-02-02', '1'),
+  );
+  return tables;
+}

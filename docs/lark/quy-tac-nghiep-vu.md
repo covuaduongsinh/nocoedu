@@ -8,7 +8,7 @@ Nhãn **[Cần Thầy Tường xác nhận]** đánh dấu chỗ suy ra từ tê
 
 ## 0. Điều cần biết trước
 
-- **Hai bảng then chốt và automation chưa đọc được** — xem mục [Chưa đọc được](#chưa-đọc-được) cuối tài liệu. Theo quyết định của chủ dự án (09/11/2026), phần này được bỏ qua và ghi lại; các quy tắc phụ thuộc vào chúng chỉ là đề xuất.
+- **Automation chưa đọc được** (`1254200`). `Contact` và `Deal HP` đọc được từ 10/11/2026 và được giải mã ở [schema.md](schema.md); mục [Chưa đọc được](#chưa-đọc-được-đã-giải-quyết) giữ lại lịch sử hai lần thử bị chặn.
 - **Sheets không tính số dư.** Hai file KL357 (2026) và VP26 (2026) chỉ có công thức cộng cột ở dòng cuối mỗi sheet; không có công thức nào tính số buổi còn lại.
 
 ## 1. Học viên, phụ huynh, cơ sở (Base)
@@ -61,7 +61,11 @@ Mỗi file là một cơ sở (KL = Kim Liên, VP = Vĩnh Phúc) [Cần Thầy T
 
 ## 3. Gói buổi, số dư buổi, học phí
 
-- **Số dư buổi = [chưa giải mã được].** Công thức (nếu có) nằm trong bảng nộp tiền `tblHp1PGPz52eZBz` mà app không đọc được.
+- **Số buổi còn tồn của một lần nộp (`Deal HP`) = `Số buổi nộp` − `2024 Tổng số buổi đã học` − `2025 Tổng số buổi đã học` − `2026 Tổng số buổi đã học` − `Số buổi đã học chưa thống kê`.** Công thức tính đúng ở mọi dòng. Các "Tổng số buổi đã học" chỉ đếm những buổi có mặt **được gắn tay** vào lần nộp (cột `20xx Tkê ngày học`), nên số tồn của Lark không phải số buổi còn lại thật: năm 2026 có 827/2.491 buổi có mặt chưa gắn vào lần nộp nào.
+- **Số dư buổi của một học viên trong NocoEdu = Σ `Số buổi nộp` − Σ `Số buổi đã học chưa thống kê` − số buổi bị trừ của mọi buổi có mặt 2024–2026**, cộng dồn qua các lần nộp đã có cờ `Đã nộp`; không có ngày chốt, không dùng phần gắn tay. Đây là quyết định của chủ dự án (11/11/2026). Buổi nào trừ vào gói nào do NocoEdu tính khi đọc, vào trước ra trước. Hệ quả: số dư tính lại **lệch** `số buổi tồn update` của HocVien ở phần lớn học viên (114/124 khi Opus thử), phần lớn là thấp hơn vì buổi chưa gắn tay.
+- [Cần Thầy Tường xác nhận] "Số buổi đã học chưa thống kê" là buổi học trước khi có bảng điểm danh nên được trừ khỏi số buổi nộp (mặc định); nếu là điều chỉnh khác thì đổi `DEAL_RULES.subtractUnrecorded` trong `server/edu/lark/chua-xac-nhan.ts`.
+- [Cần Thầy Tường xác nhận] Dòng `Deal HP` chưa có cờ `Đã nộp` (37 dòng) không thành gói; báo `DEAL_CHUA_NOP` (có số buổi) hoặc `DEAL_TRONG` (trống hẳn).
+- **Mâu thuẫn:** nhãn `Đã Hết / còn số buổi` chọn tay mâu thuẫn với công thức ở 34 dòng (ghi "Đã hết số buổi" mà số tồn còn dương); 35 dòng có số tồn âm. Không dùng nhãn này.
 - HocVien."số buổi tồn update (vào ngày thống kê)" = danh sách "số buổi tồn" (trường `fldBCMdh5j`) của lần nộp tiền có mã (trường chữ `fld40HQwi0`) bằng "Lần nộp tiền gần nhất" của học viên. Tên trường và trường ngày nhập tay đi kèm "Ngày update gần nhất về HP" cho thấy đây là **số dư chốt tay vào một ngày thống kê**, không phải số dư tính liên tục từ điểm danh. [Cần Thầy Tường xác nhận]
 - Cách trừ buổi theo điểm danh: **không có công thức nào trên Lark nối "có mặt" với số dư**. Số dư ở từng buổi ("Số buổi còn lại") là chữ nhập tay. Quy tắc trừ buổi hiện dùng trong NocoEdu (`server/edu/so-du.ts`, ghi nhớ `hoc-bu-tru-buoi`) vì vậy không đối chiếu được với Lark; cần Thầy Tường mô tả cách đang trừ: vắng có phép có trừ không, học bù trừ thế nào, `x`/`xin nghỉ` tính là gì. [Cần Thầy Tường xác nhận]
 
@@ -99,7 +103,9 @@ Mỗi file là một cơ sở (KL = Kim Liên, VP = Vĩnh Phúc) [Cần Thầy T
 9. **Ràng buộc cơ sở**: học viên và lớp chọn cơ sở độc lập, nên một học viên Kim Liên có thể có buổi ở lớp Vĩnh Phúc mà không có cảnh báo.
 10. **Dữ liệu ngoài phạm vi tối thiểu** (tri thức 05) đang có trên Lark: CCCD, tên trường và lớp ở trường, địa chỉ nơi ở và địa chỉ hóa đơn, ngày sinh đầy đủ, ảnh buổi đầu, ảnh bài test đầu vào, sở thích. NocoEdu **không nhập** các trường này (xem đề xuất ánh xạ).
 
-## Chưa đọc được
+## Chưa đọc được (đã giải quyết)
+
+Đến 09/11/2026 app bị chặn ở `Contact` và `Deal HP`; từ 10/11/2026 đã đọc được cả hai, giai đoạn 3 nhập chúng. Bảng dưới giữ lại lịch sử hai lần thử.
 
 Đã thử hai lần với app `--as bot`, lần 1 lúc 2026-11-09T12:55Z, lần 2 lúc 2026-11-09T13:48Z, sau khi chủ dự án báo đã cấp quyền tối đa. Theo quyết định của chủ dự án, không thử thêm; các phần dưới chỉ là đề xuất dựa trên trường tra cứu ở bảng khác.
 

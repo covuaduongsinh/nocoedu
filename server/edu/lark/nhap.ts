@@ -19,11 +19,8 @@ import {
 } from './ke-hoach.js';
 import { LarkImportError, readLarkData, type LarkSource } from './nguon.js';
 
-/** The two tables this command does not read: the app could not read them on 2026-11-09 and can since 2026-11-10, but the mapping for them is not decided yet. */
-export const SKIPPED_TABLES = [
-  'tblZUIXmpdt13j4x (phụ huynh)',
-  'tblHp1PGPz52eZBz (nộp tiền)',
-] as const;
+/** Tables the command could not read and skips. None now: `Contact` and `Deal HP` are read since DS-60 phase 3. */
+export const SKIPPED_TABLES: readonly string[] = [];
 
 /** Codes of mistakes in how the command is used (flags, environment): the command exits with code 2 for them. */
 export const USAGE_ERROR_CODES: readonly string[] = [
@@ -129,9 +126,10 @@ export function inBaoCao(report: ImportReport, maxBalanceRows = 200): string[] {
     );
   }
   lines.push('');
-  lines.push(
-    `Bỏ qua theo quyết định 09/11 (app không đọc được): ${report.skippedTables.join(', ')}`,
-  );
+  if (report.skippedTables.length > 0)
+    lines.push(
+      `Bảng bị bỏ qua (app không đọc được): ${report.skippedTables.join(', ')}`,
+    );
   if (report.structural.length > 0)
     lines.push(
       `LỖI CẤU TRÚC (không cho --commit): ${report.structural.join(', ')}`,
@@ -152,10 +150,10 @@ export function inBaoCao(report: ImportReport, maxBalanceRows = 200): string[] {
   );
   const differing = report.balance.rows.filter((row) => row.difference !== 0);
   if (differing.length > 0) {
-    lines.push('  mã học viên cũ | trên Lark | tính lại | chênh');
+    lines.push('  mã học viên cũ | trên Lark | Σ tồn Deal | tính lại | chênh');
     for (const row of differing.slice(0, maxBalanceRows))
       lines.push(
-        `  ${row.externalCode} | ${row.larkBalance ?? '?'} | ${row.recomputed} | ${row.difference ?? '?'}`,
+        `  ${row.externalCode} | ${row.larkBalance ?? '?'} | ${row.dealRemaining ?? '?'} | ${row.recomputed} | ${row.difference ?? '?'}`,
       );
     if (differing.length > maxBalanceRows)
       lines.push(

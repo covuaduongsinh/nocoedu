@@ -72,7 +72,7 @@ test('a dry run reads and plans but writes nothing, not even the log', async ({
   const report = await chayNhap(database, fixtureSource(), dry);
   expect(report.mode).toBe('dry-run');
   expect(report.tables.hocVien).toMatchObject({ tao: 4, loi: 1 });
-  expect(report.balance).toMatchObject({ match: 0, differ: 0, unknown: 4 });
+  expect(report.balance).toMatchObject({ match: 0, differ: 2, unknown: 2 });
   // The two empty rows of the 2026 table are counted as warnings; the mark with no student is the one error.
   expect(report.warnings).toContainEqual(
     expect.objectContaining({
@@ -149,12 +149,13 @@ test('--commit writes the plan once, with the ledger and the log; a second run a
   // Siblings share one parent; the parent's code and email were set.
   const parents = await q
     .selectFrom('eduPhuHuynh')
-    .select(['ma', 'soDienThoai', 'email', 'externalId'])
+    .select(['ma', 'soDienThoai', 'zalo', 'email', 'externalId'])
     .execute();
   expect(parents).toHaveLength(1);
   expect(parents[0]).toMatchObject({
     soDienThoai: '0900000001',
-    externalId: 'lark:ph:0900000001',
+    zalo: '0900000011',
+    externalId: `lark:contact:${IDS.contactMe}`,
   });
   expect(parents[0].ma).toMatch(/^PH\d{5}$/u);
   expect(
@@ -370,7 +371,7 @@ test('a student already in NocoEdu is merged, not duplicated, and nothing of it 
         .select('externalId')
         .executeTakeFirstOrThrow()
     ).externalId,
-  ).toBe('lark:ph:0900000001');
+  ).toBe(`lark:contact:${IDS.contactMe}`);
   expect(
     await q
       .selectFrom('eduHocVienPhuHuynh')

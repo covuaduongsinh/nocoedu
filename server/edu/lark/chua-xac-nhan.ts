@@ -81,6 +81,7 @@ export const RELATION_CODES: Readonly<Record<string, string>> = {
   bố: 'bo',
   'ông/ bà': 'khac',
   'ông/bà': 'khac',
+  'ông / bà': 'khac',
 };
 
 /** DEFAULT, question 10 — the free-text "Ghi chú" of a student may hold sensitive details: not imported. */
@@ -126,3 +127,20 @@ export const BRANCH_NAMES: Readonly<
   'kim liên': { ma: 'KL', ten: 'Kim Liên' },
   'vĩnh phúc': { ma: 'VP', ten: 'Vĩnh Phúc' },
 };
+
+/**
+ * DEFAULT (Cần Thầy Tường xác nhận), DS-60 phase 3 — the rules for `Contact` and `Deal HP` the owner has not answered
+ * yet. Each one is a switch so changing the answer is a one-line change and its test.
+ * - `subtractUnrecorded`: "Số buổi đã học chưa thống kê" are sessions taught before the attendance tables existed, so
+ *   they are taken off `Số buổi nộp` (the package holds only the sessions that remain to be recorded).
+ * - `onlyPaidDeals`: a Deal row without the "Đã nộp" flag is not a package (`DEAL_CHUA_NOP` warning).
+ * - `skipParentWithoutPhone`: `eduPhuHuynh.soDienThoai` is required, so a Contact without a phone is not imported
+ *   (`PH_THIEU_SDT` warning).
+ * The balance itself is CONFIRMED (the owner's answer of 2026-11-11): it is recomputed from the packages and every
+ * session of 2024–2026, not copied from the balance written on Lark.
+ */
+export const DEAL_RULES = {
+  subtractUnrecorded: true,
+  onlyPaidDeals: true,
+  skipParentWithoutPhone: true,
+} as const;
