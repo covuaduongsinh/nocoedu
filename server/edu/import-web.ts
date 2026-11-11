@@ -46,6 +46,8 @@ export interface ImportCounts {
 export interface WebImportReport extends ImportCounts {
   readonly rows: number;
   readonly problems: readonly { line: number; code: ImportProblem }[];
+  /** Rows that are allowed but worth a look: they attach to a student who has left (`da_nghi`). */
+  readonly warnings: readonly { line: number; code: 'STUDENT_LEFT' }[];
   /** CSV rows that changed data (0 on a preview or when there are problems). */
   readonly written: number;
 }
@@ -82,6 +84,7 @@ const empty = (
 ): WebImportReport => ({
   rows,
   problems,
+  warnings: [],
   written: 0,
   hocVienMoi: 0,
   hocVienTrung: 0,
@@ -149,21 +152,30 @@ export async function planImport(
   const column = (row: string[], name: string): string =>
     (row[header.indexOf(name)] ?? '').trim();
 
+  // Only the branches and classes in the caller's scope are looked up. One that exists elsewhere answers exactly like
+  // one that does not exist, so a branch manager cannot learn which codes other branches use.
   const branches = new Map<string, number>();
+  const pausedBranches = new Set<number>();
   for (const row of await query
     .selectFrom('eduCoSo')
-    .select(['id', 'ma'])
-    .execute())
-    branches.set(asText(row.ma), Number(row.id));
+    .select(['id', 'ma', 'trangThai'])
+    .execute()) {
+    const id = Number(row.id);
+    if (!scope.branchIds.has(id)) continue;
+    branches.set(asText(row.ma), id);
+    if (row.trangThai === 'tam_dung') pausedBranches.add(id);
+  }
   const classes = new Map<string, { id: number; coSoId: number }>();
+  const closedClasses = new Set<number>();
   for (const row of await query
     .selectFrom('eduLop')
-    .select(['id', 'ma', 'coSoId'])
-    .execute())
-    classes.set(asText(row.ma), {
-      id: Number(row.id),
-      coSoId: Number(row.coSoId),
-    });
+    .select(['id', 'ma', 'coSoId', 'trangThai'])
+    .execute()) {
+    const id = Number(row.id);
+    if (!scope.classIds.has(id)) continue;
+    classes.set(asText(row.ma), { id, coSoId: Number(row.coSoId) });
+    if (row.trangThai === 'da_dong') closedClasses.add(id);
+  }
 
   // Pass 1: validate every row.
   const problems: { line: number; code: ImportProblem }[] = [];
@@ -174,13 +186,12 @@ export async function planImport(
       problems.push(read);
       return;
     }
-    // The branch and class exist; the caller may import only into those in their own scope.
-    if (!scope.branchIds.has(read.coSoId)) {
-      problems.push({ line: read.line, code: 'OUT_OF_SCOPE_BRANCH' });
+    if (pausedBranches.has(read.coSoId)) {
+      problems.push({ line: read.line, code: 'BRANCH_PAUSED' });
       return;
     }
-    if (read.lopId !== null && !scope.classIds.has(read.lopId)) {
-      problems.push({ line: read.line, code: 'OUT_OF_SCOPE_CLASS' });
+    if (read.lopId !== null && closedClasses.has(read.lopId)) {
+      problems.push({ line: read.line, code: 'CLASS_CLOSED' });
       return;
     }
     candidates.push(read);
@@ -188,19 +199,19 @@ export async function planImport(
 
   // The students already in the branches of the file, with the phones of their parents.
   const branchIds = [...new Set(candidates.map((c) => c.coSoId))];
-  const students = new Map<string, number>();
+  const students = new Map<string, number[]>();
+  const left = new Set<number>();
   const idsOfStudents = new Set<number>();
   for (const part of chunks(branchIds, 200)) {
     for (const row of await query
       .selectFrom('eduHocVien')
-      .select(['id', 'hoTen', 'namSinh', 'coSoId'])
+      .select(['id', 'hoTen', 'namSinh', 'coSoId', 'trangThai'])
       .where('coSoId', 'in', part)
       .execute()) {
-      students.set(
-        `${nameKey(asText(row.hoTen))}|${Number(row.namSinh)}|${Number(row.coSoId)}`,
-        Number(row.id),
-      );
+      const key = `${nameKey(asText(row.hoTen))}|${Number(row.namSinh)}|${Number(row.coSoId)}`;
+      students.set(key, [...(students.get(key) ?? []), Number(row.id)]);
       idsOfStudents.add(Number(row.id));
+      if (row.trangThai === 'da_nghi') left.add(Number(row.id));
     }
   }
   const phoneOfParent = new Map<number, string>();
@@ -247,13 +258,30 @@ export async function planImport(
     phuHuynhDungLai: 0,
     lienKetMoi: 0,
   };
-  const createdStudents = new Set<string>();
+  const createdKeys = new Set<string>();
+  // The student each key of this file stands for: an existing id, or `null` for one this import creates.
+  const resolved = new Map<string, number | null>();
+  const warnings: { line: number; code: 'STUDENT_LEFT' }[] = [];
+  const studentsOfRun = new Map<string, number>();
   // Phones that earlier rows of this file already attached to a student.
   const phonesInFile = new Map<string, Set<string>>();
   const parentSeen = new Set<string>();
   for (const row of candidates) {
     const studentKey = studentKeyOf(row);
-    const studentId = students.get(studentKey);
+    if (!resolved.has(studentKey)) {
+      // A name, a year and a branch are not enough to be sure of a child: the parent's phone must agree too, as in the
+      // Lark import. No candidate with this phone → a new student; several → the row is refused, nothing is guessed.
+      const matching = (students.get(studentKey) ?? []).filter((id) =>
+        phonesLinked.get(id)?.has(row.phone),
+      );
+      if (matching.length > 1) {
+        problems.push({ line: row.line, code: 'AMBIGUOUS_STUDENT' });
+        continue;
+      }
+      resolved.set(studentKey, matching[0] ?? null);
+      if (matching[0] !== undefined) studentsOfRun.set(studentKey, matching[0]);
+    }
+    const studentId = resolved.get(studentKey) ?? undefined;
     if (phonesInFile.get(studentKey)?.has(row.phone)) {
       problems.push({ line: row.line, code: 'DUPLICATE_IN_FILE' });
       continue;
@@ -266,11 +294,15 @@ export async function planImport(
       steps.push({ row, action: 'trung', studentKey });
       continue;
     }
-    const exists = studentId !== undefined || createdStudents.has(studentKey);
-    if (exists) counts.chiLienKet += 1;
-    else {
+    const exists = studentId !== undefined || createdKeys.has(studentKey);
+    if (exists) {
+      counts.chiLienKet += 1;
+      if (studentId !== undefined && left.has(studentId)) {
+        warnings.push({ line: row.line, code: 'STUDENT_LEFT' });
+      }
+    } else {
       counts.hocVienMoi += 1;
-      createdStudents.add(studentKey);
+      createdKeys.add(studentKey);
     }
     if (parents.has(row.phone) || parentSeen.has(row.phone)) {
       counts.phuHuynhDungLai += 1;
@@ -286,16 +318,13 @@ export async function planImport(
   }
   problems.sort((a, b) => a.line - b.line);
   return {
-    report: { ...empty(rowCount, problems), ...counts },
+    report: { ...empty(rowCount, problems), ...counts, warnings },
     steps,
-    students,
+    students: studentsOfRun,
     parents,
     links,
   };
 }
-
-export const hasScopeProblem = (report: WebImportReport): boolean =>
-  report.problems.some((p) => p.code.startsWith('OUT_OF_SCOPE'));
 
 export interface ImportRepositories {
   readonly hocVien: RepositoryPolicy;

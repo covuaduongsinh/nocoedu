@@ -8,6 +8,7 @@ import {
   defineApiRoutes,
   describeRoute,
 } from '@nocobase/app-server/router';
+import { concurrencyServiceToken } from '@nocobase/app-plugin-concurrency/server';
 import { databaseManagerToken } from '@nocobase/db';
 import type { DatabaseManager, RepositoryPolicy } from '@nocobase/db';
 import { Hono } from 'hono';
@@ -20,7 +21,6 @@ import {
   MAX_IMPORT_CHARS,
   MAX_IMPORT_ROWS,
   applyImport,
-  hasScopeProblem,
   planImport,
   type ImportPlan,
 } from '../edu/import-web.js';
@@ -39,8 +39,9 @@ import {
  *
  * `xemTruoc` reads the file and answers what an import would do, writing nothing. `xacNhan` plans again from the same
  * text (the database may have changed since the preview) and writes everything in one transaction, or nothing when any
- * row has a problem. Both need the `import` action of `edu.hocVien` and refuse a file that targets a branch or class
- * outside the caller's scope with 403, so a branch manager cannot import into another branch whatever the page shows.
+ * row has a problem. Both need the `import` action of `edu.hocVien`. Only the branches and classes in the caller's
+ * scope are looked up, so one outside it is reported as an unknown code, exactly like one that does not exist: a branch
+ * manager cannot import into another branch, and cannot learn which codes it uses.
  * The file is read from the request body and is never stored. The answer and the log row (`eduNhapLarkNhatKy`, the same
  * table the Lark import writes) hold counts and reason codes by line number, never a name or a phone number.
  */
@@ -96,6 +97,7 @@ export default [
     const auth = app.container.resolve(authenticationToken);
     const authz = app.container.resolve(authorizationToken);
     const database = app.container.resolve(databaseManagerToken);
+    const concurrency = app.container.resolve(concurrencyServiceToken);
     const router = new Hono<EduEnv>();
 
     for (const path of PATHS) {
@@ -194,13 +196,6 @@ export default [
           'csv',
         );
       }
-      if (hasScopeProblem(result.report)) {
-        throw eduError(
-          'PERMISSION_DENIED',
-          'EDU_OUT_OF_SCOPE',
-          'The file targets a branch or class you may not import into.',
-        );
-      }
       return result;
     }
 
@@ -241,31 +236,41 @@ export default [
         const { csv } = c.req.valid('json');
         const userId = currentUserId(c);
         const startedAt = new Date();
-        const result = await plan(c, csv);
-        if (result.report.problems.length > 0) {
-          await logRun(
-            database.connection().query,
-            userId,
-            startedAt,
-            'tu_choi',
-            result.report,
+        // Planning reads the database and the write follows it, so two confirmations at once (two tabs) would both plan
+        // "create" and create the student twice. One import at a time per process; the plan is made inside the lock, so
+        // the second one sees what the first wrote and finds every row already there. The students table has no unique
+        // key to fall back on.
+        const executor = await (
+          await concurrency.getManager()
+        ).createSynchronous('edu:nhap-csv');
+        const report = await executor.run(async () => {
+          const result = await plan(c, csv);
+          if (result.report.problems.length > 0) {
+            await logRun(
+              database.connection().query,
+              userId,
+              startedAt,
+              'tu_choi',
+              result.report,
+            );
+            throw eduError(
+              'FAILED_PRECONDITION',
+              'EDU_IMPORT_HAS_PROBLEMS',
+              'Some rows have a problem; nothing was written.',
+            );
+          }
+          return applyImport(
+            database,
+            result,
+            { hocVien: policyOf(c, 'eduHocVien') },
+            (query) =>
+              logRun(query, userId, startedAt, 'thanh_cong', {
+                ...result.report,
+                written: result.steps.filter((s) => s.action !== 'trung')
+                  .length,
+              }),
           );
-          throw eduError(
-            'FAILED_PRECONDITION',
-            'EDU_IMPORT_HAS_PROBLEMS',
-            'Some rows have a problem; nothing was written.',
-          );
-        }
-        const report = await applyImport(
-          database,
-          result,
-          { hocVien: policyOf(c, 'eduHocVien') },
-          (query) =>
-            logRun(query, userId, startedAt, 'thanh_cong', {
-              ...result.report,
-              written: result.steps.filter((s) => s.action !== 'trung').length,
-            }),
-        );
+        });
         return c.json({ data: report });
       },
     );

@@ -99,6 +99,7 @@ test('a preview reports what would happen and writes nothing, not even a log row
   expect((await body(response)).data).toEqual({
     rows: 3,
     problems: [],
+    warnings: [],
     written: 0,
     hocVienMoi: 3,
     hocVienTrung: 0,
@@ -189,8 +190,10 @@ test('an existing student only gets the missing parent link, and an existing par
   const before = await counts(connection);
   const response = await post(admin, CONFIRM, {
     csv: file(
-      // Same student (different case and spacing), a new parent.
-      'học  viên cũ,2016,CS-A,,,Phụ huynh Mới,0900222002,,bo',
+      // Same student (different case and spacing) and the same parent: nothing to do.
+      'học  viên cũ,2016,CS-A,,,Phụ huynh Cũ,0900222001,,me',
+      // The same student with a second, new parent: only a link and a parent are added.
+      'học viên cũ,2016,CS-A,,,Phụ huynh Mới,0900222002,,bo',
       // A new student sharing the first parent's phone.
       'Học viên Em,2019,CS-A,,,Phụ huynh Cũ,0900222001,,me',
     ),
@@ -198,6 +201,7 @@ test('an existing student only gets the missing parent link, and an existing par
   expect(response.status).toBe(200);
   expect((await body(response)).data).toMatchObject({
     hocVienMoi: 1,
+    hocVienTrung: 1,
     chiLienKet: 1,
     phuHuynhMoi: 1,
     phuHuynhDungLai: 1,
@@ -207,6 +211,173 @@ test('an existing student only gets the missing parent link, and an existing par
   expect(after.hocVien).toBe(before.hocVien + 1);
   expect(after.phuHuynh).toBe(before.phuHuynh + 1);
   expect(after.lienKet).toBe(before.lienKet + 2);
+});
+
+test('same name, year and branch but another phone is another child: a new student, and the parent is not attached to the first', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin } = await setup(testApp, connection);
+  await post(admin, CONFIRM, {
+    csv: file('Học viên Trùng Tên,2016,CS-A,,,Phụ huynh Một,0900777001,,me'),
+  });
+  const before = await counts(connection);
+  const first = await connection.query
+    .selectFrom('eduHocVien')
+    .select('id')
+    .where('hoTen', '=', 'Học viên Trùng Tên')
+    .executeTakeFirstOrThrow();
+  const response = await post(admin, CONFIRM, {
+    csv: file('Học viên Trùng Tên,2016,CS-A,,,Phụ huynh Hai,0900777002,,me'),
+  });
+  expect((await body(response)).data).toMatchObject({
+    hocVienMoi: 1,
+    chiLienKet: 0,
+    hocVienTrung: 0,
+  });
+  const after = await counts(connection);
+  expect(after.hocVien).toBe(before.hocVien + 1);
+  expect(after.lienKet).toBe(before.lienKet + 1);
+  const links = await connection.query
+    .selectFrom('eduHocVienPhuHuynh')
+    .select('id')
+    .where('hocVienId', '=', first.id)
+    .execute();
+  expect(links).toHaveLength(1);
+});
+
+test('two existing students that match a row are refused, not guessed', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin, ids } = await setup(testApp, connection);
+  const q = connection.query;
+  await q
+    .insertInto('eduPhuHuynh')
+    .values({ ma: 'PH-X', hoTen: 'Phụ huynh X', soDienThoai: '0900888001' })
+    .execute();
+  const parent = await q
+    .selectFrom('eduPhuHuynh')
+    .select('id')
+    .where('ma', '=', 'PH-X')
+    .executeTakeFirstOrThrow();
+  for (const ma of ['HS-X1', 'HS-X2']) {
+    await q
+      .insertInto('eduHocVien')
+      .values({
+        ma,
+        hoTen: 'Học viên Song Trùng',
+        namSinh: 2016,
+        levelKey: 'tot',
+        levelOrder: 1,
+        coSoId: ids.coSoA,
+      })
+      .execute();
+    const student = await q
+      .selectFrom('eduHocVien')
+      .select('id')
+      .where('ma', '=', ma)
+      .executeTakeFirstOrThrow();
+    await q
+      .insertInto('eduHocVienPhuHuynh')
+      .values({
+        hocVienId: student.id,
+        phuHuynhId: parent.id,
+        quanHe: 'me',
+        lienHeChinh: true,
+      })
+      .execute();
+  }
+  const before = await counts(connection);
+  const csv = file(
+    'Học viên Song Trùng,2016,CS-A,,,Phụ huynh X,0900888001,,me',
+  );
+  const preview = await post(admin, PREVIEW, { csv });
+  expect((await body(preview)).data.problems).toEqual([
+    { line: 2, code: 'AMBIGUOUS_STUDENT' },
+  ]);
+  expect((await post(admin, CONFIRM, { csv })).status).toBeGreaterThanOrEqual(
+    400,
+  );
+  const after = await counts(connection);
+  expect({ ...after, nhatKy: 0 }).toEqual({ ...before, nhatKy: 0 });
+});
+
+test('a closed class and a paused branch are refused; a student who left is a warning', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin, ids } = await setup(testApp, connection);
+  await post(admin, CONFIRM, {
+    csv: file('Học viên Đã Nghỉ,2015,CS-A,,,Phụ huynh Nghỉ,0900999001,,me'),
+  });
+  await connection.query
+    .updateTable('eduHocVien')
+    .set({ trangThai: 'da_nghi' })
+    .where('hoTen', '=', 'Học viên Đã Nghỉ')
+    .execute();
+  await connection.query
+    .updateTable('eduLop')
+    .set({ trangThai: 'da_dong' })
+    .where('id', '=', ids.lopA)
+    .execute();
+  await connection.query
+    .updateTable('eduCoSo')
+    .set({ trangThai: 'tam_dung' })
+    .where('id', '=', ids.coSoB)
+    .execute();
+  const csv = file(
+    'Học viên Lớp Đóng,2016,CS-A,L-A1,,Phụ huynh A,0900999002,,me',
+    'Học viên Cơ Sở Dừng,2016,CS-B,,,Phụ huynh B,0900999003,,me',
+    'Học viên Đã Nghỉ,2015,CS-A,,,Phụ huynh Nghỉ Hai,0900999004,,bo',
+    'Học viên Đã Nghỉ,2015,CS-A,,,Phụ huynh Nghỉ,0900999001,,me',
+  );
+  const preview = (await body(await post(admin, PREVIEW, { csv }))).data;
+  expect(preview.problems).toEqual([
+    { line: 2, code: 'CLASS_CLOSED' },
+    { line: 3, code: 'BRANCH_PAUSED' },
+  ]);
+  // The first parent row finds no student with that phone, so it is a new child: no warning there.
+  expect(preview.warnings).toEqual([]);
+  const ok = (
+    await body(
+      await post(admin, PREVIEW, {
+        csv: file(
+          'Học viên Đã Nghỉ,2015,CS-A,,,Phụ huynh Nghỉ,0900999001,,me',
+          'Học viên Đã Nghỉ,2015,CS-A,,,Phụ huynh Nghỉ Hai,0900999004,,bo',
+        ),
+      }),
+    )
+  ).data;
+  expect(ok.problems).toEqual([]);
+  expect(ok.warnings).toEqual([{ line: 3, code: 'STUDENT_LEFT' }]);
+});
+
+test('two confirmations at the same time create the students once and neither fails', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin } = await setup(testApp, connection);
+  const before = await counts(connection);
+  const csv = file(
+    'Học viên Song Song 01,2016,CS-A,,,Phụ huynh Song Song 01,0900123001,,me',
+    'Học viên Song Song 02,2017,CS-A,,,Phụ huynh Song Song 01,0900123001,,me',
+    'Học viên Song Song 03,2018,CS-B,,,Phụ huynh Song Song 03,0900123003,,me',
+  );
+  const answers = await Promise.all([
+    post(admin, CONFIRM, { csv }),
+    post(admin, CONFIRM, { csv }),
+    post(admin, CONFIRM, { csv }),
+  ]);
+  expect(answers.map((a) => a.status)).toEqual([200, 200, 200]);
+  const written = await Promise.all(
+    answers.map(async (a) => (await body(a)).data.written),
+  );
+  expect(written.filter((n) => n === 3)).toHaveLength(1);
+  const after = await counts(connection);
+  expect(after.hocVien).toBe(before.hocVien + 3);
+  expect(after.phuHuynh).toBe(before.phuHuynh + 2);
+  expect(after.lienKet).toBe(before.lienKet + 3);
 });
 
 test('one bad row stops the whole import and the answer names lines and codes only', async ({
@@ -251,7 +422,7 @@ test('one bad row stops the whole import and the answer names lines and codes on
   expect(JSON.stringify(log.tongKet)).not.toContain('Sai');
 });
 
-test('a branch manager imports into their own branch only; the server refuses another branch or class', async ({
+test('a branch manager imports into their own branch only; another branch or class answers like an unknown code', async ({
   testApp,
   connection,
 }) => {
@@ -265,21 +436,40 @@ test('a branch manager imports into their own branch only; the server refuses an
   expect((await body(own)).data).toMatchObject({ hocVienMoi: 1, written: 1 });
 
   const mid = await counts(connection);
-  for (const row of [
-    'Học viên Cơ sở B,2016,CS-B,,,Phụ huynh B,0900444002,,me',
-    'Học viên Lớp B,2016,CS-B,L-B1,,Phụ huynh B,0900444003,,me',
-  ]) {
-    // A valid row of their own branch in the same file is not written either.
-    const csv = file(
-      'Học viên Cơ sở A2,2016,CS-A,,,Phụ huynh A2,0900444004,,me',
-      row,
-    );
-    for (const path of [PREVIEW, CONFIRM]) {
-      const refused = await post(managerA.session, path, { csv });
-      expect(`${path} ${refused.status}`).toBe(`${path} 403`);
-    }
-  }
-  expect(await counts(connection)).toEqual(mid);
+  // A valid row of their own branch in the same file is not written either. A code that exists in another branch is
+  // reported exactly like one that does not exist at all, so the codes of other branches cannot be probed.
+  const csv = (...rows: string[]) =>
+    file('Học viên Cơ sở A2,2016,CS-A,,,Phụ huynh A2,0900444004,,me', ...rows);
+  const problemsOf = async (text: string) => {
+    const preview = await post(managerA.session, PREVIEW, { csv: text });
+    expect(preview.status).toBe(200);
+    const confirm = await post(managerA.session, CONFIRM, { csv: text });
+    expect(confirm.status).toBeGreaterThanOrEqual(400);
+    return (await body(preview)).data.problems;
+  };
+  expect(
+    await problemsOf(
+      csv('Học viên Cơ sở B,2016,CS-B,,,Phụ huynh B,0900444002,,me'),
+    ),
+  ).toEqual(
+    await problemsOf(
+      csv('Học viên Không Có,2016,CS-ZZ,,,Phụ huynh B,0900444002,,me'),
+    ),
+  );
+  expect(
+    await problemsOf(
+      csv('Học viên Lớp B,2016,CS-A,L-B1,,Phụ huynh B,0900444003,,me'),
+    ),
+  ).toEqual(
+    await problemsOf(
+      csv('Học viên Lớp Không Có,2016,CS-A,L-ZZ,,Phụ huynh B,0900444003,,me'),
+    ),
+  );
+  expect(await counts(connection)).toMatchObject({
+    hocVien: mid.hocVien,
+    phuHuynh: mid.phuHuynh,
+    lienKet: mid.lienKet,
+  });
   expect(mid.hocVien).toBe(before.hocVien + 1);
 });
 

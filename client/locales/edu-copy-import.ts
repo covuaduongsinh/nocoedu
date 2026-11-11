@@ -147,6 +147,31 @@ export const EDU_IMPORT_ROWS: readonly (readonly [
     '该学员和电话在文件前面的行中已出现。',
   ],
   [
+    'import.problem.BRANCH_PAUSED',
+    'Cơ sở đang tạm dừng, không nhập thêm học viên vào đó.',
+    'The branch is paused; students cannot be imported into it.',
+    '该分校已暂停，无法导入学员。',
+  ],
+  [
+    'import.problem.CLASS_CLOSED',
+    'Lớp đã đóng, không nhập thêm học viên vào đó.',
+    'The class is closed; students cannot be imported into it.',
+    '该班级已关闭，无法导入学员。',
+  ],
+  [
+    'import.problem.AMBIGUOUS_STUDENT',
+    'Có nhiều học viên đã có khớp dòng này (cùng tên, năm sinh, cơ sở và số điện thoại phụ huynh). Hãy xử lý trùng trên hệ thống trước.',
+    'Several existing students match this row (same name, birth year, branch and parent phone). Resolve the duplicates in the system first.',
+    '有多名已有学员与此行匹配（姓名、出生年份、分校和家长电话相同）。请先在系统中处理重复记录。',
+  ],
+  ['import.warnings', 'Cần lưu ý', 'Please note', '请注意'],
+  [
+    'import.warning.STUDENT_LEFT',
+    'Gắn thêm phụ huynh cho học viên đã nghỉ.',
+    'A parent is added to a student who has left.',
+    '为已退学的学员添加家长。',
+  ],
+  [
     'errors.EDU_IMPORT_TOO_LARGE',
     'Tệp quá lớn: tối đa 500 KB và 2.000 dòng.',
     'The file is too large: at most 500 KB and 2,000 rows.',
