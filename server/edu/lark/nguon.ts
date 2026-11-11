@@ -70,7 +70,6 @@ export const REQUIRED_FIELDS: Readonly<
     'Học viên',
     'ID Học viên',
     'Ngày sinh',
-    'email PH',
     'cơ sở',
     'Tình trạng học',
     'Quan hệ',
@@ -105,14 +104,11 @@ export const REQUIRED_FIELDS: Readonly<
  * The fields the plan actually reads from each table; `records()` asks Lark for these and nothing else, so address,
  * Facebook, job, notes and photos never reach the memory of the command (knowledge document 05, "thu thập tối thiểu").
  * A field the plan starts to use must be added here, or the tests of the fixture source (which returns only the
- * requested fields) fail. `email PH` of the student row is not read: the email comes from `Contact`.
+ * requested fields) fail. The email comes from `Contact`; `email PH` of the student row is neither required nor read.
  */
 export const READ_FIELDS: Readonly<Record<LarkTableKey, readonly string[]>> = {
   lopHoc: REQUIRED_FIELDS.lopHoc,
-  hocVien: [
-    ...REQUIRED_FIELDS.hocVien.filter((name) => name !== 'email PH'),
-    'Các trình độ đã học tại CLB',
-  ],
+  hocVien: [...REQUIRED_FIELDS.hocVien, 'Các trình độ đã học tại CLB'],
   level: ['Tên viết tắt level'],
   contact: REQUIRED_FIELDS.contact,
   dealHp: REQUIRED_FIELDS.dealHp,

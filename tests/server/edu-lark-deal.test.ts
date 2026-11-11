@@ -582,3 +582,171 @@ test('Deals that appear after a first commit never make the dry run and the comm
   ).toHaveLength(0);
   await balancesAgree(connection, dry);
 });
+
+describe('rows Lark edited after the first --commit', () => {
+  const written = (entries: [string, number, string][]): ExistingState =>
+    known({
+      externalIds: {
+        ...EMPTY_STATE.externalIds,
+        goiHoc: new Set(entries.map(([key]) => key)),
+      },
+      packages: new Map(
+        entries.map(([key, soBuoi, ngayMua]) => [key, { soBuoi, ngayMua }]),
+      ),
+    });
+
+  it('keeps the sessions that were written when a Deal was edited, and says so', () => {
+    // Written as 6 sessions; Lark now gives 8.
+    const p = plan(written([[deal('recDealMau06a'), 6, '2025-01-10']]));
+    expect(p.warnings).toContainEqual({
+      table: 'goiHoc',
+      id: 'recDealMau06a',
+      code: 'DEAL_DA_DOI',
+    });
+    const a = p.goiHoc.find((row) => row.externalId === deal('recDealMau06a'));
+    expect(a).toMatchObject({ soBuoi: 6, action: 'trung' });
+    // 6 + 8 − 3 sessions attended.
+    expect(
+      p.balances.find((row) => row.hocVienKey === IDS.s6)?.recomputed,
+    ).toBe(11);
+    expect(inBaoCao(taoBaoCao(p, 'dry-run')).join('\n')).toMatch(
+      /đã đổi từ lần nhập trước.*: 1\./u,
+    );
+  });
+
+  it('keeps a written package whose Deal lost the "Đã nộp" flag', () => {
+    const tables = withDealStudents(buildFixture());
+    const row = tables.dealHp.find((r) => r.recordId === 'recDealMau06b');
+    delete (row?.fields as Record<string, unknown>)['Đã nộp'];
+    const p = lapKeHoach(
+      fixtureData(tables),
+      written([[deal('recDealMau06b'), 8, '2026-01-05']]),
+      { unexcusedAbsenceDeducts: false },
+    );
+    expect(p.warnings).toContainEqual({
+      table: 'goiHoc',
+      id: 'recDealMau06b',
+      code: 'DEAL_DA_DOI',
+    });
+    expect(
+      p.goiHoc.find((r) => r.externalId === deal('recDealMau06b')),
+    ).toMatchObject({ soBuoi: 8, action: 'trung' });
+  });
+
+  it('does not report a Deal that is unchanged', () => {
+    const p = plan(
+      written([
+        [deal('recDealMau06a'), 8, '2025-01-10'],
+        [deal('recDealMau06b'), 8, '2026-01-05'],
+      ]),
+    );
+    expect(p.warnings.some((w) => w.code === 'DEAL_DA_DOI')).toBe(false);
+  });
+
+  it('keeps the opening package that was written when the balance or its date changed on Lark', () => {
+    // Lark says 5 on 2025-02-01; the package written was 4 on 2025-01-01.
+    const p = plan(written([[`lark:sodu:${IDS.s1}`, 4, '2025-01-01']]));
+    expect(p.warnings).toContainEqual({
+      table: 'goiHoc',
+      id: IDS.s1,
+      code: 'SO_DU_LARK_DA_DOI',
+    });
+    expect(
+      p.goiHoc.find((r) => r.externalId === `lark:sodu:${IDS.s1}`),
+    ).toMatchObject({ soBuoi: 4, ngayChot: '2025-01-01', action: 'trung' });
+    // 4 − the three sessions attended after 2025-01-01 (01-27, 02-03, 02-17; the absence costs nothing).
+    expect(p.balances.find((r) => r.hocVienKey === IDS.s1)?.recomputed).toBe(1);
+  });
+});
+
+describe('a student merged with one that already has a balance', () => {
+  it('shows the balance he has, marked as kept, instead of a 0 nothing computed', () => {
+    const p = plan(
+      known({
+        students: [
+          {
+            id: 9,
+            hoTen: 'Học Viên Mẫu 01',
+            namSinh: 2016,
+            externalId: null,
+            phones: ['0900000001'],
+            coSoDu: true,
+            soBuoiConLai: 9,
+          },
+        ],
+      }),
+    );
+    expect(p.balances.find((r) => r.hocVienKey === IDS.s1)).toMatchObject({
+      recomputed: 9,
+      giuSoDuCu: true,
+      larkBalance: 5,
+      difference: 4,
+    });
+    expect(inBaoCao(taoBaoCao(p, 'dry-run')).join('\n')).toContain(
+      '(giữ số dư cũ)',
+    );
+  });
+});
+
+test('after rows are edited on Lark, a second --commit on a database that already has data still writes the balance the dry run showed', async ({
+  database,
+  connection,
+}) => {
+  const userId = await freshDatabase(connection);
+  const tables = withDealStudents(buildFixture());
+  const cycle = async () => {
+    const dry = await chayNhap(database, fixtureSource(tables), {
+      commit: false,
+      userId: null,
+      delayMs: 0,
+    });
+    await chayNhap(database, fixtureSource(tables), {
+      commit: true,
+      userId,
+      delayMs: 0,
+    });
+    await balancesAgree(connection, dry);
+    return dry;
+  };
+  const packageOf = async (key: string) =>
+    Number(
+      (
+        await connection.query
+          .selectFrom('eduGoiHoc')
+          .select('soBuoi')
+          .where('externalId', '=', key)
+          .executeTakeFirstOrThrow()
+      ).soBuoi,
+    );
+  await cycle();
+  expect(await packageOf(deal('recDealMau06a'))).toBe(8);
+
+  // (a) "chưa thống kê" of a written Deal goes from 2 to 4.
+  const a = tables.dealHp.find((r) => r.recordId === 'recDealMau06a');
+  (a?.fields as Record<string, unknown>)['Số buổi đã học chưa thống kê'] = 4;
+  const second = await cycle();
+  expect(second.warnings).toContainEqual(
+    expect.objectContaining({ code: 'DEAL_DA_DOI', count: 1 }),
+  );
+  expect(await packageOf(deal('recDealMau06a'))).toBe(8);
+
+  // (b) a written Deal loses its "Đã nộp" flag.
+  const b = tables.dealHp.find((r) => r.recordId === 'recDealMau06b');
+  delete (b?.fields as Record<string, unknown>)['Đã nộp'];
+  const third = await cycle();
+  expect(third.warnings).toContainEqual(
+    expect.objectContaining({ code: 'DEAL_DA_DOI', count: 2 }),
+  );
+  expect(await packageOf(deal('recDealMau06b'))).toBe(8);
+
+  // (c) the opening balance of a student written by the first run changes on Lark.
+  const s1 = tables.hocVien.find((r) => r.recordId === IDS.s1);
+  (s1?.fields as Record<string, unknown>)[
+    'số buổi tồn update (vào ngày thống kê)'
+  ] = { type: 2, value: [9] };
+  const fourth = await cycle();
+  expect(fourth.warnings).toContainEqual(
+    expect.objectContaining({ code: 'SO_DU_LARK_DA_DOI', count: 1 }),
+  );
+  expect(await packageOf(`lark:sodu:${IDS.s1}`)).toBe(5);
+});
