@@ -13,12 +13,16 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   createLarkCliSource,
-  LARK_TABLES,
+  findNhanXetTables,
+  NHAN_XET_BAT_BUOC,
   readLarkData,
-  REQUIRED_FIELDS,
-  type LarkTableKey,
 } from '../../server/edu/lark/nguon.js';
-import { fixtureData, TABLE_IDS } from '../helpers/lark-fixture.js';
+import {
+  buildFixture,
+  fixtureSource,
+  fixtureTableList,
+  TABLE_IDS,
+} from '../helpers/lark-fixture.js';
 
 /**
  * The reader of the Base, tested against a fake `lark-cli` binary (a small Node script): pagination, the pause
@@ -38,17 +42,22 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
+const TABLE_NAMES = Object.fromEntries(
+  fixtureTableList().map((entry) => [entry.key, entry.name]),
+);
+
 /** Writes the fake binary, the data it serves and the files it records into; returns the paths. */
 async function fakeCli(options: {
   rateLimitOnce?: boolean;
   hang?: boolean;
   refuse?: string;
 }): Promise<{ bin: string; log: string }> {
-  const data = fixtureData();
+  const data = buildFixture();
   const tables: Record<string, unknown> = {};
-  for (const key of Object.keys(LARK_TABLES) as LarkTableKey[]) {
-    tables[TABLE_IDS[key] as string] = {
-      fields: REQUIRED_FIELDS[key].map((field_name) => ({ field_name })),
+  for (const { key, id, fields } of fixtureTableList()) {
+    tables[id] = {
+      name: TABLE_NAMES[key],
+      fields: fields.map((field_name) => ({ field_name })),
       records: data[key].map((r) => ({
         record_id: r.recordId,
         fields: r.fields,
@@ -73,8 +82,14 @@ fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({
   hasSecretEnv: Object.values(process.env).some((v) => String(v).includes(${JSON.stringify(SECRET)})),
 }) + '\\n');
 if (${JSON.stringify(options.hang ?? false)}) setTimeout(() => {}, 60000);
-const match = /tables\\/(tbl\\w+)\\/(fields|records)$/.exec(apiPath);
 const out = (body) => process.stdout.write(JSON.stringify(body));
+if (/\\/tables$/.test(apiPath)) {
+  const all = Object.entries(tables).map(([table_id, t]) => ({ table_id, name: t.name }));
+  const start = params.page_token ? Number(params.page_token) : 0;
+  out({ ok: true, data: { items: all.slice(start, start + 2), has_more: start + 2 < all.length, page_token: String(start + 2) } });
+  process.exit(0);
+}
+const match = /tables\\/(tbl\\w+)\\/(fields|records)$/.exec(apiPath);
 if (!match || !tables[match[1]]) { out({ ok: false, error: { code: 1254041 } }); process.exit(1); }
 if (${JSON.stringify(options.refuse ?? '')} === match[1]) { out({ ok: false, error: { code: 1254302 } }); process.exit(1); }
 const state = JSON.parse(fs.readFileSync(${JSON.stringify(state)}, 'utf8'));
@@ -133,11 +148,12 @@ describe('reading the Base through lark-cli', () => {
     await source.close();
 
     expect(data.hocVien).toHaveLength(5);
-    expect(data.nhanXet2025).toHaveLength(7);
+    expect(data.nhanXet).toHaveLength(12);
     expect(data.hocVien[0]?.fields['Học viên']).toBe(' học  viên mẫu 01 ');
     const made = await calls(log);
-    // 5 tables × (fields + records), each cut into pages of two.
-    expect(made.length).toBeGreaterThan(10);
+    // The list of tables, then 6 tables × (fields + records), each cut into pages of two.
+    expect(made.length).toBeGreaterThan(15);
+    expect(made[0]?.args[2]).toMatch(/\/tables$/u);
     expect(
       made.every((call) => call.args.slice(0, 2).join(' ') === 'api GET'),
     ).toBe(true);
@@ -181,10 +197,29 @@ describe('reading the Base through lark-cli', () => {
       sleep: async () => {},
       fetchToken: async () => ({ token: TOKEN, expiresInSeconds: 7200 }),
     });
-    await expect(source.records('hocVien')).rejects.toMatchObject({
+    await expect(
+      source.records(TABLE_IDS.hocVien as string),
+    ).rejects.toMatchObject({
       code: 'LARK_KHONG_DOC_DUOC',
     });
     await source.close();
+  });
+
+  it('reads the 2026 table through the same call as the other years', async () => {
+    const { bin, log } = await fakeCli({});
+    const source = await createLarkCliSource({
+      env: env(bin),
+      delayMs: 0,
+      sleep: async () => {},
+      fetchToken: async () => ({ token: TOKEN, expiresInSeconds: 7200 }),
+    });
+    const data = await readLarkData(source);
+    await source.close();
+    expect(data.nhanXet.map((r) => r.recordId)).toContain('recNhanXet2026a');
+    const paths = (await calls(log)).map((call) => call.args[2]);
+    expect(paths).toContain(
+      `/open-apis/bitable/v1/apps/V7DHb5fvQaqnrGsH6fFlysuJgme/tables/${NHAN_XET_BAT_BUOC[2026]}/records`,
+    );
   });
 
   it('removes its temporary directory', async () => {
@@ -195,7 +230,7 @@ describe('reading the Base through lark-cli', () => {
       sleep: async () => {},
       fetchToken: async () => ({ token: TOKEN, expiresInSeconds: 7200 }),
     });
-    await source.fieldNames('lopHoc');
+    await source.fieldNames(TABLE_IDS.lopHoc as string);
     const [first] = await calls(log);
     const workDir = path.dirname(first?.configDir ?? '');
     expect((await stat(workDir)).isDirectory()).toBe(true);
@@ -213,7 +248,9 @@ describe('reading the Base through lark-cli', () => {
       sleep: async () => {},
       fetchToken: async () => ({ token: TOKEN, expiresInSeconds: 7200 }),
     });
-    await expect(source.fieldNames('lopHoc')).rejects.toMatchObject({
+    await expect(
+      source.fieldNames(TABLE_IDS.lopHoc as string),
+    ).rejects.toMatchObject({
       code: 'LARK_CLI_THIEU',
     });
     await source.close();
@@ -240,7 +277,7 @@ describe('what the child process may see and how long it may take', () => {
         sleep: async () => {},
         fetchToken: async () => ({ token: TOKEN, expiresInSeconds: 7200 }),
       });
-      await source.fieldNames('lopHoc');
+      await source.fieldNames(TABLE_IDS.lopHoc as string);
       await source.close();
     } finally {
       for (const [name, value] of Object.entries(previous))
@@ -267,9 +304,83 @@ describe('what the child process may see and how long it may take', () => {
       sleep: async () => {},
       fetchToken: async () => ({ token: TOKEN, expiresInSeconds: 7200 }),
     });
-    await expect(source.fieldNames('lopHoc')).rejects.toMatchObject({
+    await expect(
+      source.fieldNames(TABLE_IDS.lopHoc as string),
+    ).rejects.toMatchObject({
       code: 'LARK_HET_GIO',
     });
     await source.close();
+  });
+});
+
+describe('finding the yearly attendance tables', () => {
+  const named = (year: number, id = NHAN_XET_BAT_BUOC[year] as string) => ({
+    id,
+    name: `${year} Nhận xét mỗi buổi`,
+  });
+  const required = [2024, 2025, 2026].map((year) => named(year));
+
+  it('finds them by name, oldest year first, and accepts a later year without a change in the code', () => {
+    expect(
+      findNhanXetTables([
+        named(2026),
+        { id: 'tblOther', name: 'Level' },
+        named(2025),
+        named(2024),
+        named(2027, 'tblFuture'),
+        { id: 'tblNote', name: '2026 Nhận xét mỗi buổi (bản sao)' },
+      ]).map((table) => table.year),
+    ).toEqual([2024, 2025, 2026, 2027]);
+  });
+
+  it('stops with LARK_KHONG_DOC_DUOC when a required year is hidden from the app', () => {
+    expect(() => findNhanXetTables(required.slice(0, 2))).toThrowError(
+      expect.objectContaining({ code: 'LARK_KHONG_DOC_DUOC' }),
+    );
+  });
+
+  it('stops with LARK_CAU_TRUC_DOI for two tables of one year or another id than expected', () => {
+    expect(() =>
+      findNhanXetTables([...required, named(2025, 'tblCopy')]),
+    ).toThrowError(expect.objectContaining({ code: 'LARK_CAU_TRUC_DOI' }));
+    expect(() =>
+      findNhanXetTables([required[0], required[1], named(2026, 'tblWrong')]),
+    ).toThrowError(expect.objectContaining({ code: 'LARK_CAU_TRUC_DOI' }));
+  });
+
+  it('reads nothing when the 2026 table is hidden, and also when a fixed table is', async () => {
+    for (const hide of ['nhanXet2026', 'lopHoc'] as const) {
+      const source = fixtureSource(undefined, { hide: [hide] });
+      await expect(readLarkData(source)).rejects.toMatchObject({
+        code: 'LARK_KHONG_DOC_DUOC',
+      });
+      expect(source.calls.filter((c) => c.startsWith('records'))).toEqual([]);
+    }
+  });
+
+  it('checks the fields of every year before reading, and reads a later year found by name', async () => {
+    const renamed = fixtureSource(undefined, {
+      drop: { table: 'nhanXet2026', field: 'Tên HS' },
+    });
+    await expect(readLarkData(renamed)).rejects.toMatchObject({
+      code: 'LARK_CAU_TRUC_DOI',
+    });
+    const withFuture = fixtureSource(undefined, {
+      extra: [
+        {
+          ...named(2027, 'tblFuture'),
+          fields: ['Ngày học - Day format'],
+        },
+      ],
+    });
+    // The new year is missing most fields: found by name, and checked like the others.
+    await expect(readLarkData(withFuture)).rejects.toMatchObject({
+      code: 'LARK_CAU_TRUC_DOI',
+    });
+  });
+
+  it('does not ask for "Số buổi còn lại": a table without it is accepted', async () => {
+    const data = await readLarkData(fixtureSource());
+    expect(data.nhanXet.length).toBeGreaterThan(0);
   });
 });

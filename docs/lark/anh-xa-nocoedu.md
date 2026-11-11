@@ -43,14 +43,14 @@ Thầy Tường đã trả lời các câu hỏi (comment `396805820907520`, 09/
 
 ## Thứ tự và bảng
 
-| #   | NocoEdu                             | Nguồn Lark                                                                        | Khoá `externalId`                                                                                                              |
-| --- | ----------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | `eduCoSo`                           | Lựa chọn của HocVien."cơ sở" và LopHoc."cơ sở" (`Kim Liên`, `Vĩnh Phúc`)          | tên lựa chọn (`Kim Liên`, `Vĩnh Phúc`): mỗi trường chọn của Lark có bộ id lựa chọn riêng, nên ghép theo **tên**, không theo id |
-| 2   | `eduLop`, `eduLopLich`              | Base LopHoc (7 bản ghi)                                                           | `rec…` của LopHoc                                                                                                              |
-| 3   | `eduPhuHuynh`, `eduHocVienPhuHuynh` | Tra cứu trên HocVien (bảng phụ huynh `tblZUIXmpdt13j4x` **chưa đọc được**)        | `rec…` của phụ huynh trong ô liên kết, hoặc `lark:ph:<SĐT>`                                                                    |
-| 4   | `eduHocVien`                        | Base HocVien (179 bản ghi)                                                        | `rec…` của HocVien                                                                                                             |
-| 5   | `eduGoiHoc` (gói mở đầu)            | HocVien."số buổi tồn update" (bảng nộp tiền `tblHp1PGPz52eZBz` **chưa đọc được**) | `lark:sodu:<rec học viên>`                                                                                                     |
-| 6   | `eduBuoiHoc`, `eduDiemDanh`         | Base "2024/2025 Nhận xét mỗi buổi" (nguồn điểm danh duy nhất)                     | Base: `rec…`                                                                                                                   |
+| #   | NocoEdu                             | Nguồn Lark                                                                                                 | Khoá `externalId`                                                                                                              |
+| --- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `eduCoSo`                           | Lựa chọn của HocVien."cơ sở" và LopHoc."cơ sở" (`Kim Liên`, `Vĩnh Phúc`)                                   | tên lựa chọn (`Kim Liên`, `Vĩnh Phúc`): mỗi trường chọn của Lark có bộ id lựa chọn riêng, nên ghép theo **tên**, không theo id |
+| 2   | `eduLop`, `eduLopLich`              | Base LopHoc (7 bản ghi)                                                                                    | `rec…` của LopHoc                                                                                                              |
+| 3   | `eduPhuHuynh`, `eduHocVienPhuHuynh` | Tra cứu trên HocVien (bảng phụ huynh `tblZUIXmpdt13j4x` **chưa đọc được**)                                 | `rec…` của phụ huynh trong ô liên kết, hoặc `lark:ph:<SĐT>`                                                                    |
+| 4   | `eduHocVien`                        | Base HocVien (179 bản ghi)                                                                                 | `rec…` của HocVien                                                                                                             |
+| 5   | `eduGoiHoc` (gói mở đầu)            | HocVien."số buổi tồn update" (bảng nộp tiền `tblHp1PGPz52eZBz` **chưa đọc được**)                          | `lark:sodu:<rec học viên>`                                                                                                     |
+| 6   | `eduBuoiHoc`, `eduDiemDanh`         | Base "2024/2025/2026 Nhận xét mỗi buổi" (nguồn điểm danh duy nhất; mọi bảng tên `<năm> Nhận xét mỗi buổi`) | Base: `rec…`                                                                                                                   |
 
 ## Trường và quy tắc chuẩn hoá
 

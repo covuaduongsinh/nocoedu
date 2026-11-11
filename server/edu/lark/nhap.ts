@@ -19,7 +19,7 @@ import {
 } from './ke-hoach.js';
 import { LarkImportError, readLarkData, type LarkSource } from './nguon.js';
 
-/** The two tables the app cannot read (`1254302`), left out by the project owner's decision of 2026-11-09. */
+/** The two tables this command does not read: the app could not read them on 2026-11-09 and can since 2026-11-10, but the mapping for them is not decided yet. */
 export const SKIPPED_TABLES = [
   'tblZUIXmpdt13j4x (phụ huynh)',
   'tblHp1PGPz52eZBz (nộp tiền)',
