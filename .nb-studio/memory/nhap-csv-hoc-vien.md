@@ -8,8 +8,10 @@ modified: 2026-11-11
 Trang Học viên có nút "Nhập từ CSV": tải tệp lên, xem trước (chỉ số đếm và lỗi theo số dòng kèm mã lỗi), xác nhận thì ghi trong một transaction (hoặc ghi hết, hoặc không ghi gì).
 
 - Quyền: action `import` của `edu.hocVien`, chỉ Quản trị và Quản lý cơ sở. Quản lý cơ sở chỉ nhập vào cơ sở và lớp của mình; server trả 403 cả khi xem trước lẫn xác nhận.
-- Trùng: học viên là cùng một người khi trùng tên (chuẩn hoá) + năm sinh + cơ sở **và** có một phụ huynh cùng SĐT với dòng (giống nhập Lark). Không có SĐT trùng thì là bé khác, tạo mới, không gắn phụ huynh vào bé cũ. Nhiều bé khớp thì dòng lỗi `AMBIGUOUS_STUDENT`, không đoán. Phụ huynh trùng SĐT (chỉ trong số người nhập đang thấy) thì dùng lại. Đã có thì chỉ thêm liên kết còn thiếu; chạy lại cùng tệp không nhân đôi. Khác lệnh `import-hoc-vien` (coi trùng là lỗi). Các dòng cùng tên/năm/cơ sở trong một tệp vẫn gộp thành một bé.
-- Chặn: lớp `da_dong` (`CLASS_CLOSED`), cơ sở `tam_dung` (`BRANCH_PAUSED`). Gắn phụ huynh vào học viên `da_nghi` chỉ cảnh báo `STUDENT_LEFT` khi xem trước.
+- Trùng: mỗi dòng được ghép theo SĐT của **chính dòng đó**. Học viên đã có là cùng một người khi trùng tên (chuẩn hoá) + năm sinh + cơ sở **và** có phụ huynh cùng SĐT (giống nhập Lark). Phụ huynh trùng SĐT (chỉ trong số người nhập đang thấy) thì dùng lại. Chạy lại cùng tệp không nhân đôi (dòng khớp là "không đổi").
+- Các dòng cùng tên/năm/cơ sở trong một tệp: chỉ gộp khi tất cả cùng trỏ vào **một** học viên đã có, hoặc khi **không dòng nào** khớp học viên đã có (khi đó gộp thành một bé mới có nhiều phụ huynh; quyết định thiết kế vì tệp không có gì để phân biệt). Mọi trường hợp khác (hai học viên đã có khác nhau, hoặc vừa khớp học viên đã có vừa không khớp) thì cả các dòng đó báo `AMBIGUOUS_STUDENT`, không ghi gì. Hệ quả: không thêm được phụ huynh mới cho học viên đã có bằng CSV; dùng nút "Thêm phụ huynh" trên trang.
+- Cảnh báo (không chặn): `STUDENT_LEFT` khi dòng khớp học viên đã nghỉ; `POSSIBLE_DUPLICATE` khi đã có học viên cùng khoá nhưng chưa có phụ huynh nào (không đối chiếu được, dòng sẽ tạo bé mới).
+- Chặn: lớp `da_dong` (`CLASS_CLOSED`), cơ sở `tam_dung` (`BRANCH_PAUSED`).
 - Phạm vi: chỉ tra mã cơ sở/lớp trong phạm vi người nhập; mã của cơ sở khác báo `UNKNOWN_*` y như mã không tồn tại, nên không dò được. Không còn 403 theo dòng.
 - Xác nhận chạy trong Mutex `edu:nhap-csv` (plugin concurrency) để hai tab không tạo trùng.
 - Giới hạn: 512 K ký tự và 2.000 dòng; UTF-8 có hoặc không có BOM; tệp không được lưu.
