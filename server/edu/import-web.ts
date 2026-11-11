@@ -49,7 +49,7 @@ export interface WebImportReport extends ImportCounts {
   /** Rows that are allowed but worth a look: they attach to a student who has left (`da_nghi`). */
   readonly warnings: readonly {
     line: number;
-    code: 'STUDENT_LEFT' | 'POSSIBLE_DUPLICATE';
+    code: 'STUDENT_LEFT' | 'POSSIBLE_DUPLICATE' | 'STUDENT_WITHOUT_PARENT';
   }[];
   /** CSV rows that changed data (0 on a preview or when there are problems). */
   readonly written: number;
@@ -183,25 +183,65 @@ export async function planImport(
   // Pass 1: validate every row.
   const problems: { line: number; code: ImportProblem }[] = [];
   const candidates: Candidate[] = [];
+  // A closed class or a paused branch only stops a row that would create a student there; a row that matches a student
+  // who is already in it (a file exported earlier and imported again) is a duplicate and changes nothing.
+  const blocked = new Map<number, ImportProblem>();
+  // Rows with every parent column empty (an exported student who has no parent yet): they can only match a student that
+  // already exists; they never create anything.
+  const withoutParent: { line: number; key: string }[] = [];
+  const PARENT_COLUMNS = [
+    'phuHuynhHoTen',
+    'phuHuynhSdt',
+    'phuHuynhZalo',
+    'quanHe',
+  ];
   table.slice(1).forEach((row, index) => {
-    const read = readRow(row, index + 2, column, { branches, classes });
+    const line = index + 2;
+    if (
+      PARENT_COLUMNS.every((name) => column(row, name) === '') &&
+      column(row, 'hoTen') !== '' &&
+      column(row, 'namSinh') !== '' &&
+      column(row, 'coSoMa') !== ''
+    ) {
+      const year = Number(column(row, 'namSinh'));
+      if (
+        !Number.isInteger(year) ||
+        year < 1950 ||
+        year > new Date().getFullYear()
+      ) {
+        problems.push({ line, code: 'BAD_YEAR' });
+        return;
+      }
+      const coSoId = branches.get(column(row, 'coSoMa'));
+      if (coSoId === undefined) {
+        problems.push({ line, code: 'UNKNOWN_BRANCH' });
+        return;
+      }
+      withoutParent.push({
+        line,
+        key: `${nameKey(column(row, 'hoTen'))}|${year}|${coSoId}`,
+      });
+      return;
+    }
+    const read = readRow(row, line, column, { branches, classes });
     if ('code' in read) {
       problems.push(read);
       return;
     }
-    if (pausedBranches.has(read.coSoId)) {
-      problems.push({ line: read.line, code: 'BRANCH_PAUSED' });
-      return;
-    }
-    if (read.lopId !== null && closedClasses.has(read.lopId)) {
-      problems.push({ line: read.line, code: 'CLASS_CLOSED' });
-      return;
-    }
+    if (pausedBranches.has(read.coSoId))
+      blocked.set(read.line, 'BRANCH_PAUSED');
+    else if (read.lopId !== null && closedClasses.has(read.lopId))
+      blocked.set(read.line, 'CLASS_CLOSED');
     candidates.push(read);
   });
 
   // The students already in the branches of the file, with the phones of their parents.
-  const branchIds = [...new Set(candidates.map((c) => c.coSoId))];
+  const branchIds = [
+    ...new Set([
+      ...candidates.map((c) => c.coSoId),
+      ...withoutParent.map((r) => Number(r.key.split('|')[2])),
+    ]),
+  ];
   const students = new Map<string, number[]>();
   const left = new Set<number>();
   const idsOfStudents = new Set<number>();
@@ -273,7 +313,7 @@ export async function planImport(
   const resolved = new Map<string, number | null>();
   const warnings: {
     line: number;
-    code: 'STUDENT_LEFT' | 'POSSIBLE_DUPLICATE';
+    code: 'STUDENT_LEFT' | 'POSSIBLE_DUPLICATE' | 'STUDENT_WITHOUT_PARENT';
   }[] = [];
   const refused = new Set<number>();
   for (const [key, rows] of rowsOfKey) {
@@ -327,6 +367,11 @@ export async function planImport(
       steps.push({ row, action: 'trung', studentKey });
       continue;
     }
+    const stopped = blocked.get(row.line);
+    if (stopped) {
+      problems.push({ line: row.line, code: stopped });
+      continue;
+    }
     const exists = studentId !== undefined || createdKeys.has(studentKey);
     if (exists) {
       counts.chiLienKet += 1;
@@ -345,6 +390,20 @@ export async function planImport(
     set.add(row.phone);
     phonesInFile.set(studentKey, set);
     steps.push({ row, action: exists ? 'lien_ket' : 'tao', studentKey });
+  }
+  for (const { line, key } of withoutParent) {
+    const found = students.get(key) ?? [];
+    if (found.length > 1 || (found.length === 0 && !createdKeys.has(key))) {
+      // Several students share the key: nothing is guessed. None: a parent is needed to create one.
+      problems.push({
+        line,
+        code: found.length > 1 ? 'AMBIGUOUS_STUDENT' : 'MISSING_FIELD',
+      });
+      continue;
+    }
+    // Exactly one student already there: nothing to write; say so, so a whole exported file can be imported again.
+    counts.hocVienTrung += 1;
+    warnings.push({ line, code: 'STUDENT_WITHOUT_PARENT' });
   }
   problems.sort((a, b) => a.line - b.line);
   warnings.sort((a, b) => a.line - b.line);

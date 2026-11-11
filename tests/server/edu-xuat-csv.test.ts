@@ -1,5 +1,6 @@
 import { expect } from 'vitest';
 
+import { csvCell } from '../../server/edu/csv.js';
 import { IMPORT_COLUMNS } from '../../server/edu/import-csv.js';
 import { MAX_EXPORT_STUDENTS } from '../../server/routes/edu-xuat-csv.js';
 import {
@@ -271,4 +272,91 @@ test('more than the limit is refused with a message to narrow the export', async
   const refused = await post(admin, EXPORT, {});
   expect(refused.status).toBeGreaterThanOrEqual(400);
   expect(await refused.text()).toContain('EDU_EXPORT_TOO_LARGE');
+});
+
+test('a file exported from a school with a closed class, a paused branch and a student without a parent can be imported again: every row is a duplicate, nothing is written', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin, ids } = await setup(testApp, connection);
+  await addParent(connection, ids.hocVienA, 'PH-R1', '0900666001', true);
+  await addParent(connection, ids.hocVienB, 'PH-R2', '0900666002', true);
+  // A third student without any parent, in the class that is closed below.
+  await connection.query
+    .insertInto('eduHocVien')
+    .values({
+      ma: 'HS-NP',
+      hoTen: 'Học viên Chưa Có PH',
+      namSinh: 2014,
+      levelKey: 'tot',
+      levelOrder: 1,
+      lopId: ids.lopA,
+      coSoId: ids.coSoA,
+    })
+    .execute();
+  await connection.query
+    .updateTable('eduLop')
+    .set({ trangThai: 'da_dong' })
+    .where('id', '=', ids.lopA)
+    .execute();
+  await connection.query
+    .updateTable('eduCoSo')
+    .set({ trangThai: 'tam_dung' })
+    .where('id', '=', ids.coSoB)
+    .execute();
+
+  const csv = await text(await post(admin, EXPORT, {}));
+  expect(lines(csv)).toHaveLength(4);
+  const count = async (table: string) =>
+    (await connection.query.selectFrom(table).select('id').execute()).length;
+  const before = [
+    await count('eduHocVien'),
+    await count('eduPhuHuynh'),
+    await count('eduHocVienPhuHuynh'),
+  ];
+
+  const preview = (await (
+    await post(admin, IMPORT_PREVIEW, { csv })
+  ).json()) as { data: any };
+  expect(preview.data.problems).toEqual([]);
+  expect(preview.data).toMatchObject({ hocVienMoi: 0, hocVienTrung: 3 });
+  expect(preview.data.warnings).toEqual([
+    { line: 4, code: 'STUDENT_WITHOUT_PARENT' },
+  ]);
+  const confirm = await post(admin, '/hocVien/nhapCsv/xacNhan', { csv });
+  expect(confirm.status).toBe(200);
+  expect(((await confirm.json()) as { data: any }).data.written).toBe(0);
+  expect([
+    await count('eduHocVien'),
+    await count('eduPhuHuynh'),
+    await count('eduHocVienPhuHuynh'),
+  ]).toEqual(before);
+
+  // The block still stops a row that would create a student in the closed class or the paused branch...
+  const created = (await (
+    await post(admin, IMPORT_PREVIEW, {
+      csv: `${HEADER}\r\nHọc viên Mới,2017,CS-A,L-A1,tot,Phụ huynh Mới,0900666003,,me\r\nHọc viên Mới 2,2017,CS-B,,tot,Phụ huynh Mới,0900666004,,me\r\n`,
+    })
+  ).json()) as { data: any };
+  expect(created.data.problems).toEqual([
+    { line: 2, code: 'CLASS_CLOSED' },
+    { line: 3, code: 'BRANCH_PAUSED' },
+  ]);
+  // ...and a row with no parent that matches no student is still refused.
+  const orphan = (await (
+    await post(admin, IMPORT_PREVIEW, {
+      csv: `${HEADER}\r\nHọc viên Lạ,2017,CS-A,,tot,,,,\r\n`,
+    })
+  ).json()) as { data: any };
+  expect(orphan.data.problems).toEqual([{ line: 2, code: 'MISSING_FIELD' }]);
+});
+
+test('a cell that starts with a blank before the formula sign is made harmless too', () => {
+  expect(csvCell(' =1+1')).toBe("' =1+1");
+  expect(csvCell('  @SUM(A1)')).toBe("'  @SUM(A1)");
+  expect(csvCell('\t=1')).toBe(`'\t=1`);
+  expect(csvCell('\r1')).toContain("'");
+  expect(csvCell('a =1')).toBe('a =1');
+  expect(csvCell(-5)).toBe('-5');
+  expect(csvCell('Nguyễn Văn An')).toBe('Nguyễn Văn An');
 });
