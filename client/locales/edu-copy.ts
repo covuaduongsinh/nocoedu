@@ -5,6 +5,7 @@
  */
 import { EDU_DETAIL_ROWS } from './edu-copy-detail.js';
 import { EDU_EDIT_ROWS } from './edu-copy-edit.js';
+import { EDU_EXPORT_ROWS } from './edu-copy-export.js';
 import { EDU_IMPORT_ROWS } from './edu-copy-import.js';
 import { EDU_MORE_ROWS } from './edu-copy-more.js';
 
@@ -310,6 +311,7 @@ function build(index: 1 | 2 | 3): Tree {
     ...EDU_DETAIL_ROWS,
     ...EDU_EDIT_ROWS,
     ...EDU_IMPORT_ROWS,
+    ...EDU_EXPORT_ROWS,
   ]) {
     const parts = row[0].split('.');
     let node = root;

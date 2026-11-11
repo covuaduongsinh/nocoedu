@@ -63,6 +63,13 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
         classes: ALL,
         parents: ALL,
       },
+      export: {
+        data: ALL,
+        branches: ALL,
+        classes: ALL,
+        parents: ALL,
+        links: ALL,
+      },
     }),
   )
   .grant(
@@ -119,6 +126,13 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
         branches: MY_BRANCHES,
         classes: MY_BRANCHES,
         parents: MY_BRANCHES,
+      },
+      export: {
+        data: MY_BRANCHES,
+        branches: MY_BRANCHES,
+        classes: MY_BRANCHES,
+        parents: MY_BRANCHES,
+        links: MY_BRANCHES,
       },
     }),
   )

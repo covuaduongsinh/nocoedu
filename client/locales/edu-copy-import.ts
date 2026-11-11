@@ -16,9 +16,9 @@ export const EDU_IMPORT_ROWS: readonly (readonly [
   ],
   [
     'import.hint',
-    'Tệp UTF-8 (có hoặc không có BOM), dòng đầu là tên cột. Học viên hoặc phụ huynh đã có sẽ không bị tạo lại, chỉ bổ sung liên kết còn thiếu. Tệp không được lưu lại.',
-    'A UTF-8 file (with or without a BOM) whose first line is the column names. A student or parent that already exists is not created again; only the missing link is added. The file is not stored.',
-    'UTF-8 文件（可带 BOM），首行为列名。已存在的学员或家长不会重复创建，只补充缺少的关联。文件不会被保存。',
+    'Tệp UTF-8 (có hoặc không có BOM), dòng đầu là tên cột. Học viên và phụ huynh đã có không bị tạo lại. Muốn thêm phụ huynh cho một bé đã có, hãy dùng nút "Thêm phụ huynh" ở danh sách học viên, không dùng tệp CSV. Tệp không được lưu lại.',
+    'A UTF-8 file (with or without a BOM) whose first line is the column names. A student or parent that already exists is not created again. To add a parent to a student who already exists, use the "Add a parent" button in the student list, not the CSV file. The file is not stored.',
+    'UTF-8 文件（可带 BOM），首行为列名。已存在的学员和家长不会重复创建。要为已有学员添加家长，请使用学员列表中的“添加家长”按钮，而不是 CSV 文件。文件不会被保存。',
   ],
   ['import.file', 'Tệp CSV', 'CSV file', 'CSV 文件'],
   [
@@ -166,9 +166,9 @@ export const EDU_IMPORT_ROWS: readonly (readonly [
   ],
   [
     'import.warning.POSSIBLE_DUPLICATE',
-    'Đã có học viên cùng tên, năm sinh, cơ sở nhưng chưa có phụ huynh nào nên không đối chiếu được. Dòng này sẽ tạo học viên mới; hãy kiểm tra trùng.',
-    'A student with the same name, birth year and branch exists but has no parent on file, so it cannot be compared. This row creates a new student; check for a duplicate.',
-    '已有同名、同出生年份、同分校的学员，但没有任何家长信息，无法比对。此行将新建学员，请检查是否重复。',
+    'Đã có học viên cùng tên, năm sinh, cơ sở nhưng không phụ huynh nào của bé trùng số điện thoại của dòng này (hoặc bé chưa có phụ huynh) nên không đối chiếu được. Dòng này sẽ tạo học viên mới; hãy kiểm tra trùng.',
+    'A student with the same name, birth year and branch exists but none of his parents has this row’s phone (or he has no parent on file), so it cannot be compared. This row creates a new student; check for a duplicate.',
+    '已有同名、同出生年份、同分校的学员，但其家长的电话都与此行不同（或该学员没有家长信息），无法比对。此行将新建学员，请检查是否重复。',
   ],
   ['import.warnings', 'Cần lưu ý', 'Please note', '请注意'],
   [

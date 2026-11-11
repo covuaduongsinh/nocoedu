@@ -8,6 +8,7 @@ import eduExt from './edu-ext.js';
 import eduHocPhi from './edu-hoc-phi.js';
 import eduNhapCsv from './edu-nhap-csv.js';
 import eduNhanXet from './edu-nhan-xet.js';
+import eduXuatCsv from './edu-xuat-csv.js';
 import eduTraCuu from './edu-tra-cuu.js';
 
 const routes: readonly AppRouteContribution<Application>[] = [
@@ -16,6 +17,7 @@ const routes: readonly AppRouteContribution<Application>[] = [
   ...eduHocPhi,
   ...eduNhanXet,
   ...eduNhapCsv,
+  ...eduXuatCsv,
   ...eduBaoCao,
   ...eduTraCuu,
   ...eduExt,
