@@ -155,6 +155,14 @@ export function inBaoCao(report: ImportReport, maxBalanceRows = 200): string[] {
       '',
       `Học viên đã nhập trước giai đoạn 3 và GIỮ số dư cũ (bỏ qua Deal HP của họ, xem docs/lark/nhap-production.md): ${kept}.`,
     );
+  const changed = report.warnings
+    .filter((g) => g.code === 'DEAL_DA_DOI' || g.code === 'SO_DU_LARK_DA_DOI')
+    .reduce((sum, g) => sum + g.count, 0);
+  if (changed > 0)
+    lines.push(
+      '',
+      `Deal hoặc số dư trên Lark đã đổi từ lần nhập trước; gói đã ghi KHÔNG được sửa, số dư tính theo giá trị đã ghi: ${changed}.`,
+    );
   lines.push(
     '',
     `So sánh số dư buổi tính lại với số dư trên Lark: ${report.balance.match} khớp, ${report.balance.differ} lệch, ${report.balance.unknown} không so được.`,
@@ -164,7 +172,7 @@ export function inBaoCao(report: ImportReport, maxBalanceRows = 200): string[] {
     lines.push('  mã học viên cũ | trên Lark | Σ tồn Deal | tính lại | chênh');
     for (const row of differing.slice(0, maxBalanceRows))
       lines.push(
-        `  ${row.externalCode} | ${row.larkBalance ?? '?'} | ${row.dealRemaining ?? '?'} | ${row.recomputed} | ${row.difference ?? '?'}`,
+        `  ${row.externalCode} | ${row.larkBalance ?? '?'} | ${row.dealRemaining ?? '?'} | ${row.recomputed}${row.giuSoDuCu ? ' (giữ số dư cũ)' : ''} | ${row.difference ?? '?'}`,
       );
     if (differing.length > maxBalanceRows)
       lines.push(

@@ -81,6 +81,8 @@ export interface ExistingStudent {
   readonly diemDanhCuKhongTru?: boolean;
   /** The student already holds a package of `Deal HP` (`lark:deal:*`). */
   readonly coGoiDeal?: boolean;
+  /** His balance in NocoEdu now; used for the comparison when the import leaves his balance alone. */
+  readonly soBuoiConLai?: number;
 }
 
 /** What NocoEdu holds now. The command builds it from the database; the tests build it by hand. */
@@ -105,6 +107,12 @@ export interface ExistingState {
    * index (class, day, start) refuses a second one, so the plan reports it instead of letting the whole run fail.
    */
   readonly sessions: ReadonlySet<string>;
+  /**
+   * The packages written by an earlier run (`lark:deal:*`, `lark:sodu:*`) with the sessions and the day they were
+   * written with. Lark may have changed the row since; the plan then keeps the value that was written (the commit does
+   * not edit a package), so the dry run shows the balance the commit leaves.
+   */
+  readonly packages?: ReadonlyMap<string, { soBuoi: number; ngayMua: string }>;
 }
 
 export const EMPTY_STATE: ExistingState = {
@@ -235,6 +243,8 @@ export interface BalanceRow {
   /** Σ `Số buổi còn tồn` of the student's Deal rows, when he has any. */
   readonly dealRemaining: number | null;
   readonly recomputed: number;
+  /** The import leaves the balance of this student as it is (a student merged with one that already had a balance). */
+  readonly giuSoDuCu?: boolean;
   readonly difference: number | null;
 }
 
@@ -795,6 +805,39 @@ export function lapKeHoach(
           (dealRemainingOf.get(studentKey) ?? 0) + left,
         );
     }
+    // The sessions this Deal gives now, or `null` when it gives none (empty, unpaid, no student, no date, ...).
+    const sessionsNow = (): number | null => {
+      if (!paid || sessionsPaid === null || !Number.isInteger(sessionsPaid))
+        return null;
+      if (!(dateVn(f['Ngày nộp HP']) ?? dateVn(f['Ngày bắt đầu']))) return null;
+      const unrecorded = DEAL_RULES.subtractUnrecorded
+        ? (numberOf(f['Số buổi đã học chưa thống kê']) ?? 0)
+        : 0;
+      return Math.max(0, sessionsPaid - unrecorded);
+    };
+    const writtenDeal = existing.packages?.get(`lark:deal:${id}`);
+    if (
+      writtenDeal !== undefined &&
+      studentKey !== undefined &&
+      studentByKey.has(studentKey)
+    ) {
+      // Written by an earlier run: a package is never edited, so the plan keeps what was written. If Lark says
+      // something else now (edited, no longer paid), the dry run says so and the balance stays the one in the database.
+      if (sessionsNow() !== writtenDeal.soBuoi)
+        warn('goiHoc', id, 'DEAL_DA_DOI');
+      dealsOfStudent.set(studentKey, [
+        ...(dealsOfStudent.get(studentKey) ?? []),
+        {
+          externalId: `lark:deal:${id}`,
+          hocVienKey: studentKey,
+          soBuoi: writtenDeal.soBuoi,
+          ngayChot: writtenDeal.ngayMua,
+          loai: 'mua',
+          action: 'trung',
+        },
+      ]);
+      continue;
+    }
     if (sessionsPaid === null && !paid) {
       warn('goiHoc', id, 'DEAL_TRONG');
       continue;
@@ -889,7 +932,9 @@ export function lapKeHoach(
     }
     const usesDeals = deals.length > 0;
     let packageToUse = !usesDeals && opening.ok ? opening.value : null;
-    if (!usesDeals && !opening.ok)
+    const soduKey = `lark:sodu:${student.externalId}`;
+    const writtenSodu = existing.packages?.get(soduKey);
+    if (!usesDeals && !opening.ok && !writtenSodu)
       fail('goiHoc', student.externalId, opening.code);
     if (
       !usesDeals &&
@@ -903,6 +948,20 @@ export function lapKeHoach(
     } else if (!usesDeals && !packageToUse && opening.ok) {
       warn('goiHoc', student.externalId, 'KHONG_CO_SO_DU');
     }
+    if (!usesDeals && writtenSodu) {
+      // The opening package an earlier run wrote is never edited: if Lark changed the balance or its date since,
+      // the plan keeps the written values (what the database holds) and says so.
+      if (
+        !packageToUse ||
+        packageToUse.soBuoi !== writtenSodu.soBuoi ||
+        packageToUse.ngayChot !== writtenSodu.ngayMua
+      )
+        warn('goiHoc', student.externalId, 'SO_DU_LARK_DA_DOI');
+      packageToUse = {
+        soBuoi: writtenSodu.soBuoi,
+        ngayChot: writtenSodu.ngayMua,
+      };
+    }
     if (usesDeals) {
       goiHoc.push(
         ...[...deals].sort(
@@ -912,7 +971,7 @@ export function lapKeHoach(
         ),
       );
     } else if (packageToUse) {
-      const externalId = `lark:sodu:${student.externalId}`;
+      const externalId = soduKey;
       goiHoc.push({
         externalId,
         hocVienKey: student.externalId,
@@ -1043,14 +1102,21 @@ export function lapKeHoach(
       String(balanceCell[0]).trim() !== ''
         ? Number(balanceCell[0])
         : null;
+    // A student merged with one that already had a package or a balance keeps it (no package, no deduction is added):
+    // the comparison shows the balance he has in NocoEdu, not a 0 that nothing computed.
+    const keepsOldBalance =
+      student.action === 'ghep' && existingStudent?.coSoDu === true;
+    const shown = keepsOldBalance
+      ? (existingStudent?.soBuoiConLai ?? 0)
+      : recomputed.soBuoiConLai;
     balances.push({
       externalCode: student.externalCode ?? student.externalId,
       hocVienKey: student.externalId,
       larkBalance,
       dealRemaining: dealRemainingOf.get(student.externalId) ?? null,
-      recomputed: recomputed.soBuoiConLai,
-      difference:
-        larkBalance === null ? null : recomputed.soBuoiConLai - larkBalance,
+      recomputed: shown,
+      ...(keepsOldBalance ? { giuSoDuCu: true } : {}),
+      difference: larkBalance === null ? null : shown - larkBalance,
     });
   }
 

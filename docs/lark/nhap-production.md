@@ -38,6 +38,7 @@ Framework đặt lệnh riêng của ứng dụng dưới topic `app`, nên lệ
 | `DEAL_TRONG`, `DEAL_CHUA_NOP`                                                                     | cảnh báo: dòng `Deal HP` trống hẳn, hoặc có số buổi mà chưa có cờ `Đã nộp`; không tạo gói                                                                                                                    |
 | `DEAL_THIEU_NGAY`, `DEAL_SO_BUOI_SAI`, `DEAL_THIEU_HOC_VIEN`                                      | lỗi: dòng `Deal HP` đã nộp nhưng thiếu cả `Ngày nộp HP` lẫn `Ngày bắt đầu`, số buổi không phải số nguyên, hoặc không có học viên; không tạo gói                                                              |
 | `DIEM_DANH_CU_KHONG_TRU`                                                                          | cảnh báo: học viên đã có điểm danh nhập từ Lark ghi là "đã nằm trong số dư mở đầu" và chưa có gói Deal: Deal của họ bị bỏ qua, số dư giữ nguyên                                                              |
+| `DEAL_DA_DOI`, `SO_DU_LARK_DA_DOI`                                                                | cảnh báo: Deal hoặc số dư trên Lark đã đổi sau lần nhập; gói đã ghi không được sửa, số dư tính theo giá trị đã ghi                                                                                           |
 | `DEAL_HET_SAU_TRU`                                                                                | cảnh báo: Deal đã nộp nhưng `Số buổi nộp` trừ "chưa thống kê" bằng 0: không tạo gói                                                                                                                          |
 | `KHOA_CU_LARK_PH`, `GOI_CU_LARK_SODU`                                                             | cảnh báo: lần nhập trước giai đoạn 3 đã ghi phụ huynh theo `lark:ph:<SĐT>` hoặc gói mở đầu `lark:sodu:<rec>`. Xem mục "Đã nhập trước giai đoạn 3" dưới đây                                                   |
 | `KHONG_CO_SO_DU`, `HLV_CHUA_GHEP`, `EMAIL_SAI`, `NHAN_XET_CAT`                                    | cảnh báo, vẫn nhập                                                                                                                                                                                           |
@@ -79,13 +80,51 @@ Nếu production đã chạy `--commit` bằng bản trước, trong CSDL có ph
 - **Gói buổi:** học viên đã có gói `lark:sodu:*` mà nay có `Deal HP` **giữ nguyên gói cũ**, các Deal của họ bị bỏ qua và báo `GOI_CU_LARK_SODU` (thêm Deal vào sẽ đếm buổi hai lần). Muốn chuyển học viên đó sang số dư tính lại từ Deal, phải làm tay trên bản sao lưu: xoá gói `lark:sodu:*`, các dòng sổ số dư và điểm danh `lark:` của học viên đó rồi nhập lại. Chưa có lệnh làm việc này, nên hỏi trước khi làm; không xoá dữ liệu cũ khi chưa có sao lưu.
 - **Học viên đã có điểm danh nhập từ Lark nhưng chưa có gói Deal nào** (lần nhập trước ghi điểm danh của họ là "đã nằm trong số dư mở đầu", `tinhVaoSoDu = false`, kể cả khi họ chưa có số dư) cũng **giữ nguyên số dư cũ**: Deal của họ bị bỏ qua và báo `DIEM_DANH_CU_KHONG_TRU`. Lý do: thêm gói mà không trừ lại các buổi cũ thì bản chạy thử (đếm mọi buổi) và `--commit` (chỉ trừ buổi mới) cho hai số dư khác nhau. Tổng kết chạy thử in một dòng "Học viên đã nhập trước giai đoạn 3 và GIỮ số dư cũ: N" cộng cả `GOI_CU_LARK_SODU` và `DIEM_DANH_CU_KHONG_TRU`.
 - Học viên **chưa** từng được nhập điểm danh và có Deal thì được nhập theo cách mới đầy đủ.
-- **Chuyển nhóm học viên giữ số dư cũ sang số dư tính lại từ Deal (làm tay, chỉ khi Thầy Tường đồng ý):**
-  1. Chạy `--dry-run` và lưu danh sách mã học viên cũ (`HV-…`) bị `GOI_CU_LARK_SODU`/`DIEM_DANH_CU_KHONG_TRU` (dùng `--json`).
+- **Chuyển nhóm học viên giữ số dư cũ sang số dư tính lại từ Deal (làm tay, chỉ khi Thầy Tường đồng ý).** Chưa có lệnh tự động; không làm khi chưa có bản sao lưu. Chỉ xoá những gì lệnh nhập đã ghi; mọi gói, điểm danh và dòng sổ do người dùng nhập tay được giữ, và số dư được **trừ đi đúng phần đã xoá**, không đặt về 0. 0. **Dừng ứng dụng** (không ai ghi điểm danh hay bán gói) **trước khi sao lưu**, và giữ nguyên trạng thái dừng đến hết bước 5. Sao lưu lúc ứng dụng còn chạy có thể thiếu những gì HLV ghi giữa lúc sao lưu và lúc xoá.
+  1. Chạy `--dry-run --json` và lưu danh sách mã học viên cũ (`HV-…`) bị `GOI_CU_LARK_SODU`/`DIEM_DANH_CU_KHONG_TRU`; đổi sang `id` của `eduHocVien` qua cột `externalCode`.
   2. **Sao lưu** bằng `pg_dump` ở container PostgreSQL như bước 5 ở trên.
-  3. Trong một transaction trên CSDL, với từng học viên trong danh sách: xoá các dòng `eduSoDuNhatKy` của học viên, xoá `eduDiemDanh` có `externalId` bắt đầu bằng `rec` (điểm danh nhập từ Lark) của học viên, xoá `eduGoiHoc` có `externalId` bắt đầu bằng `lark:sodu:`, đặt `eduHocVien.soBuoiConLai = 0`. Điểm danh và gói do HLV hoặc kế toán nhập tay (không có `externalId`) và các buổi học `eduBuoiHoc` giữ nguyên. Chưa có lệnh làm việc này; không làm khi chưa có bản sao lưu.
-  4. Chạy lại `--dry-run`: các học viên đó không còn cảnh báo và có gói `lark:deal:*` ở cột "tạo"; rồi `--commit --user <id>`.
-  5. **Rollback:** khôi phục bản `pg_dump` ở bước 2 (sau khi dừng ứng dụng). Không có cách hoàn tác từng phần.
+  3. **Kiểm trước khi xoá** (chỉ đọc; tên bảng và cột như trong migration, trên PostgreSQL phải đặt trong dấu nháy kép). Các dòng sổ sẽ bị xoá là dòng `chuyen_tu_lark` hoặc dòng gắn với điểm danh nhập từ Lark (`eduDiemDanh.externalId` không rỗng); `se_xoa` là tổng `thayDoi` của chúng:
+
+     ```sql
+     SELECT l."hocVienId", COUNT(*) AS so_dong, SUM(l."thayDoi") AS se_xoa
+     FROM "eduSoDuNhatKy" l
+     LEFT JOIN "eduDiemDanh" d ON d."id" = l."diemDanhId"
+     WHERE l."hocVienId" IN (/* id học viên */)
+       AND (l."lyDo" = 'chuyen_tu_lark' OR d."externalId" IS NOT NULL)
+     GROUP BY l."hocVienId";
+     ```
+
+     Đối chiếu từng học viên với số dư hiện có: `soBuoiConLai − se_xoa` là số dư còn lại sau khi xoá (chính là phần do người dùng nhập tay). Lệch với kỳ vọng thì dừng.
+
+  4. **Xoá và chỉnh số dư trong một transaction**, theo thứ tự này (dòng sổ trước vì nó tham chiếu điểm danh và gói):
+
+     ```sql
+     BEGIN;
+     UPDATE "eduHocVien" h SET "soBuoiConLai" = h."soBuoiConLai" - COALESCE((
+       SELECT SUM(l."thayDoi") FROM "eduSoDuNhatKy" l
+       LEFT JOIN "eduDiemDanh" d ON d."id" = l."diemDanhId"
+       WHERE l."hocVienId" = h."id" AND (l."lyDo" = 'chuyen_tu_lark' OR d."externalId" IS NOT NULL)), 0)
+     WHERE h."id" IN (/* id học viên */);
+     DELETE FROM "eduSoDuNhatKy" l USING "eduHocVien" h
+       WHERE l."hocVienId" = h."id" AND h."id" IN (/* id học viên */)
+       AND (l."lyDo" = 'chuyen_tu_lark'
+            OR l."diemDanhId" IN (SELECT "id" FROM "eduDiemDanh" WHERE "externalId" IS NOT NULL));
+     DELETE FROM "eduDiemDanh" WHERE "externalId" IS NOT NULL AND "hocVienId" IN (/* id học viên */);
+     DELETE FROM "eduGoiHoc" WHERE "externalId" LIKE 'lark:sodu:%' AND "hocVienId" IN (/* id học viên */);
+     -- kiểm lại câu truy vấn ở bước 3: không còn dòng nào; rồi COMMIT; (hoặc ROLLBACK;)
+     ```
+
+     Buổi học `eduBuoiHoc` được giữ nguyên (nhập lại sẽ thấy "trùng"). Điểm danh và gói do HLV hoặc kế toán nhập tay (không có `externalId`) không bị đụng tới.
+
+  5. Chạy `--dry-run`: các học viên đó không còn cảnh báo, có gói `lark:deal:*` ở cột "tạo" và điểm danh của họ ở cột "tạo"; rồi `--commit --user <id>`; rồi mở lại ứng dụng.
+  6. **Rollback:** khôi phục bản `pg_dump` ở bước 2 (khi ứng dụng còn dừng). Không có cách hoàn tác từng phần sau khi đã mở lại ứng dụng và có người ghi dữ liệu mới.
 - Chạy lại `--dry-run` sau khi ghi: mọi dòng phải là "trùng", số "tạo" bằng 0, các cảnh báo `GOI_CU_LARK_SODU` không đổi.
+
+### Deal hoặc số dư bị sửa trên Lark sau lần nhập
+
+Lệnh chỉ thêm, không sửa gói đã ghi. Nếu sau lần `--commit` đầu, trên Lark một Deal đã nhập bị đổi số buổi, "chưa thống kê" hoặc bị bỏ cờ `Đã nộp`, bản chạy thử báo `DEAL_DA_DOI`; nếu `số buổi tồn update` hoặc `Ngày update gần nhất về HP` của học viên có gói `lark:sodu:*` bị đổi thì báo `SO_DU_LARK_DA_DOI`. Gói trong CSDL **giữ nguyên** và số dư tính lại dùng giá trị **đã ghi**, nên bản chạy thử và `--commit` ra cùng một số dư. Tổng kết có dòng "Deal hoặc số dư trên Lark đã đổi từ lần nhập trước: N". Muốn áp giá trị mới, sửa tay gói đó bằng thao tác điều chỉnh số dư của ứng dụng sau khi hỏi Thầy Tường.
+
+Với học viên được ghép (`ghep`) với học viên đã có gói hoặc số dư (`GHEP_BO_QUA_SO_DU`), bảng so sánh in số dư hiện có trong NocoEdu kèm "(giữ số dư cũ)", không in 0.
 
 ### Bảng so sánh số dư của bản chạy thử
 

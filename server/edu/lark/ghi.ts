@@ -89,13 +89,20 @@ export async function docTrangThaiHienCo(
     )
       history.add(Number(row.hocVienId));
   const withDeal = new Set<number>();
+  const packages = new Map<string, { soBuoi: number; ngayMua: string }>();
   for (const row of await query
     .selectFrom('eduGoiHoc')
-    .select(['hocVienId', 'externalId'])
+    .select(['hocVienId', 'externalId', 'soBuoi', 'ngayMua'])
     .where('externalId', 'is not', null)
-    .execute())
-    if (asText(row.externalId).startsWith('lark:deal:'))
-      withDeal.add(Number(row.hocVienId));
+    .execute()) {
+    const key = externalIdOrNull(row.externalId);
+    if (key === null) continue;
+    packages.set(key, {
+      soBuoi: Number(row.soBuoi),
+      ngayMua: asText(row.ngayMua),
+    });
+    if (key.startsWith('lark:deal:')) withDeal.add(Number(row.hocVienId));
+  }
   const withPackage = new Set(
     (await query.selectFrom('eduGoiHoc').select('hocVienId').execute()).map(
       (row) => Number(row.hocVienId),
@@ -116,6 +123,7 @@ export async function docTrangThaiHienCo(
       .map((link) => phoneOf.get(Number(link.phuHuynhId)) ?? '')
       .filter((phone) => phone !== ''),
     coSoDu: withPackage.has(Number(row.id)) || Number(row.soBuoiConLai) !== 0,
+    soBuoiConLai: Number(row.soBuoiConLai),
     diemDanhCuKhongTru: history.has(Number(row.id)),
     coGoiDeal: withDeal.has(Number(row.id)),
   }));
@@ -153,6 +161,7 @@ export async function docTrangThaiHienCo(
     students,
     usersByEmail,
     sessions,
+    packages,
   };
 }
 
