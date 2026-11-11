@@ -169,7 +169,7 @@ describe('Deal HP → packages', () => {
     const report = taoBaoCao(plan(), 'dry-run');
     const text = [...inBaoCao(report), JSON.stringify(report)].join('\n');
     expect(text).toContain('Σ tồn Deal');
-    expect(text).toMatch(/HV-20240101-006 \| 3 \| 7 \| 13 \| 10/u);
+    expect(text).toMatch(/HV-20240101-006 \| 3 \| 7 \| 13 \| \? \| 10/u);
     expect(text).not.toMatch(/Mẫu 0|Phụ Huynh|0900|example\.com|nhạy cảm/u);
     expect(tongKetTheoBang(plan()).goiHoc.tao).toBe(4);
   });
@@ -454,11 +454,15 @@ async function freshDatabase(connection: any): Promise<string> {
   );
 }
 
-/** The balance every student of the dry run is promised, against what the database holds after the commit. */
+/**
+ * "Số dư sau nhập" of the dry run — read after a simulated write that was rolled back — against what the database holds
+ * after the real `--commit`, for every student the dry run knows.
+ */
 async function balancesAgree(
   connection: any,
   report: Awaited<ReturnType<typeof chayNhap>>,
 ) {
+  expect(report.simulation).toMatchObject({ ok: true });
   const rows = await connection.query
     .selectFrom('eduHocVien')
     .select(['externalCode', 'soBuoiConLai'])
@@ -470,7 +474,7 @@ async function balancesAgree(
   for (const row of report.balance.rows)
     expect([row.externalCode, stored.get(row.externalCode)]).toEqual([
       row.externalCode,
-      row.recomputed,
+      row.soDuSauNhap,
     ]);
 }
 
@@ -749,4 +753,267 @@ test('after rows are edited on Lark, a second --commit on a database that alread
     expect.objectContaining({ code: 'SO_DU_LARK_DA_DOI', count: 1 }),
   );
   expect(await packageOf(`lark:sodu:${IDS.s1}`)).toBe(5);
+});
+
+/** A dry run leaves nothing behind: the same rows, the same balances, no log row. */
+async function snapshot(connection: any) {
+  const out: Record<string, unknown> = {};
+  for (const table of [
+    'eduHocVien',
+    'eduGoiHoc',
+    'eduDiemDanh',
+    'eduSoDuNhatKy',
+    'eduPhuHuynh',
+    'eduNhapLarkNhatKy',
+  ])
+    out[table] = (
+      await connection.query.selectFrom(table).select('id').execute()
+    ).length;
+  out.balances = (
+    await connection.query
+      .selectFrom('eduHocVien')
+      .select(['id', 'soBuoiConLai'])
+      .orderBy('id')
+      .execute()
+  ).map((row: any) => `${row.id}:${row.soBuoiConLai}`);
+  return out;
+}
+
+const link = (id: string) => [
+  { record_ids: [id], table_id: 't', text: 'x', text_arr: ['x'], type: 'text' },
+];
+
+/** The ways Lark can differ from what an earlier run wrote. Each one tolerates the row being gone already. */
+const MUTATIONS: Record<
+  string,
+  (tables: ReturnType<typeof buildFixture>) => void
+> = {
+  'delete one Deal': (t) => {
+    t.dealHp = t.dealHp.filter((r) => r.recordId !== 'recDealMau06a');
+  },
+  'delete both Deals of a student': (t) => {
+    t.dealHp = t.dealHp.filter(
+      (r) => !['recDealMau06a', 'recDealMau06b'].includes(r.recordId),
+    );
+  },
+  'move a Deal to another student': (t) => {
+    const row = t.dealHp.find((r) => r.recordId === 'recDealMau06b');
+    if (row) row.fields['Học viên'] = link(IDS.s1);
+  },
+  'flip an attendance mark 1 → 0': (t) => {
+    const row = t.nhanXet2025.find((r) => r.recordId === 'recNhanXet2025s6a');
+    if (row) row.fields['có mặt'] = '0';
+  },
+  'delete an attendance row': (t) => {
+    t.nhanXet2025 = t.nhanXet2025.filter(
+      (r) => r.recordId !== 'recNhanXet2025s6c',
+    );
+  },
+  'change "chưa thống kê"': (t) => {
+    const row = t.dealHp.find((r) => r.recordId === 'recDealMau06a');
+    if (row) row.fields['Số buổi đã học chưa thống kê'] = 4;
+  },
+  'change an opening balance': (t) => {
+    const row = t.hocVien.find((r) => r.recordId === IDS.s1);
+    if (row)
+      row.fields['số buổi tồn update (vào ngày thống kê)'] = {
+        type: 2,
+        value: [9],
+      };
+  },
+  'change nothing': () => {},
+};
+
+test('the six scenarios that made a dry run disagree with --commit, one after the other on a database that holds data', async ({
+  database,
+  connection,
+}) => {
+  const userId = await freshDatabase(connection);
+  for (const [name, mutate] of Object.entries(MUTATIONS)) {
+    // Every scenario starts from a database written by a first run from the unchanged Lark.
+    await freshDatabase(connection);
+    const tables = withDealStudents(buildFixture());
+    await chayNhap(database, fixtureSource(tables), {
+      commit: true,
+      userId,
+      delayMs: 0,
+    });
+    mutate(tables);
+    const before = await snapshot(connection);
+    const dry = await chayNhap(database, fixtureSource(tables), {
+      commit: false,
+      userId: null,
+      delayMs: 0,
+    });
+    expect([name, await snapshot(connection)]).toEqual([name, before]);
+    await chayNhap(database, fixtureSource(tables), {
+      commit: true,
+      userId,
+      delayMs: 0,
+    });
+    await balancesAgree(connection, dry);
+  }
+});
+
+test('random edits of Lark over several runs never make the dry run and --commit disagree', async ({
+  database,
+  connection,
+}) => {
+  const userId = await freshDatabase(connection);
+  const tables = withDealStudents(buildFixture());
+  await chayNhap(database, fixtureSource(tables), {
+    commit: true,
+    userId,
+    delayMs: 0,
+  });
+  // A small deterministic generator, so a failure can be replayed.
+  let seed = 20261111;
+  const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648);
+  const names = Object.keys(MUTATIONS);
+  for (let round = 0; round < 12; round += 1) {
+    const picked = names[next() % names.length] as string;
+    MUTATIONS[picked]?.(tables);
+    const dry = await chayNhap(database, fixtureSource(tables), {
+      commit: false,
+      userId: null,
+      delayMs: 0,
+    });
+    await chayNhap(database, fixtureSource(tables), {
+      commit: true,
+      userId,
+      delayMs: 0,
+    });
+    await balancesAgree(connection, dry);
+  }
+});
+
+describe('Lark differs from the database', () => {
+  it('reports a Deal that is gone, a Deal moved to another student and an attendance that changed, and edits nothing', () => {
+    const tables = withDealStudents(buildFixture());
+    const flipped = tables.nhanXet2025.find(
+      (r) => r.recordId === 'recNhanXet2025s6a',
+    );
+    if (flipped) flipped.fields['có mặt'] = '0';
+    const moved = tables.dealHp.find((r) => r.recordId === 'recDealMau06b');
+    if (moved)
+      moved.fields['Học viên'] = [
+        {
+          record_ids: [IDS.s1],
+          table_id: 't',
+          text: 'x',
+          text_arr: ['x'],
+          type: 'text',
+        },
+      ];
+    const p = lapKeHoach(
+      fixtureData(tables),
+      known({
+        externalIds: {
+          ...EMPTY_STATE.externalIds,
+          hocVien: new Set([IDS.s1, IDS.s6]),
+          goiHoc: new Set([deal('recDealMau06b'), deal('recDealGone')]),
+          diemDanh: new Set(['recNhanXet2025s6a', 'recNhanXet2025s6gone']),
+        },
+        students: [
+          {
+            id: 1,
+            hoTen: 'x',
+            namSinh: 2016,
+            externalId: IDS.s1,
+            phones: [],
+            coSoDu: false,
+          },
+          {
+            id: 6,
+            hoTen: 'y',
+            namSinh: 2014,
+            externalId: IDS.s6,
+            phones: [],
+            coSoDu: false,
+          },
+        ],
+        packages: new Map([
+          [
+            deal('recDealMau06b'),
+            { soBuoi: 8, ngayMua: '2026-01-05', hocVienId: 6 },
+          ],
+          [
+            deal('recDealGone'),
+            { soBuoi: 3, ngayMua: '2025-05-05', hocVienId: 6 },
+          ],
+        ]),
+        attendance: new Map([
+          ['recNhanXet2025s6a', { trangThai: 'co_mat' }],
+          ['recNhanXet2025s6gone', { trangThai: 'co_mat' }],
+        ]),
+      }),
+      { unexcusedAbsenceDeducts: false },
+    );
+    const codes = p.warnings.map((w) => `${w.code}:${w.id}`);
+    expect(codes).toContain('DEAL_DA_XOA:recDealGone');
+    expect(codes).toContain('DEAL_DOI_HOC_VIEN:recDealMau06b');
+    expect(codes).toContain('DIEM_DANH_DA_DOI:recNhanXet2025s6a');
+    expect(codes).toContain('DIEM_DANH_DA_DOI:recNhanXet2025s6gone');
+  });
+
+  it('never makes an opening package for a student who already holds a Deal package', () => {
+    const tables = withDealStudents(buildFixture());
+    // His Deals are gone from Lark but the packages are in the database; his row still shows a balance.
+    tables.dealHp = tables.dealHp.filter((r) =>
+      r.recordId.startsWith('recDealMau07'),
+    );
+    const p = lapKeHoach(
+      fixtureData(tables),
+      known({
+        externalIds: { ...EMPTY_STATE.externalIds, hocVien: new Set([IDS.s6]) },
+        students: [
+          {
+            id: 6,
+            hoTen: 'y',
+            namSinh: 2014,
+            externalId: IDS.s6,
+            phones: [],
+            coSoDu: true,
+            coGoiDeal: true,
+          },
+        ],
+      }),
+      { unexcusedAbsenceDeducts: false },
+    );
+    expect(p.goiHoc.some((row) => row.hocVienKey === IDS.s6)).toBe(false);
+    expect(p.warnings).toContainEqual({
+      table: 'goiHoc',
+      id: IDS.s6,
+      code: 'SO_DU_BO_QUA_DA_CO_DEAL',
+    });
+  });
+});
+
+describe('the report of the simulated write', () => {
+  it('says so when the simulated write fails, naming only what refused it', () => {
+    const report = taoBaoCao(plan(), 'dry-run', {
+      ok: false,
+      hint: 'uq_edu_hoc_vien_external_id',
+    });
+    const text = inBaoCao(report).join('\n');
+    expect(text).toContain('MÔ PHỎNG GHI LỖI');
+    expect(text).toContain('uq_edu_hoc_vien_external_id');
+    expect(report.simulation).toEqual({
+      ok: false,
+      hint: 'uq_edu_hoc_vien_external_id',
+    });
+  });
+
+  it('prints both columns and how many students end with a balance other than the recomputed one', () => {
+    const p = plan();
+    const soDu = new Map(
+      p.balances.map((row) => [row.hocVienKey, row.recomputed]),
+    );
+    soDu.set(IDS.s1, 99);
+    const report = taoBaoCao(p, 'dry-run', { ok: true, soDu });
+    const text = inBaoCao(report).join('\n');
+    expect(text).toContain('tính lại từ Lark | số dư sau nhập');
+    expect(text).toMatch(/1 học viên có số dư sau nhập khác số tính lại/u);
+    expect(text).toMatch(/HV-20240101-001 \| 5 \| \? \| 3 \| 99 \|/u);
+  });
 });

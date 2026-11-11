@@ -112,7 +112,12 @@ export interface ExistingState {
    * written with. Lark may have changed the row since; the plan then keeps the value that was written (the commit does
    * not edit a package), so the dry run shows the balance the commit leaves.
    */
-  readonly packages?: ReadonlyMap<string, { soBuoi: number; ngayMua: string }>;
+  readonly packages?: ReadonlyMap<
+    string,
+    { soBuoi: number; ngayMua: string; hocVienId: number }
+  >;
+  /** The attendance rows written by an earlier run, by Lark record id, with the status that was written. */
+  readonly attendance?: ReadonlyMap<string, { trangThai: string }>;
 }
 
 export const EMPTY_STATE: ExistingState = {
@@ -242,7 +247,10 @@ export interface BalanceRow {
   readonly larkBalance: number | null;
   /** Σ `Số buổi còn tồn` of the student's Deal rows, when he has any. */
   readonly dealRemaining: number | null;
+  /** Recomputed from Lark alone (packages and attendance as Lark has them now). Not what the commit leaves. */
   readonly recomputed: number;
+  /** The balance `--commit` leaves, read after a simulated write (see `moPhongGhi`); `null` before it ran. */
+  readonly soDuSauNhap?: number | null;
   /** The import leaves the balance of this student as it is (a student merged with one that already had a balance). */
   readonly giuSoDuCu?: boolean;
   readonly difference: number | null;
@@ -821,6 +829,12 @@ export function lapKeHoach(
       studentKey !== undefined &&
       studentByKey.has(studentKey)
     ) {
+      const holder = studentByKey.get(studentKey)?.existingId;
+      if (holder !== undefined && holder !== writtenDeal.hocVienId) {
+        // The row now points at another student; the package stays with the student who holds it in NocoEdu.
+        warn('goiHoc', id, 'DEAL_DOI_HOC_VIEN');
+        continue;
+      }
       // Written by an earlier run: a package is never edited, so the plan keeps what was written. If Lark says
       // something else now (edited, no longer paid), the dry run says so and the balance stays the one in the database.
       if (sessionsNow() !== writtenDeal.soBuoi)
@@ -886,6 +900,24 @@ export function lapKeHoach(
     ]);
   }
 
+  // Attendance written by an earlier run that Lark now says differently, or no longer has: it stays as written.
+  const rawIds = new Set(raw.map((row) => row.id));
+  for (const key of existing.attendance?.keys() ?? [])
+    if (!rawIds.has(key)) warn('diemDanh', key, 'DIEM_DANH_DA_DOI');
+  for (const row of raw) {
+    const written = existing.attendance?.get(row.id);
+    if (!written) continue;
+    const now = attendanceFromCode(row.record.fields['có mặt']);
+    if (!now.ok || now.value !== written.trangThai)
+      warn('diemDanh', row.id, 'DIEM_DANH_DA_DOI');
+  }
+
+  // Packages written by an earlier run whose Deal row is no longer on Lark: they stay, and are reported.
+  const dealIds = new Set(data.dealHp.map((record) => record.recordId));
+  for (const key of existing.packages?.keys() ?? [])
+    if (key.startsWith('lark:deal:') && !dealIds.has(key.slice(10)))
+      warn('goiHoc', key.slice(10), 'DEAL_DA_XOA');
+
   for (const student of students) {
     const f = fieldsOf.get(student.externalId) ?? {};
     const existingStudent = existing.students.find(
@@ -947,6 +979,17 @@ export function lapKeHoach(
       packageToUse = null;
     } else if (!usesDeals && !packageToUse && opening.ok) {
       warn('goiHoc', student.externalId, 'KHONG_CO_SO_DU');
+    }
+    if (
+      !usesDeals &&
+      !writtenSodu &&
+      existingStudent?.coGoiDeal === true &&
+      packageToUse
+    ) {
+      // He holds Deal packages already (even if no Deal row of his is left on Lark): an opening package on top of
+      // them would count his sessions twice.
+      warn('goiHoc', student.externalId, 'SO_DU_BO_QUA_DA_CO_DEAL');
+      packageToUse = null;
     }
     if (!usesDeals && writtenSodu) {
       // The opening package an earlier run wrote is never edited: if Lark changed the balance or its date since,

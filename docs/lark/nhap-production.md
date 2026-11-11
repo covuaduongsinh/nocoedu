@@ -23,25 +23,25 @@ Framework đặt lệnh riêng của ứng dụng dưới topic `app`, nên lệ
 
 ### Mã lỗi và cảnh báo
 
-| Mã                                                                                                | Ý nghĩa                                                                                                                                                                                                      |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `THIEU_HO_TEN`, `THIEU_NAM_SINH`, `CO_SO_KHONG_RO`, `CAP_KHONG_RO`, `TRANG_THAI_KHONG_RO`         | học viên bị bỏ                                                                                                                                                                                               |
-| `TRUNG_NHIEU`                                                                                     | khớp nhiều học viên có sẵn, bỏ dòng                                                                                                                                                                          |
-| `SDT_SAI`, `PH_THIEU_TEN`                                                                         | Contact bị bỏ; học viên vẫn nhập với cảnh báo `THIEU_PHU_HUYNH`                                                                                                                                              |
-| `SO_DU_KHONG_RO`, `THIEU_NGAY_CHOT`                                                               | không tạo gói mở đầu cho học viên đó                                                                                                                                                                         |
-| `DIEM_DANH_KHONG_RO`                                                                              | ô "có mặt" không phải `1`/`0`/`FALSE` (ví dụ `học lớp 2`, tên giáo viên): không nhập, không trừ buổi                                                                                                         |
-| `BUOI_DA_CO`                                                                                      | NocoEdu đã có một buổi của lớp đó cùng ngày, cùng giờ (nhập tay, hoặc HLV đã điểm danh): buổi đó và điểm danh của nó bị bỏ, phần còn lại vẫn nhập                                                            |
-| `BUOI_CUNG_NGAY_KHAC_GIO`                                                                         | NocoEdu đã có một buổi của lớp đó cùng ngày nhưng khác giờ (học bù, đổi ca): buổi của Lark vẫn nhập, nên học viên có thể bị trừ hai buổi trong một ngày; xem lại các mã buổi này sau khi nhập                |
-| `HOC_VIEN_BI_BO`, `LOP_KHONG_RO`, `LOP_BI_BO`, `NGAY_KHONG_RO`, `GIO_BUOI_KHONG_RO`, `TRUNG_DONG` | dòng điểm danh bị bỏ                                                                                                                                                                                         |
-| `DONG_TRONG`                                                                                      | dòng điểm danh trống hẳn (không học viên, không lớp, không ô "có mặt"; bảng 2026 có khoảng 114 dòng): bỏ qua và đếm riêng, không tính lỗi. Dòng có "có mặt" mà thiếu học viên vẫn là lỗi `HOC_VIEN_KHONG_RO` |
-| `PH_THIEU_SDT`                                                                                    | Contact có liên kết học viên nhưng không có số điện thoại: không nhập phụ huynh (cảnh báo); học viên vẫn nhập                                                                                                |
-| `DEAL_TRONG`, `DEAL_CHUA_NOP`                                                                     | cảnh báo: dòng `Deal HP` trống hẳn, hoặc có số buổi mà chưa có cờ `Đã nộp`; không tạo gói                                                                                                                    |
-| `DEAL_THIEU_NGAY`, `DEAL_SO_BUOI_SAI`, `DEAL_THIEU_HOC_VIEN`                                      | lỗi: dòng `Deal HP` đã nộp nhưng thiếu cả `Ngày nộp HP` lẫn `Ngày bắt đầu`, số buổi không phải số nguyên, hoặc không có học viên; không tạo gói                                                              |
-| `DIEM_DANH_CU_KHONG_TRU`                                                                          | cảnh báo: học viên đã có điểm danh nhập từ Lark ghi là "đã nằm trong số dư mở đầu" và chưa có gói Deal: Deal của họ bị bỏ qua, số dư giữ nguyên                                                              |
-| `DEAL_DA_DOI`, `SO_DU_LARK_DA_DOI`                                                                | cảnh báo: Deal hoặc số dư trên Lark đã đổi sau lần nhập; gói đã ghi không được sửa, số dư tính theo giá trị đã ghi                                                                                           |
-| `DEAL_HET_SAU_TRU`                                                                                | cảnh báo: Deal đã nộp nhưng `Số buổi nộp` trừ "chưa thống kê" bằng 0: không tạo gói                                                                                                                          |
-| `KHOA_CU_LARK_PH`, `GOI_CU_LARK_SODU`                                                             | cảnh báo: lần nhập trước giai đoạn 3 đã ghi phụ huynh theo `lark:ph:<SĐT>` hoặc gói mở đầu `lark:sodu:<rec>`. Xem mục "Đã nhập trước giai đoạn 3" dưới đây                                                   |
-| `KHONG_CO_SO_DU`, `HLV_CHUA_GHEP`, `EMAIL_SAI`, `NHAN_XET_CAT`                                    | cảnh báo, vẫn nhập                                                                                                                                                                                           |
+| Mã                                                                                                                    | Ý nghĩa                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `THIEU_HO_TEN`, `THIEU_NAM_SINH`, `CO_SO_KHONG_RO`, `CAP_KHONG_RO`, `TRANG_THAI_KHONG_RO`                             | học viên bị bỏ                                                                                                                                                                                               |
+| `TRUNG_NHIEU`                                                                                                         | khớp nhiều học viên có sẵn, bỏ dòng                                                                                                                                                                          |
+| `SDT_SAI`, `PH_THIEU_TEN`                                                                                             | Contact bị bỏ; học viên vẫn nhập với cảnh báo `THIEU_PHU_HUYNH`                                                                                                                                              |
+| `SO_DU_KHONG_RO`, `THIEU_NGAY_CHOT`                                                                                   | không tạo gói mở đầu cho học viên đó                                                                                                                                                                         |
+| `DIEM_DANH_KHONG_RO`                                                                                                  | ô "có mặt" không phải `1`/`0`/`FALSE` (ví dụ `học lớp 2`, tên giáo viên): không nhập, không trừ buổi                                                                                                         |
+| `BUOI_DA_CO`                                                                                                          | NocoEdu đã có một buổi của lớp đó cùng ngày, cùng giờ (nhập tay, hoặc HLV đã điểm danh): buổi đó và điểm danh của nó bị bỏ, phần còn lại vẫn nhập                                                            |
+| `BUOI_CUNG_NGAY_KHAC_GIO`                                                                                             | NocoEdu đã có một buổi của lớp đó cùng ngày nhưng khác giờ (học bù, đổi ca): buổi của Lark vẫn nhập, nên học viên có thể bị trừ hai buổi trong một ngày; xem lại các mã buổi này sau khi nhập                |
+| `HOC_VIEN_BI_BO`, `LOP_KHONG_RO`, `LOP_BI_BO`, `NGAY_KHONG_RO`, `GIO_BUOI_KHONG_RO`, `TRUNG_DONG`                     | dòng điểm danh bị bỏ                                                                                                                                                                                         |
+| `DONG_TRONG`                                                                                                          | dòng điểm danh trống hẳn (không học viên, không lớp, không ô "có mặt"; bảng 2026 có khoảng 114 dòng): bỏ qua và đếm riêng, không tính lỗi. Dòng có "có mặt" mà thiếu học viên vẫn là lỗi `HOC_VIEN_KHONG_RO` |
+| `PH_THIEU_SDT`                                                                                                        | Contact có liên kết học viên nhưng không có số điện thoại: không nhập phụ huynh (cảnh báo); học viên vẫn nhập                                                                                                |
+| `DEAL_TRONG`, `DEAL_CHUA_NOP`                                                                                         | cảnh báo: dòng `Deal HP` trống hẳn, hoặc có số buổi mà chưa có cờ `Đã nộp`; không tạo gói                                                                                                                    |
+| `DEAL_THIEU_NGAY`, `DEAL_SO_BUOI_SAI`, `DEAL_THIEU_HOC_VIEN`                                                          | lỗi: dòng `Deal HP` đã nộp nhưng thiếu cả `Ngày nộp HP` lẫn `Ngày bắt đầu`, số buổi không phải số nguyên, hoặc không có học viên; không tạo gói                                                              |
+| `DIEM_DANH_CU_KHONG_TRU`                                                                                              | cảnh báo: học viên đã có điểm danh nhập từ Lark ghi là "đã nằm trong số dư mở đầu" và chưa có gói Deal: Deal của họ bị bỏ qua, số dư giữ nguyên                                                              |
+| `DEAL_DA_DOI`, `DEAL_DA_XOA`, `DEAL_DOI_HOC_VIEN`, `DIEM_DANH_DA_DOI`, `SO_DU_LARK_DA_DOI`, `SO_DU_BO_QUA_DA_CO_DEAL` | cảnh báo: Deal hoặc số dư trên Lark đã đổi sau lần nhập; gói đã ghi không được sửa, số dư tính theo giá trị đã ghi                                                                                           |
+| `DEAL_HET_SAU_TRU`                                                                                                    | cảnh báo: Deal đã nộp nhưng `Số buổi nộp` trừ "chưa thống kê" bằng 0: không tạo gói                                                                                                                          |
+| `KHOA_CU_LARK_PH`, `GOI_CU_LARK_SODU`                                                                                 | cảnh báo: lần nhập trước giai đoạn 3 đã ghi phụ huynh theo `lark:ph:<SĐT>` hoặc gói mở đầu `lark:sodu:<rec>`. Xem mục "Đã nhập trước giai đoạn 3" dưới đây                                                   |
+| `KHONG_CO_SO_DU`, `HLV_CHUA_GHEP`, `EMAIL_SAI`, `NHAN_XET_CAT`                                                        | cảnh báo, vẫn nhập                                                                                                                                                                                           |
 
 Output, nhật ký và log **chỉ** có số dòng, mã học viên cũ trên Lark (`HV-…`), mã bản ghi Lark (`rec…`) và mã lỗi; không có họ tên, SĐT, email, ngày sinh hay nhận xét.
 
@@ -61,7 +61,7 @@ Các bước dành cho người có quyền vào server (Dokploy). Không đưa 
 
    Secret chỉ dùng để xin token một lần; lệnh truyền token cho `lark-cli` qua biến môi trường của tiến trình con và tiến trình con `lark-cli` chỉ nhận một danh sách biến cho phép (`PATH`, `HOME`, `TMPDIR`, proxy, chứng chỉ, `LARKSUITE_CLI_*`): không có `LARK_APP_SECRET`, mật khẩu database, `APP_KEY` hay secret đăng nhập.
 
-4. **Chạy thử:** `node dist/cli/index.js app edu import-lark --dry-run` (thêm `--json` để lưu toàn bộ bảng so sánh số dư). Không ghi gì, kể cả nhật ký. Đọc:
+4. **Chạy thử:** `node dist/cli/index.js app edu import-lark --dry-run` (thêm `--json` để lưu toàn bộ bảng so sánh số dư). Không để lại gì trong CSDL, kể cả nhật ký. Lệnh **chạy thử đúng phần ghi của `--commit` trong một transaction rồi hoàn tác** (xem "Chạy thử có mô phỏng" dưới đây). Đọc:
    - bảng tổng kết (dòng | tạo | trùng | ghép | lỗi) từng bảng;
    - các dòng lỗi và cảnh báo theo mã, có ví dụ mã bản ghi để tra trên Lark;
    - **bảng so sánh số dư**: với mỗi học viên, "Số buổi còn lại" của buổi gần nhất trên Lark, số dư tính lại và chênh lệch. Chênh lệch là chỗ cần Thầy Tường xem trước khi ghi (công thức trên Lark có thể bị nhập tay đè).
@@ -80,9 +80,10 @@ Nếu production đã chạy `--commit` bằng bản trước, trong CSDL có ph
 - **Gói buổi:** học viên đã có gói `lark:sodu:*` mà nay có `Deal HP` **giữ nguyên gói cũ**, các Deal của họ bị bỏ qua và báo `GOI_CU_LARK_SODU` (thêm Deal vào sẽ đếm buổi hai lần). Muốn chuyển học viên đó sang số dư tính lại từ Deal, phải làm tay trên bản sao lưu: xoá gói `lark:sodu:*`, các dòng sổ số dư và điểm danh `lark:` của học viên đó rồi nhập lại. Chưa có lệnh làm việc này, nên hỏi trước khi làm; không xoá dữ liệu cũ khi chưa có sao lưu.
 - **Học viên đã có điểm danh nhập từ Lark nhưng chưa có gói Deal nào** (lần nhập trước ghi điểm danh của họ là "đã nằm trong số dư mở đầu", `tinhVaoSoDu = false`, kể cả khi họ chưa có số dư) cũng **giữ nguyên số dư cũ**: Deal của họ bị bỏ qua và báo `DIEM_DANH_CU_KHONG_TRU`. Lý do: thêm gói mà không trừ lại các buổi cũ thì bản chạy thử (đếm mọi buổi) và `--commit` (chỉ trừ buổi mới) cho hai số dư khác nhau. Tổng kết chạy thử in một dòng "Học viên đã nhập trước giai đoạn 3 và GIỮ số dư cũ: N" cộng cả `GOI_CU_LARK_SODU` và `DIEM_DANH_CU_KHONG_TRU`.
 - Học viên **chưa** từng được nhập điểm danh và có Deal thì được nhập theo cách mới đầy đủ.
+- **Bước 0 (riêng, làm trước hết): dừng ứng dụng** để không ai ghi điểm danh hay bán gói, **trước khi sao lưu**, và giữ nguyên trạng thái dừng đến hết bước 5. Sao lưu lúc ứng dụng còn chạy có thể thiếu những gì HLV ghi giữa lúc sao lưu và lúc xoá.
 - **Chuyển nhóm học viên giữ số dư cũ sang số dư tính lại từ Deal (làm tay, chỉ khi Thầy Tường đồng ý).** Chưa có lệnh tự động; không làm khi chưa có bản sao lưu. Chỉ xoá những gì lệnh nhập đã ghi; mọi gói, điểm danh và dòng sổ do người dùng nhập tay được giữ, và số dư được **trừ đi đúng phần đã xoá**, không đặt về 0. 0. **Dừng ứng dụng** (không ai ghi điểm danh hay bán gói) **trước khi sao lưu**, và giữ nguyên trạng thái dừng đến hết bước 5. Sao lưu lúc ứng dụng còn chạy có thể thiếu những gì HLV ghi giữa lúc sao lưu và lúc xoá.
   1. Chạy `--dry-run --json` và lưu danh sách mã học viên cũ (`HV-…`) bị `GOI_CU_LARK_SODU`/`DIEM_DANH_CU_KHONG_TRU`; đổi sang `id` của `eduHocVien` qua cột `externalCode`.
-  2. **Sao lưu** bằng `pg_dump` ở container PostgreSQL như bước 5 ở trên.
+  2. **Sao lưu** bằng `pg_dump` ở container PostgreSQL như bước 5 ở trên (ứng dụng đã dừng ở bước 0).
   3. **Kiểm trước khi xoá** (chỉ đọc; tên bảng và cột như trong migration, trên PostgreSQL phải đặt trong dấu nháy kép). Các dòng sổ sẽ bị xoá là dòng `chuyen_tu_lark` hoặc dòng gắn với điểm danh nhập từ Lark (`eduDiemDanh.externalId` không rỗng); `se_xoa` là tổng `thayDoi` của chúng:
 
      ```sql
@@ -126,9 +127,36 @@ Lệnh chỉ thêm, không sửa gói đã ghi. Nếu sau lần `--commit` đầ
 
 Với học viên được ghép (`ghep`) với học viên đã có gói hoặc số dư (`GHEP_BO_QUA_SO_DU`), bảng so sánh in số dư hiện có trong NocoEdu kèm "(giữ số dư cũ)", không in 0.
 
-### Bảng so sánh số dư của bản chạy thử
+### Chạy thử có mô phỏng và bảng so sánh số dư
 
-Cột: mã học viên cũ | **trên Lark** (`số buổi tồn update` của HocVien) | **Σ tồn Deal** (tổng `Số buổi còn tồn` các Deal của học viên) | **tính lại** | **chênh** (tính lại − trên Lark). Dòng tổng: bao nhiêu học viên khớp, lệch, không so được (không có số trên Lark). Lệch là chuyện thường: Lark chỉ trừ buổi được gắn tay vào Deal nên số tồn của Lark thường cao hơn số tính lại. Chỉ nhập khi Thầy Tường đã xem bảng này.
+Sau mỗi lần Lark hoặc dữ liệu đã nhập thay đổi lại có thêm một trường hợp khiến số dư tính trên giấy khác số dư thật. Vì vậy `--dry-run` không tự tính số dư "sau nhập" nữa: nó **chạy đúng phần ghi của `--commit` trong một transaction, đọc lại `soBuoiConLai` của từng học viên từ CSDL, rồi hoàn tác**. Không dòng nào ở lại (kể cả nhật ký `eduNhapLarkNhatKy`). Nếu việc ghi thử lỗi (ràng buộc, xung đột số dư) thì bản chạy thử in "MÔ PHỎNG GHI LỖI" kèm tên ràng buộc, và `--commit` cũng sẽ lỗi như vậy.
+
+Hai điều cần biết:
+
+- Trên PostgreSQL, bộ đếm `id` tự tăng **không** được hoàn tác: mỗi lần chạy thử làm các `id` bản ghi thật về sau nhảy cách một đoạn. Không ảnh hưởng dữ liệu; chỉ lưu ý nếu có ai dựa vào `id` liên tục.
+- Bản chạy thử ghi tạm vào các bảng thật nên nên chạy lúc ít người dùng; transaction ngắn (vài giây) và hoàn tác ngay.
+
+Cột của bảng so sánh: mã học viên cũ | **trên Lark** (`số buổi tồn update` của HocVien) | **Σ tồn Deal** (tổng `Số buổi còn tồn` các Deal của học viên) | **tính lại từ Lark** | **số dư sau nhập** | **chênh** (tính lại − trên Lark). Dòng tổng: bao nhiêu học viên khớp, lệch, không so được, và bao nhiêu học viên có số dư sau nhập khác số tính lại từ Lark.
+
+- **Tính lại từ Lark** là số dư nếu chỉ dựa vào Lark hiện tại (các gói và điểm danh như Lark đang ghi) để Thầy Tường so với số trên Lark. Nó **không** gồm phần nhập tay trong ứng dụng và không gồm chỗ HLV đã sửa điểm danh nhập từ Lark: sau khi chuyển tay hoặc sau khi ứng dụng đã dùng một thời gian, hai phần đó bị bỏ khỏi cột này.
+- **Số dư sau nhập** là số dư thật `--commit` sẽ để lại trong CSDL (đã gồm dữ liệu cũ, phần nhập tay và những gì Lark đã đổi). Đây là cột để kiểm tra trước khi ghi; hai cột khác nhau là bình thường khi dữ liệu đã nhập trước đó.
+
+Lệch giữa "tính lại" và "trên Lark" là chuyện thường: Lark chỉ trừ buổi được gắn tay vào Deal nên số tồn của Lark thường cao hơn. Chỉ nhập khi Thầy Tường đã xem bảng này.
+
+### Dữ liệu trên Lark khác dữ liệu đã nhập
+
+Lệnh không sửa và không xoá gì đã ghi; khi Lark khác CSDL, nó chỉ báo, và số dư dùng dữ liệu trong CSDL:
+
+| Mã                        | Ý nghĩa                                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| `DEAL_DA_DOI`             | Deal đã nhập bị sửa số buổi hoặc "chưa thống kê", hoặc bỏ cờ `Đã nộp`                           |
+| `DEAL_DA_XOA`             | gói `lark:deal:*` không còn dòng Deal trên Lark; gói vẫn ở CSDL                                 |
+| `DEAL_DOI_HOC_VIEN`       | dòng Deal nay trỏ sang học viên khác; gói vẫn tính cho học viên đang giữ nó                     |
+| `DIEM_DANH_DA_DOI`        | điểm danh `lark:` đã nhập có `có mặt` khác giá trị đã ghi, hoặc không còn trên Lark             |
+| `SO_DU_LARK_DA_DOI`       | `số buổi tồn update` hoặc `Ngày update gần nhất về HP` của học viên có gói `lark:sodu:*` đã đổi |
+| `SO_DU_BO_QUA_DA_CO_DEAL` | học viên đã có gói Deal thì không bao giờ tạo thêm gói `lark:sodu:*` (sẽ đếm buổi hai lần)      |
+
+Muốn áp giá trị mới của Lark cho những dòng này phải sửa tay trong ứng dụng sau khi hỏi Thầy Tường.
 
 ### Bổ sung phụ huynh sau lần nhập đầu
 

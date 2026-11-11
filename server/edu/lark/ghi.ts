@@ -89,7 +89,10 @@ export async function docTrangThaiHienCo(
     )
       history.add(Number(row.hocVienId));
   const withDeal = new Set<number>();
-  const packages = new Map<string, { soBuoi: number; ngayMua: string }>();
+  const packages = new Map<
+    string,
+    { soBuoi: number; ngayMua: string; hocVienId: number }
+  >();
   for (const row of await query
     .selectFrom('eduGoiHoc')
     .select(['hocVienId', 'externalId', 'soBuoi', 'ngayMua'])
@@ -100,8 +103,18 @@ export async function docTrangThaiHienCo(
     packages.set(key, {
       soBuoi: Number(row.soBuoi),
       ngayMua: asText(row.ngayMua),
+      hocVienId: Number(row.hocVienId),
     });
     if (key.startsWith('lark:deal:')) withDeal.add(Number(row.hocVienId));
+  }
+  const attendance = new Map<string, { trangThai: string }>();
+  for (const row of await query
+    .selectFrom('eduDiemDanh')
+    .select(['externalId', 'trangThai'])
+    .where('externalId', 'is not', null)
+    .execute()) {
+    const key = externalIdOrNull(row.externalId);
+    if (key !== null) attendance.set(key, { trangThai: asText(row.trangThai) });
   }
   const withPackage = new Set(
     (await query.selectFrom('eduGoiHoc').select('hocVienId').execute()).map(
@@ -162,6 +175,7 @@ export async function docTrangThaiHienCo(
     usersByEmail,
     sessions,
     packages,
+    attendance,
   };
 }
 
@@ -204,8 +218,67 @@ export interface WriteTotals {
  * (`externalId`, `externalCode`) on the student, branch or parent that already exists, and only where they are still
  * empty. A failure anywhere rolls the whole transaction back.
  */
+type Connection = Parameters<Parameters<DatabaseManager['transaction']>[0]>[0];
+
 export async function ghiKeHoach(
   database: DatabaseManager,
+  plan: Plan,
+  options: { userId: string },
+): Promise<WriteTotals> {
+  let totals: WriteTotals | undefined;
+  await database.transaction(async (connection) => {
+    totals = await ghiTrongGiaoDich(connection, plan, options);
+  });
+  return totals as WriteTotals;
+}
+
+/** Raised on purpose to roll a simulation back; carries what the simulation found. */
+class MoPhongXong extends Error {
+  constructor(
+    readonly totals: WriteTotals,
+    readonly soDu: ReadonlyMap<string, number>,
+  ) {
+    super('simulation done');
+  }
+}
+
+/**
+ * Runs exactly what `--commit` runs (`ghiTrongGiaoDich`) in a transaction, reads the balance of every student with a
+ * Lark id from the database, and rolls the transaction back: nothing stays. The balances are therefore the ones
+ * `--commit` leaves, whatever the history of the data (deleted or moved Deals, edited attendance, old keys). An error
+ * of the write (a constraint, a balance conflict) is thrown as it would be by `--commit`. Side effect: on PostgreSQL
+ * the sequences of the ids are not rolled back, so the ids of the next real rows skip the ones the simulation used.
+ */
+export async function moPhongGhi(
+  database: DatabaseManager,
+  plan: Plan,
+  options: { userId: string },
+): Promise<{ totals: WriteTotals; soDu: ReadonlyMap<string, number> }> {
+  try {
+    await database.transaction(async (connection) => {
+      const totals = await ghiTrongGiaoDich(connection, plan, options);
+      const rows = await connection.query
+        .selectFrom('eduHocVien')
+        .select(['externalId', 'soBuoiConLai'])
+        .where('externalId', 'is not', null)
+        .execute();
+      throw new MoPhongXong(
+        totals,
+        new Map(
+          rows.map((row) => [asText(row.externalId), Number(row.soBuoiConLai)]),
+        ),
+      );
+    });
+  } catch (error) {
+    if (error instanceof MoPhongXong)
+      return { totals: error.totals, soDu: error.soDu };
+    throw error;
+  }
+  throw new Error('The simulation did not roll back.');
+}
+
+export async function ghiTrongGiaoDich(
+  connection: Connection,
   plan: Plan,
   options: { userId: string },
 ): Promise<WriteTotals> {
@@ -222,9 +295,9 @@ export async function ghiKeHoach(
     ].map((table) => [table, 0]),
   ) as Record<PlanTable, number>;
   let ledgerRows = 0;
-  let boSung = 0;
+  let boSung: number;
 
-  await database.transaction(async (connection) => {
+  {
     const q = connection.query;
 
     // 1. Branches
@@ -539,7 +612,7 @@ export async function ghiKeHoach(
           'EDU_BALANCE_CONFLICT: a balance changed during the import.',
         );
     }
-  });
+  }
   return { written, ledgerRows, boSung };
 }
 
