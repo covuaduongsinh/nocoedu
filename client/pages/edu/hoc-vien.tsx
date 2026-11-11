@@ -19,6 +19,7 @@ import {
   type Row,
 } from './kit.js';
 import { ListPage } from './list-page.js';
+import { ExportCsv } from './xuat-csv.js';
 import { ImportCsv } from './nhap-csv.js';
 import { RowManage } from './sua-xoa.js';
 
@@ -50,6 +51,10 @@ export default function HocVienPage(): ReactElement {
   const { can: canImport } = useCan({
     resource: { type: 'composite', id: 'edu.hocVien' },
     action: 'import',
+  });
+  const { can: canExport } = useCan({
+    resource: { type: 'composite', id: 'edu.hocVien' },
+    action: 'export',
   });
   const { can: canLevelUp } = useCan({
     resource: { type: 'composite', id: 'edu.hocVien' },
@@ -87,8 +92,9 @@ export default function HocVienPage(): ReactElement {
           onChange: list.setSearch,
         }}
         actions={
-          canCreate || canImport ? (
+          canCreate || canImport || canExport ? (
             <div className='flex flex-wrap gap-2'>
+              {canExport ? <ExportCsv /> : null}
               {canImport ? <ImportCsv onImported={reload} /> : null}
               {canCreate ? (
                 <Button onClick={() => setStudent(NEW_STUDENT)}>

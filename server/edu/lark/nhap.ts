@@ -4,6 +4,7 @@ import { unexcusedAbsenceDeducts } from '../so-du.js';
 import {
   docTrangThaiHienCo,
   ghiKeHoach,
+  moPhongGhi,
   ghiNhatKy,
   userExists,
 } from './ghi.js';
@@ -70,8 +71,22 @@ export function parseImportOptions(flags: {
   };
 }
 
+/**
+ * What the simulated write found (`moPhongGhi`): the balance of every student after the import, by Lark record id, or
+ * the names of what refused the write. `null`: no simulation (a commit report, or a plan with structural errors).
+ */
+export type Simulation =
+  | { readonly ok: true; readonly soDu: ReadonlyMap<string, number> }
+  | { readonly ok: false; readonly hint: string }
+  | null;
+
 export interface ImportReport {
   readonly mode: 'dry-run' | 'commit';
+  /** The simulated write of a dry run: how many students end with a balance other than the recomputed one, or why it failed. */
+  readonly simulation:
+    | { readonly ok: true; readonly khacTinhLai: number }
+    | { readonly ok: false; readonly hint: string }
+    | null;
   readonly tables: Readonly<Record<PlanTable, TableTotals>>;
   readonly problems: ReturnType<typeof nhomLoi>;
   readonly warnings: ReturnType<typeof nhomLoi>;
@@ -92,21 +107,44 @@ export interface ImportReport {
 export function taoBaoCao(
   plan: Plan,
   mode: 'dry-run' | 'commit',
+  simulation: Simulation = null,
 ): ImportReport {
-  const differ = plan.balances.filter(
+  // "Tính lại từ Lark" is what Lark alone gives; "số dư sau nhập" is what the database holds after the write, read after
+  // a simulated write that was rolled back (mode dry-run) — the two differ when earlier data was changed since.
+  const rows = plan.balances.map((row) => ({
+    ...row,
+    soDuSauNhap:
+      simulation?.ok === true
+        ? (simulation.soDu.get(row.hocVienKey) ?? null)
+        : null,
+  }));
+  const differ = rows.filter(
     (row) => row.difference !== null && row.difference !== 0,
   );
   return {
     mode,
+    simulation:
+      simulation === null
+        ? null
+        : simulation.ok
+          ? {
+              ok: true,
+              khacTinhLai: rows.filter(
+                (row) =>
+                  row.soDuSauNhap !== null &&
+                  row.soDuSauNhap !== row.recomputed,
+              ).length,
+            }
+          : { ok: false, hint: simulation.hint },
     tables: tongKetTheoBang(plan),
     problems: nhomLoi(plan.problems),
     warnings: nhomLoi(plan.warnings),
     structural: plan.structural,
     balance: {
-      match: plan.balances.filter((row) => row.difference === 0).length,
+      match: rows.filter((row) => row.difference === 0).length,
       differ: differ.length,
-      unknown: plan.balances.filter((row) => row.difference === null).length,
-      rows: plan.balances,
+      unknown: rows.filter((row) => row.difference === null).length,
+      rows,
     },
     skippedTables: SKIPPED_TABLES,
   };
@@ -167,12 +205,29 @@ export function inBaoCao(report: ImportReport, maxBalanceRows = 200): string[] {
     '',
     `So sánh số dư buổi tính lại với số dư trên Lark: ${report.balance.match} khớp, ${report.balance.differ} lệch, ${report.balance.unknown} không so được.`,
   );
-  const differing = report.balance.rows.filter((row) => row.difference !== 0);
+  if (report.simulation?.ok === false)
+    lines.push(
+      '',
+      `MÔ PHỎNG GHI LỖI: --commit sẽ không ghi được${report.simulation.hint ? ` (bị từ chối bởi: ${report.simulation.hint})` : ''}; không có cột "số dư sau nhập".`,
+    );
+  if (report.simulation?.ok === true)
+    lines.push(
+      `Số dư sau nhập là số dư thật --commit sẽ ghi (đọc lại từ CSDL sau một lần ghi thử đã hoàn tác). ${report.simulation.khacTinhLai} học viên có số dư sau nhập khác số tính lại từ Lark (dữ liệu đã nhập trước đó, hoặc Lark đã đổi).`,
+    );
+  const differing = report.balance.rows.filter(
+    (row) =>
+      row.difference !== 0 ||
+      (row.soDuSauNhap !== null &&
+        row.soDuSauNhap !== undefined &&
+        row.soDuSauNhap !== row.recomputed),
+  );
   if (differing.length > 0) {
-    lines.push('  mã học viên cũ | trên Lark | Σ tồn Deal | tính lại | chênh');
+    lines.push(
+      '  mã học viên cũ | trên Lark | Σ tồn Deal | tính lại từ Lark | số dư sau nhập | chênh (tính lại − Lark)',
+    );
     for (const row of differing.slice(0, maxBalanceRows))
       lines.push(
-        `  ${row.externalCode} | ${row.larkBalance ?? '?'} | ${row.dealRemaining ?? '?'} | ${row.recomputed}${row.giuSoDuCu ? ' (giữ số dư cũ)' : ''} | ${row.difference ?? '?'}`,
+        `  ${row.externalCode} | ${row.larkBalance ?? '?'} | ${row.dealRemaining ?? '?'} | ${row.recomputed}${row.giuSoDuCu ? ' (giữ số dư cũ)' : ''} | ${row.soDuSauNhap ?? '?'} | ${row.difference ?? '?'}`,
       );
     if (differing.length > maxBalanceRows)
       lines.push(
@@ -208,8 +263,23 @@ export async function chayNhap(
   const plan = lapKeHoach(data, existing, {
     unexcusedAbsenceDeducts: unexcusedAbsenceDeducts(process.env),
   });
-  const report = taoBaoCao(plan, options.commit ? 'commit' : 'dry-run');
-  if (!options.commit) return report;
+  if (!options.commit) {
+    // The dry run runs the write of `--commit` inside a transaction and rolls it back, so "số dư sau nhập" is the
+    // balance the commit leaves. Nothing stays, not even the log row. A plan with structural errors is not written.
+    let simulation: Simulation = null;
+    if (plan.structural.length === 0) {
+      try {
+        const result = await moPhongGhi(database, plan, {
+          userId: 'dry-run',
+        });
+        simulation = { ok: true, soDu: result.soDu };
+      } catch (error) {
+        simulation = { ok: false, hint: identifiersOf(error) };
+      }
+    }
+    return taoBaoCao(plan, 'dry-run', simulation);
+  }
+  const report = taoBaoCao(plan, 'commit');
   if (plan.structural.length > 0)
     throw new LarkImportError(
       'LARK_KE_HOACH_LOI_CAU_TRUC',

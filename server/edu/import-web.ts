@@ -293,11 +293,10 @@ export async function planImport(
     }
     resolved.set(key, [...targets][0] ?? null);
     if (targets.size === 0) {
-      // An existing student of this key with no parent on file may be the same child: the import cannot tell.
-      const unattached = existingIds.some(
-        (id) => (phonesLinked.get(id)?.size ?? 0) === 0,
-      );
-      if (unattached && rows[0]) {
+      // A student of this key exists but no row matches any of his parents' phones: the import cannot tell whether this
+      // is a sibling with the same name and year or the same child with another contact, so it creates a new student
+      // and says so (also when the existing one has no parent on file at all).
+      if (existingIds.length > 0 && rows[0]) {
         warnings.push({ line: rows[0].line, code: 'POSSIBLE_DUPLICATE' });
       }
     }
