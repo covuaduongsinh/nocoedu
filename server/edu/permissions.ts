@@ -379,7 +379,7 @@ const hocVienRead = perm('hocVien', FIELDS.hocVien);
 const lenCapRead = perm('lenCap', FIELDS.lenCap);
 const dongYRead = perm('dongY', FIELDS.dongY);
 
-/** Student: view, manage (create + edit profile), updateNote (a coach edits only the note), levelUp (confirm a level). */
+/** Student: view, manage (create + edit profile), updateNote (a coach edits only the note), levelUp (confirm a level), import (CSV). */
 export const hocVien = defineCompositeResource('edu.hocVien', (r) =>
   r
     .title('Học viên')
@@ -404,6 +404,18 @@ export const hocVien = defineCompositeResource('edu.hocVien', (r) =>
         .title('Xác nhận lên cấp')
         .grant('data', hocVienRead.update(['levelKey', 'levelOrder']))
         .grant('history', lenCapRead.create([...FIELDS.lenCap.write])),
+    )
+    // Bulk import from a CSV file (DS-60). The route reads the branches and classes the caller may see through the
+    // `branches` and `classes` scopes and refuses a row that targets any other; students, parents and their links
+    // are written through `data`; `parents` lets it reuse a parent the caller already sees (parents and links are created
+    // by the route after it has checked the student is in scope, as `/phuHuynh/taoMoi` does).
+    .action('import', (a) =>
+      a
+        .title('Nhập học viên và phụ huynh từ tệp CSV')
+        .grant('data', hocVienRead.create([...FIELDS.hocVien.write]))
+        .grant('branches', perm('coSo', { read: FIELDS.coSo.read }))
+        .grant('classes', perm('lop', { read: FIELDS.lop.read }))
+        .grant('parents', perm('phuHuynh', FIELDS.phuHuynh)),
     ),
 );
 
