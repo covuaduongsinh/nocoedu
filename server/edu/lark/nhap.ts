@@ -19,11 +19,8 @@ import {
 } from './ke-hoach.js';
 import { LarkImportError, readLarkData, type LarkSource } from './nguon.js';
 
-/** The two tables this command does not read: the app could not read them on 2026-11-09 and can since 2026-11-10, but the mapping for them is not decided yet. */
-export const SKIPPED_TABLES = [
-  'tblZUIXmpdt13j4x (phụ huynh)',
-  'tblHp1PGPz52eZBz (nộp tiền)',
-] as const;
+/** Tables the command could not read and skips. None now: `Contact` and `Deal HP` are read since DS-60 phase 3. */
+export const SKIPPED_TABLES: readonly string[] = [];
 
 /** Codes of mistakes in how the command is used (flags, environment): the command exits with code 2 for them. */
 export const USAGE_ERROR_CODES: readonly string[] = [
@@ -129,9 +126,10 @@ export function inBaoCao(report: ImportReport, maxBalanceRows = 200): string[] {
     );
   }
   lines.push('');
-  lines.push(
-    `Bỏ qua theo quyết định 09/11 (app không đọc được): ${report.skippedTables.join(', ')}`,
-  );
+  if (report.skippedTables.length > 0)
+    lines.push(
+      `Bảng bị bỏ qua (app không đọc được): ${report.skippedTables.join(', ')}`,
+    );
   if (report.structural.length > 0)
     lines.push(
       `LỖI CẤU TRÚC (không cho --commit): ${report.structural.join(', ')}`,
@@ -146,16 +144,27 @@ export function inBaoCao(report: ImportReport, maxBalanceRows = 200): string[] {
   };
   printGroups('Dòng bị bỏ (lỗi) theo bảng và lý do:', report.problems);
   printGroups('Cảnh báo (vẫn nhập):', report.warnings);
+  const kept = report.warnings
+    .filter(
+      (g) =>
+        g.code === 'GOI_CU_LARK_SODU' || g.code === 'DIEM_DANH_CU_KHONG_TRU',
+    )
+    .reduce((sum, g) => sum + g.count, 0);
+  if (kept > 0)
+    lines.push(
+      '',
+      `Học viên đã nhập trước giai đoạn 3 và GIỮ số dư cũ (bỏ qua Deal HP của họ, xem docs/lark/nhap-production.md): ${kept}.`,
+    );
   lines.push(
     '',
     `So sánh số dư buổi tính lại với số dư trên Lark: ${report.balance.match} khớp, ${report.balance.differ} lệch, ${report.balance.unknown} không so được.`,
   );
   const differing = report.balance.rows.filter((row) => row.difference !== 0);
   if (differing.length > 0) {
-    lines.push('  mã học viên cũ | trên Lark | tính lại | chênh');
+    lines.push('  mã học viên cũ | trên Lark | Σ tồn Deal | tính lại | chênh');
     for (const row of differing.slice(0, maxBalanceRows))
       lines.push(
-        `  ${row.externalCode} | ${row.larkBalance ?? '?'} | ${row.recomputed} | ${row.difference ?? '?'}`,
+        `  ${row.externalCode} | ${row.larkBalance ?? '?'} | ${row.dealRemaining ?? '?'} | ${row.recomputed} | ${row.difference ?? '?'}`,
       );
     if (differing.length > maxBalanceRows)
       lines.push(

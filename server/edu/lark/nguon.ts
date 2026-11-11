@@ -21,14 +21,17 @@ export class LarkImportError extends Error {
 export const LARK_BASE_TOKEN = 'V7DHb5fvQaqnrGsH6fFlysuJgme';
 
 /**
- * The fixed tables the import reads. The payment and parent tables (`tblHp1PGPz52eZBz`, `tblZUIXmpdt13j4x`) are not read
- * by this command; `Level` (12 rows, no personal data) is read only to turn the link of a level into its name when the
- * API sends the record id alone. The attendance tables are found by name (see `NHAN_XET_TEN`).
+ * The fixed tables the import reads: classes, students, the parents' contacts (`Contact`) and the payments (`Deal HP`).
+ * `Level` (12 rows, no personal data) is read only to turn the link of a level into its name when the API sends the
+ * record id alone. The attendance tables are found by name (see `NHAN_XET_TEN`). A table the app cannot see answers
+ * `LARK_KHONG_DOC_DUOC`.
  */
 export const LARK_TABLES = {
   lopHoc: { id: 'tblKvdbs97cDCMF9', title: 'LopHoc' },
   hocVien: { id: 'tblv524wVlgIsH5H', title: 'HocVien' },
   level: { id: 'tblvjJoqGcHsoxQr', title: 'Level' },
+  contact: { id: 'tblZUIXmpdt13j4x', title: 'Contact' },
+  dealHp: { id: 'tblHp1PGPz52eZBz', title: 'Deal HP' },
 } as const;
 
 export type LarkTableKey = keyof typeof LARK_TABLES;
@@ -70,15 +73,56 @@ export const REQUIRED_FIELDS: Readonly<
     'email PH',
     'cơ sở',
     'Tình trạng học',
-    'Họ tên PH',
     'Quan hệ',
-    'SDT PH',
     'Trình độ hiện tại',
     'số buổi tồn update (vào ngày thống kê)',
     'Ngày update gần nhất về HP',
   ],
   level: [],
+  // The parents. The columns of address, Facebook, job, notes and photos are never read (knowledge document 05).
+  contact: [
+    'Họ và tên PH contact',
+    'MQH với HS',
+    'Tên con số 1',
+    'Tên con số 2',
+    'Số đt',
+    'số zalo',
+    'email',
+  ],
+  // The payments. `Đã nộp` is a flag (1), not an amount: Lark holds no money amount.
+  dealHp: [
+    'Học viên',
+    'Ngày nộp HP',
+    'Ngày bắt đầu',
+    'Đã nộp',
+    'Số buổi nộp',
+    'Số buổi đã học chưa thống kê',
+    'Số buổi còn tồn',
+  ],
 };
+
+/**
+ * The fields the plan actually reads from each table; `records()` asks Lark for these and nothing else, so address,
+ * Facebook, job, notes and photos never reach the memory of the command (knowledge document 05, "thu thập tối thiểu").
+ * A field the plan starts to use must be added here, or the tests of the fixture source (which returns only the
+ * requested fields) fail. `email PH` of the student row is not read: the email comes from `Contact`.
+ */
+export const READ_FIELDS: Readonly<Record<LarkTableKey, readonly string[]>> = {
+  lopHoc: REQUIRED_FIELDS.lopHoc,
+  hocVien: [
+    ...REQUIRED_FIELDS.hocVien.filter((name) => name !== 'email PH'),
+    'Các trình độ đã học tại CLB',
+  ],
+  level: ['Tên viết tắt level'],
+  contact: REQUIRED_FIELDS.contact,
+  dealHp: REQUIRED_FIELDS.dealHp,
+};
+
+/** The fields read from a yearly attendance table: `NHAN_XET_FIELDS` and the day as text (used when the date field is empty). */
+export const NHAN_XET_READ_FIELDS: readonly string[] = [
+  ...NHAN_XET_FIELDS,
+  'Ngày học',
+];
 
 export interface LarkRecord {
   readonly recordId: string;
@@ -99,7 +143,11 @@ export interface LarkSource {
   tables(): Promise<readonly LarkTableInfo[]>;
   /** The field names of a table, so a renamed or removed field is found before any record is read. */
   fieldNames(tableId: string): Promise<readonly string[]>;
-  records(tableId: string): Promise<readonly LarkRecord[]>;
+  /** The records of a table. `fields` names the only fields to fetch; a source must not return others. */
+  records(
+    tableId: string,
+    fields?: readonly string[],
+  ): Promise<readonly LarkRecord[]>;
 }
 
 /** The records of every table the plan needs, read once and kept in memory only. */
@@ -107,6 +155,8 @@ export interface LarkData {
   readonly lopHoc: readonly LarkRecord[];
   readonly hocVien: readonly LarkRecord[];
   readonly level: readonly LarkRecord[];
+  readonly contact: readonly LarkRecord[];
+  readonly dealHp: readonly LarkRecord[];
   /** The rows of every yearly attendance table, oldest year first. */
   readonly nhanXet: readonly LarkRecord[];
 }
@@ -194,18 +244,36 @@ export async function readLarkData(
       `The Lark structure changed; missing or renamed fields: ${changed.join('; ')}`,
     );
 
-  const read = async (label: string, id: string) => {
-    const records = await source.records(id);
+  const read = async (label: string, id: string, fields: readonly string[]) => {
+    const records = await source.records(id, fields);
     log(`read ${label}: ${records.length} records`);
     return records;
   };
-  const lopHoc = await read('lopHoc', LARK_TABLES.lopHoc.id);
-  const hocVien = await read('hocVien', LARK_TABLES.hocVien.id);
-  const level = await read('level', LARK_TABLES.level.id);
+  const lopHoc = await read(
+    'lopHoc',
+    LARK_TABLES.lopHoc.id,
+    READ_FIELDS.lopHoc,
+  );
+  const hocVien = await read(
+    'hocVien',
+    LARK_TABLES.hocVien.id,
+    READ_FIELDS.hocVien,
+  );
+  const level = await read('level', LARK_TABLES.level.id, READ_FIELDS.level);
+  const contact = await read(
+    'contact',
+    LARK_TABLES.contact.id,
+    READ_FIELDS.contact,
+  );
+  const dealHp = await read(
+    'dealHp',
+    LARK_TABLES.dealHp.id,
+    READ_FIELDS.dealHp,
+  );
   const nhanXet: LarkRecord[] = [];
   for (const { year, id } of yearly)
-    nhanXet.push(...(await read(`nhanXet${year}`, id)));
-  return { lopHoc, hocVien, level, nhanXet };
+    nhanXet.push(...(await read(`nhanXet${year}`, id, NHAN_XET_READ_FIELDS)));
+  return { lopHoc, hocVien, level, contact, dealHp, nhanXet };
 }
 
 export interface LarkCliOptions {
@@ -463,6 +531,7 @@ export async function createLarkCliSource(
     suffix: 'tables' | 'fields' | 'records',
     tableId: string | null,
     pageSize: number,
+    extra: Record<string, string> = {},
   ): Promise<unknown[]> {
     const template =
       tableId === null
@@ -479,6 +548,7 @@ export async function createLarkCliSource(
         apiPath,
         {
           page_size: pageSize,
+          ...extra,
           ...(pageToken ? { page_token: pageToken } : {}),
         },
         template,
@@ -513,8 +583,14 @@ export async function createLarkCliSource(
         .map((item) => item.field_name)
         .filter((name): name is string => typeof name === 'string');
     },
-    async records(tableId) {
-      const items = (await listAll('records', tableId, 500)) as {
+    async records(tableId, fields) {
+      // `field_names` is a JSON array in a string; the same list is sent with every page.
+      const items = (await listAll(
+        'records',
+        tableId,
+        500,
+        fields ? { field_names: JSON.stringify(fields) } : {},
+      )) as {
         record_id?: string;
         fields?: Record<string, unknown>;
       }[];

@@ -88,3 +88,27 @@ export function recomputeBalance(
   });
   return { soBuoiConLai: balance, rows, warnings: [] };
 }
+
+/**
+ * Balance of a student who has packages from `Deal HP`: Σ package sessions − Σ `sessionsToDeduct` of every session
+ * (there is no cut-off date: the packages hold what was paid, the attendance holds what was taught). Which package a
+ * session comes out of is not decided here but on every read, first in first out (`../phan-bo-goi.ts`).
+ */
+export function recomputeFromPackages(
+  totalSessions: number,
+  attendance: readonly AttendanceInput[],
+  excusedAbsenceDeducts: boolean,
+  unexcusedAbsenceDeducts = false,
+): RecomputedBalance {
+  let balance = totalSessions;
+  const rows = attendance.map((row): AttendanceOutcome => {
+    const deducted = sessionsToDeduct(
+      row.trangThai,
+      excusedAbsenceDeducts,
+      unexcusedAbsenceDeducts,
+    );
+    balance -= deducted;
+    return { ngay: row.ngay, tinhVaoSoDu: true, soBuoiDaTru: deducted };
+  });
+  return { soBuoiConLai: balance, rows, warnings: [] };
+}

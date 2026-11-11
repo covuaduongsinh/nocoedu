@@ -71,16 +71,18 @@ describe('the shape of the plan', () => {
       [2, '18:15', '19:15'],
       [3, '19:30', '20:45'],
     ]);
-    // Siblings share one parent: "0900 000 001" as text and 900000001 as a number (leading 0 lost).
+    // Siblings share one parent, a Contact: one on `Tên con số 1` of the first child and on `Tên con số 2` of the second.
     expect(p.phuHuynh).toHaveLength(1);
     expect(p.phuHuynh[0]).toMatchObject({
+      externalId: `lark:contact:${IDS.contactMe}`,
       soDienThoai: '0900000001',
+      zalo: '0900000011',
       hoTen: 'Phụ Huynh Mẫu 01',
       email: 'phuhuynh.mau01@example.com',
     });
-    expect(s1?.parents).toEqual([
-      { key: 'lark:ph:0900000001', quanHe: 'me', lienHeChinh: true },
-    ]);
+    const key = `lark:contact:${IDS.contactMe}`;
+    expect(s1?.parents).toEqual([{ key, quanHe: 'me', lienHeChinh: true }]);
+    expect(s2?.parents).toEqual([{ key, quanHe: 'me', lienHeChinh: true }]);
   });
 
   it('gives a class the most common level of its students and matches the coach by email', () => {
@@ -118,9 +120,19 @@ describe('rows that fail, and what goes with them', () => {
       code: 'HOC_VIEN_BI_BO',
     });
     // The parent of a student who is left out is not written either.
+    // (s3 is left out for its level, so the Contact of s3 is not written; the Contact without a phone is a warning.)
     expect(p.phuHuynh.map((row) => row.externalId)).toEqual([
-      'lark:ph:0900000001',
+      `lark:contact:${IDS.contactMe}`,
     ]);
+    expect(p.warnings).toContainEqual({
+      table: 'phuHuynh',
+      id: IDS.contactNoPhone,
+      code: 'PH_THIEU_SDT',
+    });
+    // A Contact with no child is a lead: neither imported nor reported.
+    expect(
+      [...p.problems, ...p.warnings].some((x) => x.id === IDS.contactLead),
+    ).toBe(false);
   });
 
   it('reports "học lớp 2" as DIEM_DANH_KHONG_RO and never as a make-up', () => {
@@ -191,9 +203,10 @@ describe('the balance', () => {
     // 5 − (02-03 present, 02-17 present); the absence of 02-10 costs nothing; 2024-12-02 and 01-27 are before the cut-off.
     expect(s1).toMatchObject({
       externalCode: 'HV-20240101-001',
-      larkBalance: null,
+      larkBalance: 5,
+      dealRemaining: null,
       recomputed: 3,
-      difference: null,
+      difference: -2,
     });
     const rows = p.diemDanh.filter((row) => row.hocVienKey === IDS.s1);
     expect(
@@ -208,8 +221,8 @@ describe('the balance', () => {
     // 4 − (2025-02-03) − (2026-01-12): the 2026 table is read like the others.
     expect(p.balances.find((row) => row.hocVienKey === IDS.s2)).toMatchObject({
       recomputed: 2,
-      larkBalance: null,
-      difference: null,
+      larkBalance: 4,
+      difference: -2,
     });
     expect(p.balances.find((row) => row.hocVienKey === IDS.s5)).toMatchObject({
       larkBalance: null,
@@ -386,11 +399,19 @@ describe('parents of students already in NocoEdu', () => {
     ],
   });
 
-  it('reads the phone cell as Lark sends it ([{ fullPhoneNum }]) and pairs it with the name', () => {
+  it('reads the phone of a Contact as text, or as a number that lost its leading 0', () => {
     const p = plan();
-    expect(p.problems.some((x) => x.code === 'PH_KHONG_GHEP_DUOC')).toBe(false);
     expect(p.hocVien[0]?.parents).toHaveLength(1);
     expect(p.phuHuynh.map((row) => row.soDienThoai)).toEqual(['0900000001']);
+    const data = fixtureData();
+    const contact = data.contact.find((r) => r.recordId === IDS.contactMe);
+    (contact?.fields as Record<string, unknown>)['Số đt'] = 900000001;
+    const numeric = lapKeHoach(data, EMPTY_STATE, {
+      unexcusedAbsenceDeducts: false,
+    });
+    expect(numeric.phuHuynh.map((row) => row.soDienThoai)).toEqual([
+      '0900000001',
+    ]);
   });
 
   it('adds a link for an imported student that has none, and leaves one that has it', () => {
@@ -457,22 +478,21 @@ describe('sessions the school already holds', () => {
 });
 
 describe('what is printed', () => {
-  it('never holds a phone number, even when a parent cannot be paired', () => {
+  it('never holds a phone number, even when a parent cannot be read', () => {
     const data = fixtureData();
-    const s1 = data.hocVien.find((r) => r.recordId === IDS.s1);
-    // Two names, one phone: the parent is left out and the student keeps a warning.
-    (s1?.fields as Record<string, unknown>)['Họ tên PH'] = {
-      type: 1,
-      value: [
-        { text: 'Phụ huynh Mẫu 01', type: 'text' },
-        { text: 'Phụ huynh Mẫu 99', type: 'text' },
-      ],
-    };
+    const contact = data.contact.find((r) => r.recordId === IDS.contactMe);
+    // A phone number that is not a mobile number: the parent is left out and the student keeps a warning.
+    (contact?.fields as Record<string, unknown>)['Số đt'] = '0900 000';
     const p = lapKeHoach(data, EMPTY_STATE, { unexcusedAbsenceDeducts: false });
     expect(p.problems).toContainEqual({
       table: 'phuHuynh',
+      id: IDS.contactMe,
+      code: 'SDT_SAI',
+    });
+    expect(p.warnings).toContainEqual({
+      table: 'phuHuynh',
       id: IDS.s1,
-      code: 'PH_KHONG_GHEP_DUOC',
+      code: 'THIEU_PHU_HUYNH',
     });
     const report = taoBaoCao(p, 'dry-run');
     const text = [
@@ -491,11 +511,12 @@ describe('the report and the options', () => {
     const text = [...inBaoCao(report), JSON.stringify(report)].join('\n');
     expect(text).toContain('CHẠY THỬ');
     expect(text).toContain('HV-20240101-002');
-    expect(text).toContain('tblHp1PGPz52eZBz');
+    expect(text).not.toContain('Bảng bị bỏ qua');
     expect(text).not.toMatch(
       /Mẫu 0|Phụ Huynh|0900|example\.com|2016-05-20|Ghi chú nhạy cảm/u,
     );
-    expect(report.balance).toMatchObject({ match: 0, differ: 0, unknown: 4 });
+    // s1 and s2 have a balance on Lark to compare with; the other two students have none.
+    expect(report.balance).toMatchObject({ match: 0, differ: 2, unknown: 2 });
   });
 
   it('refuses --dry-run with --commit, --commit without --user, and a bad delay', () => {
@@ -526,7 +547,7 @@ describe('the report and the options', () => {
 
   it('stops with LARK_CAU_TRUC_DOI when a field was renamed, before reading any record', async () => {
     const source = fixtureSource(undefined, {
-      drop: { table: 'hocVien', field: 'SDT PH' },
+      drop: { table: 'contact', field: 'Số đt' },
     });
     await expect(readLarkData(source)).rejects.toMatchObject({
       code: 'LARK_CAU_TRUC_DOI',

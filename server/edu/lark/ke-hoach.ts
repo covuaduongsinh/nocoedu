@@ -5,6 +5,7 @@ import {
   BRANCH_EXCUSED_DEDUCTS,
   BRANCH_NAMES,
   DEFAULT_BIRTH_YEAR,
+  DEAL_RULES,
   DEFAULT_STUDENT_LEVEL,
 } from './chua-xac-nhan.js';
 import {
@@ -26,12 +27,15 @@ import {
   linkTexts,
   millisecondsOf,
   numberOf,
-  textList,
   textOf,
   userEmails,
 } from './gia-tri.js';
 import type { LarkData, LarkRecord } from './nguon.js';
-import { openingBalance, recomputeBalance } from './so-du.js';
+import {
+  openingBalance,
+  recomputeBalance,
+  recomputeFromPackages,
+} from './so-du.js';
 
 /**
  * The plan of a Lark import: a pure function of the records read from Lark and a snapshot of what NocoEdu already
@@ -73,6 +77,10 @@ export interface ExistingStudent {
   readonly phones: readonly string[];
   /** The student already holds a package or a non-zero balance: an opening balance from Lark must not be added. */
   readonly coSoDu: boolean;
+  /** An attendance row of the import already written with `tinhVaoSoDu = false` (history inside an opening balance). */
+  readonly diemDanhCuKhongTru?: boolean;
+  /** The student already holds a package of `Deal HP` (`lark:deal:*`). */
+  readonly coGoiDeal?: boolean;
 }
 
 /** What NocoEdu holds now. The command builds it from the database; the tests build it by hand. */
@@ -149,6 +157,7 @@ export interface PhuHuynhRow {
   readonly hoTen: string;
   readonly soDienThoai: string;
   readonly email: string | null;
+  readonly zalo: string | null;
   readonly action: Action;
   readonly existingId?: number;
 }
@@ -183,7 +192,12 @@ export interface GoiRow {
   readonly externalId: string;
   readonly hocVienKey: string;
   readonly soBuoi: number;
+  /**
+   * `YYYY-MM-DD`. For an opening package (`chuyen_so_du`, from the balance on the student row) the day the balance
+   * was written; for a package of `Deal HP` (`mua`) the day it was paid (`ngayMua`).
+   */
   readonly ngayChot: string;
+  readonly loai: 'chuyen_so_du' | 'mua';
   readonly action: Action;
 }
 export interface BuoiRow {
@@ -216,7 +230,10 @@ export interface BalanceRow {
   /** The old code on Lark (`HV-…`): enough to find the student there, not a name. */
   readonly externalCode: string;
   readonly hocVienKey: string;
+  /** `số buổi tồn update` of the student row on Lark (the balance of the latest payment), when it is there. */
   readonly larkBalance: number | null;
+  /** Σ `Số buổi còn tồn` of the student's Deal rows, when he has any. */
+  readonly dealRemaining: number | null;
   readonly recomputed: number;
   readonly difference: number | null;
 }
@@ -490,6 +507,85 @@ export function lapKeHoach(
       byNameYear.set(k, [...(byNameYear.get(k) ?? []), s]);
     }
 
+  // ── Parents: one per Contact that points at a student, by the Lark record id ─────────────────────────────
+  // `Tên con số 1` / `Tên con số 2` link a Contact to its children. A Contact with no child is a lead and is left out.
+  // Two Contacts with one phone number are one parent. The columns of address, Facebook, job and notes are not read.
+  interface ContactLink {
+    readonly key: string;
+    readonly via: 1 | 2;
+    readonly order: number;
+    readonly quanHe: string | null;
+  }
+  const contactLinks = new Map<string, ContactLink[]>();
+  const phuHuynhByPhone = new Map<string, PhuHuynhRow>();
+  for (const [order, record] of data.contact.entries()) {
+    const id = record.recordId;
+    const f = record.fields;
+    const first = linkIds(f['Tên con số 1']);
+    const second = linkIds(f['Tên con số 2']);
+    if (first.length === 0 && second.length === 0) continue;
+    const name = normalizeFullName(textOf(f['Họ và tên PH contact']));
+    if (!name) {
+      fail('phuHuynh', id, 'PH_THIEU_TEN');
+      continue;
+    }
+    const phoneCell = flatValues(f['Số đt'])[0];
+    if (phoneCell === undefined || String(phoneCell).trim() === '') {
+      // The phone number is the key of a parent in NocoEdu (and NOT NULL): without it the parent is not imported.
+      if (DEAL_RULES.skipParentWithoutPhone) {
+        warn('phuHuynh', id, 'PH_THIEU_SDT');
+        continue;
+      }
+    }
+    const phone = phoneCell === undefined ? null : phoneOf(phoneCell);
+    if (!phone) {
+      fail('phuHuynh', id, 'SDT_SAI');
+      continue;
+    }
+    const zaloCell = flatValues(f['số zalo'])[0];
+    const zalo = zaloCell === undefined ? null : phoneOf(zaloCell);
+    const emailText = textOf(f['email']).toLowerCase();
+    const email = EMAIL_PATTERN.test(emailText) ? emailText : null;
+    if (emailText && !email) warn('phuHuynh', id, 'EMAIL_SAI');
+    const relationText = textOf(f['MQH với HS']);
+    const relation = relationText ? relationFromLark(relationText) : null;
+    if (relation && !relation.ok) warn('phuHuynh', id, relation.code);
+
+    let row = phuHuynhByPhone.get(phone);
+    if (!row) {
+      const key = `lark:contact:${id}`;
+      const known = existing.parentsByPhone.get(phone);
+      row = {
+        externalId: key,
+        hoTen: name,
+        soDienThoai: phone,
+        email,
+        zalo,
+        action: existing.externalIds.phuHuynh.has(key)
+          ? 'trung'
+          : known
+            ? 'ghep'
+            : 'tao',
+        ...(known ? { existingId: known.id } : {}),
+      };
+      phuHuynhByPhone.set(phone, row);
+      phuHuynh.set(key, row);
+    }
+    const quanHe = relation?.ok ? relation.value : null;
+    for (const [via, ids] of [
+      [1, first],
+      [2, second],
+    ] as const)
+      for (const studentId of ids)
+        contactLinks.set(studentId, [
+          ...(contactLinks.get(studentId) ?? []),
+          { key: row.externalId, via, order, quanHe },
+        ]);
+  }
+  if ([...existing.externalIds.phuHuynh].some((k) => k.startsWith('lark:ph:')))
+    // An earlier run keyed parents by phone (`lark:ph:<phone>`): they are matched by phone, never created twice.
+    warn('phuHuynh', 'lark:ph:*', 'KHOA_CU_LARK_PH');
+
   for (const record of data.hocVien) {
     const id = record.recordId;
     const f = record.fields;
@@ -557,57 +653,22 @@ export function lapKeHoach(
       continue;
     }
 
-    // Parents: names and phones are paired by position; a count that differs pairs nothing.
-    const names = textList(f['Họ tên PH']).map(normalizeFullName);
-    const phoneCells = flatValues(f['SDT PH']);
-    const phones = phoneCells.map(phoneOf);
-    const relation = relationFromLark(f['Quan hệ']);
+    // Parents: the Contacts that point at this student, those of `Tên con số 1` first; the first one is the main contact.
+    const fallbackRelation = relationFromLark(textOf(f['Quan hệ']));
     const parents: { key: string; quanHe: string; lienHeChinh: boolean }[] = [];
-    if (names.length === 0 && phoneCells.length === 0) {
-      warn('phuHuynh', id, 'THIEU_PHU_HUYNH');
-    } else if (names.length !== phoneCells.length) {
-      fail('phuHuynh', id, 'PH_KHONG_GHEP_DUOC');
-      warn('phuHuynh', id, 'THIEU_PHU_HUYNH');
-    } else {
-      const emailText = textOf(f['email PH']).toLowerCase();
-      const email = EMAIL_PATTERN.test(emailText) ? emailText : null;
-      if (emailText && !email) warn('phuHuynh', id, 'EMAIL_SAI');
-      if (!relation.ok) warn('phuHuynh', id, relation.code);
-      for (const [index, name] of names.entries()) {
-        const phone = phones[index];
-        if (!phone) {
-          fail('phuHuynh', id, 'SDT_SAI');
-          continue;
-        }
-        const key = `lark:ph:${phone}`;
-        if (!name) {
-          fail('phuHuynh', id, 'PH_THIEU_TEN');
-          continue;
-        }
-        if (!phuHuynh.has(key)) {
-          const known = existing.parentsByPhone.get(phone);
-          phuHuynh.set(key, {
-            externalId: key,
-            hoTen: name,
-            soDienThoai: phone,
-            // The email on the student row belongs to the first parent.
-            email: index === 0 ? email : null,
-            action: existing.externalIds.phuHuynh.has(key)
-              ? 'trung'
-              : known
-                ? 'ghep'
-                : 'tao',
-            ...(known ? { existingId: known.id } : {}),
-          });
-        }
-        parents.push({
-          key,
-          quanHe: index === 0 && relation.ok ? relation.value : 'khac',
-          lienHeChinh: parents.length === 0,
-        });
-      }
-      if (parents.length === 0) warn('phuHuynh', id, 'THIEU_PHU_HUYNH');
+    for (const link of [...(contactLinks.get(id) ?? [])].sort(
+      (a, b) => a.via - b.via || a.order - b.order,
+    )) {
+      if (parents.some((p) => p.key === link.key)) continue;
+      parents.push({
+        key: link.key,
+        quanHe:
+          link.quanHe ??
+          (fallbackRelation.ok ? fallbackRelation.value : 'khac'),
+        lienHeChinh: parents.length === 0,
+      });
     }
+    if (parents.length === 0) warn('phuHuynh', id, 'THIEU_PHU_HUYNH');
 
     const latest = latestOf.get(id);
     const lopKey = latest && lopRows.has(latest.lopKey) ? latest.lopKey : null;
@@ -714,6 +775,74 @@ export function lapKeHoach(
     if (!studentByKey.has(studentKey))
       for (const row of rows) fail('diemDanh', row.id, 'HOC_VIEN_BI_BO');
 
+  // ── Packages: one per paid Deal row, by the Lark record id ───────────────────────────────────────────────
+  // `Đã nộp` is a flag (1), not an amount, so a package has no price. The sessions of a package are the sessions paid
+  // minus "chưa thống kê" (taught before the attendance tables existed; DEAL_RULES). Which package a session is taken
+  // from is decided on every read, first in first out, not here.
+  const dealsOfStudent = new Map<string, GoiRow[]>();
+  const dealRemainingOf = new Map<string, number>();
+  for (const record of data.dealHp) {
+    const id = record.recordId;
+    const f = record.fields;
+    const studentKey = linkIds(f['Học viên'])[0];
+    const sessionsPaid = numberOf(f['Số buổi nộp']);
+    const paid = (numberOf(f['Đã nộp']) ?? 0) > 0;
+    if (studentKey !== undefined) {
+      const left = numberOf(f['Số buổi còn tồn']);
+      if (left !== null)
+        dealRemainingOf.set(
+          studentKey,
+          (dealRemainingOf.get(studentKey) ?? 0) + left,
+        );
+    }
+    if (sessionsPaid === null && !paid) {
+      warn('goiHoc', id, 'DEAL_TRONG');
+      continue;
+    }
+    if (DEAL_RULES.onlyPaidDeals && !paid) {
+      warn('goiHoc', id, 'DEAL_CHUA_NOP');
+      continue;
+    }
+    if (studentKey === undefined) {
+      fail('goiHoc', id, 'DEAL_THIEU_HOC_VIEN');
+      continue;
+    }
+    if (!studentByKey.has(studentKey)) {
+      fail('goiHoc', id, 'HOC_VIEN_BI_BO');
+      continue;
+    }
+    if (sessionsPaid === null || !Number.isInteger(sessionsPaid)) {
+      fail('goiHoc', id, 'DEAL_SO_BUOI_SAI');
+      continue;
+    }
+    const day = dateVn(f['Ngày nộp HP']) ?? dateVn(f['Ngày bắt đầu']);
+    if (!day) {
+      fail('goiHoc', id, 'DEAL_THIEU_NGAY');
+      continue;
+    }
+    const unrecorded = DEAL_RULES.subtractUnrecorded
+      ? (numberOf(f['Số buổi đã học chưa thống kê']) ?? 0)
+      : 0;
+    const soBuoi = Math.max(0, sessionsPaid - unrecorded);
+    if (soBuoi === 0) {
+      // Everything paid was already taught before the attendance tables existed: no package, but not silent.
+      warn('goiHoc', id, 'DEAL_HET_SAU_TRU');
+      continue;
+    }
+    const externalId = `lark:deal:${id}`;
+    dealsOfStudent.set(studentKey, [
+      ...(dealsOfStudent.get(studentKey) ?? []),
+      {
+        externalId,
+        hocVienKey: studentKey,
+        soBuoi,
+        ngayChot: day,
+        loai: 'mua',
+        action: existing.externalIds.goiHoc.has(externalId) ? 'trung' : 'tao',
+      },
+    ]);
+  }
+
   for (const student of students) {
     const f = fieldsOf.get(student.externalId) ?? {};
     const existingStudent = existing.students.find(
@@ -722,27 +851,74 @@ export function lapKeHoach(
     const branch = branchMa.get(student.coSoKey) ?? '';
     const excusedDeducts = BRANCH_EXCUSED_DEDUCTS[branch] ?? false;
 
-    // Opening package from "số buổi tồn update" at "Ngày update gần nhất về HP".
+    // Packages: the paid Deal rows of the student; a student with none keeps the opening package made from "số buổi
+    // tồn update" at "Ngày update gần nhất về HP".
     const opening = openingBalance(
       flatValues(f['số buổi tồn update (vào ngày thống kê)']),
       dateVn(f['Ngày update gần nhất về HP']),
     );
-    let packageToUse = opening.ok ? opening.value : null;
-    if (!opening.ok) fail('goiHoc', student.externalId, opening.code);
-    if (packageToUse && student.action === 'ghep' && existingStudent?.coSoDu) {
-      // A student already in NocoEdu with a package or a balance: Lark's balance is not added on top of it.
+    let deals = dealsOfStudent.get(student.externalId) ?? [];
+    if (
+      deals.length > 0 &&
+      existing.externalIds.goiHoc.has(`lark:sodu:${student.externalId}`)
+    ) {
+      // An earlier run already wrote an opening package for him: adding the Deal packages would count his sessions twice.
+      warn('goiHoc', student.externalId, 'GOI_CU_LARK_SODU');
+      deals = [];
+    }
+    if (
+      deals.length > 0 &&
+      existingStudent?.diemDanhCuKhongTru === true &&
+      existingStudent.coGoiDeal !== true
+    ) {
+      // An earlier run wrote his attendance as "already inside the opening balance" (`tinhVaoSoDu = false`). With
+      // Deal packages added now, the dry run would count those sessions and the commit would not: the two balances
+      // would differ. He keeps the balance he has (see docs/lark/nhap-production.md).
+      warn('goiHoc', student.externalId, 'DIEM_DANH_CU_KHONG_TRU');
+      deals = [];
+    }
+    let skipWarned = false;
+    if (
+      deals.length > 0 &&
+      student.action === 'ghep' &&
+      existingStudent?.coSoDu
+    ) {
       warn('goiHoc', student.externalId, 'GHEP_BO_QUA_SO_DU');
+      skipWarned = true;
+      deals = [];
+    }
+    const usesDeals = deals.length > 0;
+    let packageToUse = !usesDeals && opening.ok ? opening.value : null;
+    if (!usesDeals && !opening.ok)
+      fail('goiHoc', student.externalId, opening.code);
+    if (
+      !usesDeals &&
+      packageToUse &&
+      student.action === 'ghep' &&
+      existingStudent?.coSoDu
+    ) {
+      // A student already in NocoEdu with a package or a balance: Lark's balance is not added on top of it.
+      if (!skipWarned) warn('goiHoc', student.externalId, 'GHEP_BO_QUA_SO_DU');
       packageToUse = null;
-    } else if (!packageToUse && opening.ok) {
+    } else if (!usesDeals && !packageToUse && opening.ok) {
       warn('goiHoc', student.externalId, 'KHONG_CO_SO_DU');
     }
-    if (packageToUse) {
+    if (usesDeals) {
+      goiHoc.push(
+        ...[...deals].sort(
+          (a, b) =>
+            a.ngayChot.localeCompare(b.ngayChot) ||
+            a.externalId.localeCompare(b.externalId),
+        ),
+      );
+    } else if (packageToUse) {
       const externalId = `lark:sodu:${student.externalId}`;
       goiHoc.push({
         externalId,
         hocVienKey: student.externalId,
         soBuoi: packageToUse.soBuoi,
         ngayChot: packageToUse.ngayChot,
+        loai: 'chuyen_so_du',
         action: existing.externalIds.goiHoc.has(externalId) ? 'trung' : 'tao',
       });
     }
@@ -799,15 +975,23 @@ export function lapKeHoach(
       seenPairs.add(pair);
       accepted.push({ row, status: status.value });
     }
-    const recomputed = recomputeBalance(
-      packageToUse,
-      accepted.map(({ row, status }) => ({
-        ngay: row.ngay,
-        trangThai: status,
-      })),
-      excusedDeducts,
-      options.unexcusedAbsenceDeducts,
-    );
+    const attendanceInput = accepted.map(({ row, status }) => ({
+      ngay: row.ngay,
+      trangThai: status,
+    }));
+    const recomputed = usesDeals
+      ? recomputeFromPackages(
+          deals.reduce((sum, deal) => sum + deal.soBuoi, 0),
+          attendanceInput,
+          excusedDeducts,
+          options.unexcusedAbsenceDeducts,
+        )
+      : recomputeBalance(
+          packageToUse,
+          attendanceInput,
+          excusedDeducts,
+          options.unexcusedAbsenceDeducts,
+        );
 
     accepted.forEach(({ row, status }, index) => {
       const outcome = recomputed.rows[index];
@@ -848,13 +1032,25 @@ export function lapKeHoach(
       });
     });
 
-    // `Số buổi còn lại` of the attendance tables is empty in every row (and an attachment in 2026): no Lark balance.
+    // The balance on Lark is the one on the student row (`số buổi tồn update`: the balance of his latest payment); the
+    // `Số buổi còn lại` of the attendance tables is empty in every row. The column "Σ tồn Deal" adds up the balance
+    // each of his Deal rows shows.
+    // The balance as written on the student row, whether or not its date is there (that only matters for the opening package).
+    const balanceCell = flatValues(f['số buổi tồn update (vào ngày thống kê)']);
+    const larkBalance =
+      balanceCell.length === 1 &&
+      Number.isInteger(Number(balanceCell[0])) &&
+      String(balanceCell[0]).trim() !== ''
+        ? Number(balanceCell[0])
+        : null;
     balances.push({
       externalCode: student.externalCode ?? student.externalId,
       hocVienKey: student.externalId,
-      larkBalance: null,
+      larkBalance,
+      dealRemaining: dealRemainingOf.get(student.externalId) ?? null,
       recomputed: recomputed.soBuoiConLai,
-      difference: null,
+      difference:
+        larkBalance === null ? null : recomputed.soBuoiConLai - larkBalance,
     });
   }
 
