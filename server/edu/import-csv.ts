@@ -37,7 +37,13 @@ export type ImportProblem =
   | 'BAD_LEVEL'
   | 'BAD_RELATION'
   | 'DUPLICATE_IN_FILE'
-  | 'DUPLICATE_EXISTING';
+  | 'DUPLICATE_EXISTING'
+  // Only the web import: the row targets a branch or class that exists but is outside the caller's scope.
+  | 'OUT_OF_SCOPE_BRANCH'
+  | 'OUT_OF_SCOPE_CLASS'
+  | 'TOO_MANY_ROWS'
+  | 'FILE_TOO_LARGE'
+  | 'BAD_ENCODING';
 
 export interface ImportReport {
   readonly rows: number;
@@ -86,7 +92,7 @@ export const nameKey = (value: string): string =>
 const duplicateKey = (name: string, year: number, phone: string): string =>
   `${nameKey(name)}|${year}|${phone}`;
 
-interface Candidate {
+export interface Candidate {
   line: number;
   hoTen: string;
   namSinh: number;
@@ -99,6 +105,70 @@ interface Candidate {
   quanHe: string;
 }
 
+export const REQUIRED_COLUMNS = [
+  'hoTen',
+  'namSinh',
+  'coSoMa',
+  'phuHuynhHoTen',
+  'phuHuynhSdt',
+] as const;
+
+export interface RowLookups {
+  readonly branches: ReadonlyMap<string, number>;
+  readonly classes: ReadonlyMap<string, { id: number; coSoId: number }>;
+}
+
+/**
+ * Validates and normalizes one data row (name kept as typed, phone to 10 digits, level to its key). Returns the
+ * candidate, or the line and reason code of the first problem. Duplicates are decided by the caller.
+ */
+export function readRow(
+  row: string[],
+  line: number,
+  column: (row: string[], name: string) => string,
+  lookups: RowLookups,
+): Candidate | { line: number; code: ImportProblem } {
+  const fail = (code: ImportProblem) => ({ line, code });
+  const hoTen = column(row, 'hoTen');
+  const parentName = column(row, 'phuHuynhHoTen');
+  const rawPhone = column(row, 'phuHuynhSdt');
+  const coSoMa = column(row, 'coSoMa');
+  if (!hoTen || !parentName || !rawPhone || !coSoMa || !column(row, 'namSinh'))
+    return fail('MISSING_FIELD');
+  const year = Number(column(row, 'namSinh'));
+  if (!Number.isInteger(year) || year < 1950 || year > new Date().getFullYear())
+    return fail('BAD_YEAR');
+  const phone = normalizePhone(rawPhone);
+  if (!/^0\d{8,10}$/u.test(phone)) return fail('BAD_PHONE');
+  const coSoId = lookups.branches.get(coSoMa);
+  if (coSoId === undefined) return fail('UNKNOWN_BRANCH');
+  let lopId: number | null = null;
+  const lopMa = column(row, 'lopMa');
+  if (lopMa) {
+    const lop = lookups.classes.get(lopMa);
+    if (!lop) return fail('UNKNOWN_CLASS');
+    if (lop.coSoId !== coSoId) return fail('CLASS_NOT_IN_BRANCH');
+    lopId = lop.id;
+  }
+  const levelKey = column(row, 'capHienTai') || 'tot';
+  if (!(LEVEL_KEYS as readonly string[]).includes(levelKey))
+    return fail('BAD_LEVEL');
+  const quanHe = column(row, 'quanHe') || 'khac';
+  if (!RELATIONS.includes(quanHe)) return fail('BAD_RELATION');
+  return {
+    line,
+    hoTen,
+    namSinh: year,
+    coSoId,
+    lopId,
+    levelKey,
+    parentName,
+    phone,
+    zalo: column(row, 'phuHuynhZalo') || null,
+    quanHe,
+  };
+}
+
 export async function importStudents(
   database: DatabaseManager,
   csvText: string,
@@ -106,13 +176,7 @@ export async function importStudents(
 ): Promise<ImportReport> {
   const table = parseCsv(csvText);
   const header = (table[0] ?? []).map((value) => value.trim());
-  const missing = [
-    'hoTen',
-    'namSinh',
-    'coSoMa',
-    'phuHuynhHoTen',
-    'phuHuynhSdt',
-  ].filter((name) => !header.includes(name));
+  const missing = REQUIRED_COLUMNS.filter((name) => !header.includes(name));
   if (missing.length > 0) {
     return {
       rows: Math.max(table.length - 1, 0),
@@ -170,59 +234,25 @@ export async function importStudents(
   const problems: { line: number; code: ImportProblem }[] = [];
   const candidates: Candidate[] = [];
   const seen = new Set<string>();
-  const thisYear = new Date().getFullYear();
 
   table.slice(1).forEach((row, index) => {
     const line = index + 2;
-    const fail = (code: ImportProblem) => problems.push({ line, code });
-    const hoTen = column(row, 'hoTen');
-    const parentName = column(row, 'phuHuynhHoTen');
-    const rawPhone = column(row, 'phuHuynhSdt');
-    const coSoMa = column(row, 'coSoMa');
-    if (
-      !hoTen ||
-      !parentName ||
-      !rawPhone ||
-      !coSoMa ||
-      !column(row, 'namSinh')
-    )
-      return fail('MISSING_FIELD');
-    const year = Number(column(row, 'namSinh'));
-    if (!Number.isInteger(year) || year < 1950 || year > thisYear)
-      return fail('BAD_YEAR');
-    const phone = normalizePhone(rawPhone);
-    if (!/^0\d{8,10}$/u.test(phone)) return fail('BAD_PHONE');
-    const coSoId = branches.get(coSoMa);
-    if (coSoId === undefined) return fail('UNKNOWN_BRANCH');
-    let lopId: number | null = null;
-    const lopMa = column(row, 'lopMa');
-    if (lopMa) {
-      const lop = classes.get(lopMa);
-      if (!lop) return fail('UNKNOWN_CLASS');
-      if (lop.coSoId !== coSoId) return fail('CLASS_NOT_IN_BRANCH');
-      lopId = lop.id;
+    const read = readRow(row, line, column, { branches, classes });
+    if ('code' in read) {
+      problems.push(read);
+      return;
     }
-    const levelKey = column(row, 'capHienTai') || 'tot';
-    if (!(LEVEL_KEYS as readonly string[]).includes(levelKey))
-      return fail('BAD_LEVEL');
-    const quanHe = column(row, 'quanHe') || 'khac';
-    if (!RELATIONS.includes(quanHe)) return fail('BAD_RELATION');
-    const key = duplicateKey(hoTen, year, phone);
-    if (seen.has(key)) return fail('DUPLICATE_IN_FILE');
-    if (known.has(key)) return fail('DUPLICATE_EXISTING');
+    const key = duplicateKey(read.hoTen, read.namSinh, read.phone);
+    if (seen.has(key)) {
+      problems.push({ line, code: 'DUPLICATE_IN_FILE' });
+      return;
+    }
+    if (known.has(key)) {
+      problems.push({ line, code: 'DUPLICATE_EXISTING' });
+      return;
+    }
     seen.add(key);
-    candidates.push({
-      line,
-      hoTen,
-      namSinh: year,
-      coSoId,
-      lopId,
-      levelKey,
-      parentName,
-      phone,
-      zalo: column(row, 'phuHuynhZalo') || null,
-      quanHe,
-    });
+    candidates.push(read);
   });
 
   const rows = Math.max(table.length - 1, 0);

@@ -57,6 +57,12 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
       manage: { data: ALL },
       updateNote: { data: ALL },
       levelUp: { data: ALL, history: ALL },
+      import: {
+        data: ALL,
+        branches: ALL,
+        classes: ALL,
+        parents: ALL,
+      },
     }),
   )
   .grant(
@@ -108,6 +114,12 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
       manage: { data: MY_BRANCHES },
       updateNote: { data: MY_BRANCHES },
       levelUp: { data: MY_BRANCHES, history: MY_BRANCHES },
+      import: {
+        data: MY_BRANCHES,
+        branches: MY_BRANCHES,
+        classes: MY_BRANCHES,
+        parents: MY_BRANCHES,
+      },
     }),
   )
   .grant(

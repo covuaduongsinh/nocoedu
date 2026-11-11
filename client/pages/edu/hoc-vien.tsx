@@ -19,6 +19,7 @@ import {
   type Row,
 } from './kit.js';
 import { ListPage } from './list-page.js';
+import { ImportCsv } from './nhap-csv.js';
 import { RowManage } from './sua-xoa.js';
 
 const NEW_STUDENT = {
@@ -45,6 +46,10 @@ export default function HocVienPage(): ReactElement {
   const { can: canCreate } = useCan({
     resource: { type: 'composite', id: 'edu.hocVien' },
     action: 'manage',
+  });
+  const { can: canImport } = useCan({
+    resource: { type: 'composite', id: 'edu.hocVien' },
+    action: 'import',
   });
   const { can: canLevelUp } = useCan({
     resource: { type: 'composite', id: 'edu.hocVien' },
@@ -82,10 +87,15 @@ export default function HocVienPage(): ReactElement {
           onChange: list.setSearch,
         }}
         actions={
-          canCreate ? (
-            <Button onClick={() => setStudent(NEW_STUDENT)}>
-              {t('edu.hocVien.new')}
-            </Button>
+          canCreate || canImport ? (
+            <div className='flex flex-wrap gap-2'>
+              {canImport ? <ImportCsv onImported={reload} /> : null}
+              {canCreate ? (
+                <Button onClick={() => setStudent(NEW_STUDENT)}>
+                  {t('edu.hocVien.new')}
+                </Button>
+              ) : null}
+            </div>
           ) : null
         }
         columns={[

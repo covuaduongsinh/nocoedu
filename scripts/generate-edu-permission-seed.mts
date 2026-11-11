@@ -15,8 +15,24 @@ const file = path.resolve(
   '../database/main/seeds/202611090002_edu_permission_sets.ts',
 );
 // Written as a TypeScript literal (bare keys, single quotes) so it passes the project's lint rules unchanged.
+// The CSV `import` action of `edu.hocVien` was added after this seed had run on real databases, so it is granted by
+// `202611110001_edu_hoc_vien_import_grant` instead. Leaving it out keeps this seed what it was when it first ran.
+const withoutLaterActions = (grants: readonly unknown[]): unknown[] =>
+  grants.map((grant) => {
+    const g = grant as {
+      resource: { type: string; id: string };
+      actions: { action: string }[];
+    };
+    return g.resource.type === 'composite' && g.resource.id === 'edu.hocVien'
+      ? { ...g, actions: g.actions.filter((a) => a.action !== 'import') }
+      : g;
+  });
 const literal = JSON.stringify(
-  EDU_PERMISSION_SETS.map(({ key, title, grants }) => ({ key, title, grants })),
+  EDU_PERMISSION_SETS.map(({ key, title, grants }) => ({
+    key,
+    title,
+    grants: withoutLaterActions(grants),
+  })),
   null,
   2,
 )
