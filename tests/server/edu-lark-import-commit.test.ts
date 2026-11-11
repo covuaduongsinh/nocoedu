@@ -72,7 +72,22 @@ test('a dry run reads and plans but writes nothing, not even the log', async ({
   const report = await chayNhap(database, fixtureSource(), dry);
   expect(report.mode).toBe('dry-run');
   expect(report.tables.hocVien).toMatchObject({ tao: 4, loi: 1 });
-  expect(report.balance).toMatchObject({ match: 1, differ: 1, unknown: 2 });
+  expect(report.balance).toMatchObject({ match: 0, differ: 0, unknown: 4 });
+  // The two empty rows of the 2026 table are counted as warnings; the mark with no student is the one error.
+  expect(report.warnings).toContainEqual(
+    expect.objectContaining({
+      table: 'diemDanh',
+      code: 'DONG_TRONG',
+      count: 2,
+    }),
+  );
+  expect(report.problems).toContainEqual(
+    expect.objectContaining({
+      table: 'diemDanh',
+      code: 'HOC_VIEN_KHONG_RO',
+      count: 1,
+    }),
+  );
   expect(Object.values(await counts(connection)).every((n) => n === 0)).toBe(
     true,
   );
@@ -92,8 +107,8 @@ test('--commit writes the plan once, with the ledger and the log; a second run a
     phuHuynh: 1,
     hocVien: 4,
     goiHoc: 2,
-    buoiHoc: 5,
-    diemDanh: 6,
+    buoiHoc: 6,
+    diemDanh: 7,
   });
 
   const q = connection.query;
@@ -125,7 +140,7 @@ test('--commit writes the plan once, with the ledger and the log; a second run a
   expect(students.find((s: any) => s.externalId === IDS.s2)).toMatchObject({
     levelKey: 'ma',
     trangThai: 'hoc_thu',
-    soBuoiConLai: 3,
+    soBuoiConLai: 2,
   });
   expect(students.find((s: any) => s.externalId === IDS.s5)).toMatchObject({
     soBuoiConLai: 0,
@@ -169,6 +184,8 @@ test('--commit writes the plan once, with the ledger and the log; a second run a
     ['diem_danh', -1, 3],
     ['chuyen_tu_lark', 4, 4],
     ['diem_danh', -1, 3],
+    // The 2026 table is read like the others.
+    ['diem_danh', -1, 2],
   ]);
   expect(ledger.every((l: any) => l.nguoiThucHienId === userId)).toBe(true);
 
@@ -249,7 +266,7 @@ test('--commit writes the plan once, with the ledger and the log; a second run a
   });
   expect(after2.eduNhapLarkNhatKy).toBe(2);
   expect(again.tables.hocVien).toMatchObject({ tao: 0, trung: 4 });
-  expect(again.tables.diemDanh).toMatchObject({ tao: 0, trung: 6 });
+  expect(again.tables.diemDanh).toMatchObject({ tao: 0, trung: 7 });
   const balances = await q
     .selectFrom('eduHocVien')
     .select(['externalId', 'soBuoiConLai'])
@@ -456,12 +473,12 @@ test('a session typed by hand does not stop the run: it is reported and its atte
   expect(report.problems).toContainEqual(
     expect.objectContaining({ table: 'buoiHoc', code: 'BUOI_DA_CO', count: 1 }),
   );
-  // 4 sessions from Lark plus the one typed by hand; the 2 attendance rows of that session were not written.
+  // 5 sessions from Lark plus the one typed by hand; the 2 attendance rows of that session were not written.
   expect(await q.selectFrom('eduBuoiHoc').select('id').execute()).toHaveLength(
-    5,
+    6,
   );
   expect(await q.selectFrom('eduDiemDanh').select('id').execute()).toHaveLength(
-    4,
+    5,
   );
   const s1 = await q
     .selectFrom('eduHocVien')
@@ -521,7 +538,9 @@ test('--commit refuses a user that does not exist and a structure that changed, 
   await expect(
     chayNhap(
       database,
-      fixtureSource(undefined, { table: 'nhanXet2025', field: 'có mặt' }),
+      fixtureSource(undefined, {
+        drop: { table: 'nhanXet2026', field: 'có mặt' },
+      }),
       options(await adminId(connection)),
     ),
   ).rejects.toMatchObject({ code: 'LARK_CAU_TRUC_DOI' });

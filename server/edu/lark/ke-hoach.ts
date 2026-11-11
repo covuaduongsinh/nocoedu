@@ -323,7 +323,7 @@ export function lapKeHoach(
     const key = branchKey(record.fields['cơ sở']);
     if (key) wanted.add(key);
   }
-  if (data.nhanXet2024.length > 0 || data.nhanXet2025.length > 0) {
+  if (data.nhanXet.length > 0) {
     for (const entry of Object.values(BRANCH_NAMES)) {
       wanted.add(`lark:coSo:${entry.ten}`);
     }
@@ -404,7 +404,7 @@ export function lapKeHoach(
     'lark:lop:kem-kl' | 'lark:lop:kem-vp'
   >();
   const raw: RawAttendance[] = [];
-  for (const record of [...data.nhanXet2024, ...data.nhanXet2025]) {
+  for (const record of data.nhanXet) {
     const id = record.recordId;
     const studentKey = linkIds(record.fields['Tên HS'])[0];
     let lopKey = linkIds(record.fields['Lớp'])[0];
@@ -412,7 +412,14 @@ export function lapKeHoach(
       dateVn(record.fields['Ngày học - Day format']) ??
       parseDayMonthYear(record.fields['Ngày học']);
     if (!studentKey) {
-      fail('diemDanh', id, 'HOC_VIEN_KHONG_RO');
+      // A row with no student, no class and no attendance value carries nothing: skipped and counted, not an error.
+      if (
+        !lopKey &&
+        numberOf(record.fields['có mặt']) === null &&
+        textOf(record.fields['có mặt']) === ''
+      )
+        warn('diemDanh', id, 'DONG_TRONG');
+      else fail('diemDanh', id, 'HOC_VIEN_KHONG_RO');
       continue;
     }
     if (!lopKey) {
@@ -841,17 +848,13 @@ export function lapKeHoach(
       });
     });
 
-    const latest = latestOf.get(student.externalId);
-    const larkBalance = latest
-      ? numberOf(latest.record.fields['Số buổi còn lại'])
-      : null;
+    // `Số buổi còn lại` of the attendance tables is empty in every row (and an attachment in 2026): no Lark balance.
     balances.push({
       externalCode: student.externalCode ?? student.externalId,
       hocVienKey: student.externalId,
-      larkBalance,
+      larkBalance: null,
       recomputed: recomputed.soBuoiConLai,
-      difference:
-        larkBalance === null ? null : recomputed.soBuoiConLai - larkBalance,
+      difference: null,
     });
   }
 

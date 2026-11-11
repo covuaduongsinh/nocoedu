@@ -7,7 +7,7 @@ Diễn giải nghiệp vụ, mâu thuẫn và đề xuất ánh xạ: [quy-tac-n
 ## Base "Quản lý CLB Cờ vua Dương Sinh"
 
 - Token: `V7DHb5fvQaqnrGsH6fFlysuJgme`, múi giờ `Asia/Bangkok`, quyền nâng cao: bật.
-- App đọc được 25 bảng. Base không có cờ "bắt buộc" ở mức trường; cột "Bắt buộc" dưới đây lấy từ câu hỏi bắt buộc của biểu mẫu (form view), ô trống là không bắt buộc.
+- App đọc được 25 bảng ngày 09/11/2026; từ 10/11/2026 danh sách có 36 bảng, gồm "2026 Nhận xét mỗi buổi", `Contact` và `Deal HP`. Base không có cờ "bắt buộc" ở mức trường; cột "Bắt buộc" dưới đây lấy từ câu hỏi bắt buộc của biểu mẫu (form view), ô trống là không bắt buộc.
 - **Không đọc được** `tblZUIXmpdt13j4x`: quyền nâng cao của Base không cấp cho app (`1254302 The role has no permissions`). Cấu trúc **chưa giải mã**, không đoán.
 - **Không đọc được** `tblHp1PGPz52eZBz`: quyền nâng cao của Base không cấp cho app (`1254302 The role has no permissions`). Cấu trúc **chưa giải mã**, không đoán.
 - **Không đọc được** `tblwsn0VJepwqi2q`: bảng không còn tồn tại (`1254041 TableIdNotFound`), liên kết cũ còn sót. Cấu trúc **chưa giải mã**, không đoán.
@@ -93,6 +93,7 @@ erDiagram
 | Bài học                          | `tblG4aQinbihceyz` |         10 |         6 | Lưới (grid)                                                                                                                                        |
 | 2024 Nhận xét mỗi buổi           | `tblprrzroE2NBli5` |        723 |        23 | Lưới (grid), xem HS (grid), Ngày (grid), Học sinh (grid), Kim Liên (grid), Sort theo cơ sở ba tháng cuối (grid)                                    |
 | 2025 Nhận xét mỗi buổi           | `tbluhrY4B8i63PAh` |       2525 |        24 | Lưới (grid), xem HS (grid), Ngày-Lớp (grid), Học sinh (grid), Sort theo cơ sở (grid), Vĩnh Phúc (grid), filter học sinh (grid)                     |
+| 2026 Nhận xét mỗi buổi           | `tbl9TTf0m2EhWV3g` |       2605 |        38 | như 2025 và thêm Grid 8 (cấp quyền lần ba, 10/11/2026)                                                                                             |
 | Đánh giá định kỳ 5 buổi một      | `tblUYIRX3QK1h8Re` |         10 |         5 | Grid (grid)                                                                                                                                        |
 | Cuối năm 2024 - nhận xét định kỳ | `tblI5iaKQeRMkmyl` |         52 |        17 | Cuối năm 2024 (grid)                                                                                                                               |
 | Biên bản ghi chép ván cờ         | `tblgbmORJJZkiggZ` |          2 |         6 | Grid (grid)                                                                                                                                        |
@@ -334,6 +335,10 @@ View có bộ lọc: "Học sinh": Tên HS is <giá trị>; "Kim Liên": Ngày h
 | Các mục mẹ 7              | SingleLink |          | → **2025 Nhận xét mỗi buổi** (một)                                                                                                                                                                                                                                                                                                                             |
 
 View có bộ lọc: "Học sinh": Tên HS is <giá trị>; "Sort theo cơ sở": Ngày học is; "Vĩnh Phúc": cơ sở is <giá trị>.
+
+### 2026 Nhận xét mỗi buổi
+
+`tbl9TTf0m2EhWV3g`, 2605 bản ghi (đếm ngày 10/11/2026; ngày học từ 05/01/2026 đến 15/10/2026). Giữ nguyên 24 trường của bảng 2025 (cùng mã trường, tên, loại và công thức, chỉ khác mã bảng), trừ **"Số buổi còn lại": Text ở 2025, Attachment ở 2026**; cột này trống ở mọi dòng của cả hai năm. Thêm 14 trường mà lệnh nhập không đọc: "Trường 1" (Url), "Ảnh buổi đầu" (Attachment), 3 liên kết Level, 3 liên kết Deal HP, 3 liên kết Sách và 3 trường chép từ HocVien. Khoảng 114 dòng thiếu dữ liệu (112 dòng trống hẳn, 2 dòng chỉ có ngày): lệnh nhập bỏ qua và đếm là `DONG_TRONG`. Năm 2026 không ghi buổi vắng nào.
 
 ### Đánh giá định kỳ 5 buổi một
 

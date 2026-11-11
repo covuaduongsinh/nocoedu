@@ -21,21 +21,44 @@ export class LarkImportError extends Error {
 export const LARK_BASE_TOKEN = 'V7DHb5fvQaqnrGsH6fFlysuJgme';
 
 /**
- * The only tables the import reads. The payment and parent tables (`tblHp1PGPz52eZBz`, `tblZUIXmpdt13j4x`) answer
- * `1254302` to this app and are skipped by the decision of 2026-11-09; `Level` (12 rows, no personal data) is read only
- * to turn the link of a level into its name when the API sends the record id alone.
+ * The fixed tables the import reads. The payment and parent tables (`tblHp1PGPz52eZBz`, `tblZUIXmpdt13j4x`) are not read
+ * by this command; `Level` (12 rows, no personal data) is read only to turn the link of a level into its name when the
+ * API sends the record id alone. The attendance tables are found by name (see `NHAN_XET_TEN`).
  */
 export const LARK_TABLES = {
   lopHoc: { id: 'tblKvdbs97cDCMF9', title: 'LopHoc' },
   hocVien: { id: 'tblv524wVlgIsH5H', title: 'HocVien' },
-  nhanXet2024: { id: 'tblprrzroE2NBli5', title: '2024 Nhận xét mỗi buổi' },
-  nhanXet2025: { id: 'tbluhrY4B8i63PAh', title: '2025 Nhận xét mỗi buổi' },
   level: { id: 'tblvjJoqGcHsoxQr', title: 'Level' },
 } as const;
 
 export type LarkTableKey = keyof typeof LARK_TABLES;
 
-/** The names the plan reads from each table. A table missing one of them stops the import (`LARK_CAU_TRUC_DOI`). */
+/** The name of a yearly attendance table: `2026 Nhận xét mỗi buổi`. Compared after `normalize('NFC').trim()`. */
+export const NHAN_XET_TEN = /^(\d{4}) Nhận xét mỗi buổi$/u;
+
+/** The years that must exist, with the id each table has in the Base. A new year needs no change in the code. */
+export const NHAN_XET_BAT_BUOC: Readonly<Record<number, string>> = {
+  2024: 'tblprrzroE2NBli5',
+  2025: 'tbluhrY4B8i63PAh',
+  2026: 'tbl9TTf0m2EhWV3g',
+};
+
+/** The fields the plan reads from every yearly attendance table (`Số buổi còn lại` is empty in Lark and not read). */
+export const NHAN_XET_FIELDS: readonly string[] = [
+  'Ngày học - Day format',
+  'Tên HS',
+  'Lớp',
+  'có mặt',
+  'Kế hoạch dạy',
+  'Làm BTVN',
+  'Ý thức',
+  'Kiến thức / lý thuyết mới',
+  'Nhận xét',
+  'Giao BTVN',
+  'KH buổi sau',
+];
+
+/** The names the plan reads from each fixed table. A table missing one of them stops the import (`LARK_CAU_TRUC_DOI`). */
 export const REQUIRED_FIELDS: Readonly<
   Record<LarkTableKey, readonly string[]>
 > = {
@@ -54,65 +77,135 @@ export const REQUIRED_FIELDS: Readonly<
     'số buổi tồn update (vào ngày thống kê)',
     'Ngày update gần nhất về HP',
   ],
-  nhanXet2024: NHAN_XET_FIELDS(),
-  nhanXet2025: NHAN_XET_FIELDS(),
   level: [],
 };
-
-function NHAN_XET_FIELDS(): string[] {
-  return [
-    'Ngày học - Day format',
-    'Tên HS',
-    'Lớp',
-    'có mặt',
-    'Kế hoạch dạy',
-    'Làm BTVN',
-    'Ý thức',
-    'Kiến thức / lý thuyết mới',
-    'Nhận xét',
-    'Giao BTVN',
-    'KH buổi sau',
-    'Số buổi còn lại',
-  ];
-}
 
 export interface LarkRecord {
   readonly recordId: string;
   readonly fields: Readonly<Record<string, unknown>>;
 }
 
+export interface LarkTableInfo {
+  readonly id: string;
+  readonly name: string;
+}
+
 /** Where the plan reads Lark from. The command uses `lark-cli`; the tests use a fixture with the same shape. */
 export interface LarkSource {
+  /**
+   * The tables the app can see. A table the Base hides from the app (advanced permissions) is not in the list, and
+   * asking for its fields answers `1254302`.
+   */
+  tables(): Promise<readonly LarkTableInfo[]>;
   /** The field names of a table, so a renamed or removed field is found before any record is read. */
-  fieldNames(table: LarkTableKey): Promise<readonly string[]>;
-  records(table: LarkTableKey): Promise<readonly LarkRecord[]>;
+  fieldNames(tableId: string): Promise<readonly string[]>;
+  records(tableId: string): Promise<readonly LarkRecord[]>;
 }
 
 /** The records of every table the plan needs, read once and kept in memory only. */
-export type LarkData = Readonly<Record<LarkTableKey, readonly LarkRecord[]>>;
+export interface LarkData {
+  readonly lopHoc: readonly LarkRecord[];
+  readonly hocVien: readonly LarkRecord[];
+  readonly level: readonly LarkRecord[];
+  /** The rows of every yearly attendance table, oldest year first. */
+  readonly nhanXet: readonly LarkRecord[];
+}
+
+/**
+ * Finds the yearly attendance tables by name and checks them against `NHAN_XET_BAT_BUOC`: a required year that is
+ * missing from the list is a table the app cannot see (`LARK_KHONG_DOC_DUOC`); a year with two tables, or with another
+ * id than expected, means the Base changed (`LARK_CAU_TRUC_DOI`).
+ */
+export function findNhanXetTables(
+  tables: readonly LarkTableInfo[],
+): { year: number; id: string }[] {
+  const byYear = new Map<number, string[]>();
+  for (const table of tables) {
+    const match = NHAN_XET_TEN.exec(table.name.normalize('NFC').trim());
+    if (!match) continue;
+    const year = Number(match[1]);
+    byYear.set(year, [...(byYear.get(year) ?? []), table.id]);
+  }
+  const duplicated = [...byYear].filter(([, ids]) => ids.length > 1);
+  if (duplicated.length > 0)
+    throw new LarkImportError(
+      'LARK_CAU_TRUC_DOI',
+      `More than one attendance table for the year(s): ${duplicated.map(([year]) => year).join(', ')}`,
+    );
+  const missing = Object.keys(NHAN_XET_BAT_BUOC)
+    .map(Number)
+    .filter((year) => !byYear.has(year));
+  if (missing.length > 0)
+    throw new LarkImportError(
+      'LARK_KHONG_DOC_DUOC',
+      `The attendance table of the year(s) ${missing.join(', ')} is not in the list of tables the app can read.`,
+    );
+  const wrong = Object.entries(NHAN_XET_BAT_BUOC).filter(
+    ([year, id]) => byYear.get(Number(year))?.[0] !== id,
+  );
+  if (wrong.length > 0)
+    throw new LarkImportError(
+      'LARK_CAU_TRUC_DOI',
+      `The attendance table of the year(s) ${wrong.map(([year]) => year).join(', ')} has another id than expected.`,
+    );
+  return [...byYear]
+    .map(([year, ids]) => ({ year, id: ids[0] }))
+    .sort((a, b) => a.year - b.year);
+}
 
 /** Checks the field list of every table, then reads the records. Nothing is written anywhere. */
 export async function readLarkData(
   source: LarkSource,
   log: (line: string) => void = () => {},
 ): Promise<LarkData> {
-  const data: Partial<Record<LarkTableKey, readonly LarkRecord[]>> = {};
+  const listed = await source.tables();
+  const listedIds = new Set(listed.map((table) => table.id));
+  const hidden = (Object.keys(LARK_TABLES) as LarkTableKey[]).filter(
+    (key) => !listedIds.has(LARK_TABLES[key].id),
+  );
+  if (hidden.length > 0)
+    throw new LarkImportError(
+      'LARK_KHONG_DOC_DUOC',
+      `Tables not in the list the app can read: ${hidden.join(', ')}`,
+    );
+  const yearly = findNhanXetTables(listed);
+
+  const checks: { label: string; id: string; required: readonly string[] }[] = [
+    ...(Object.keys(LARK_TABLES) as LarkTableKey[]).map((key) => ({
+      label: key,
+      id: LARK_TABLES[key].id,
+      required: REQUIRED_FIELDS[key],
+    })),
+    ...yearly.map(({ year, id }) => ({
+      label: `nhanXet${year}`,
+      id,
+      required: NHAN_XET_FIELDS,
+    })),
+  ];
   const changed: string[] = [];
-  for (const key of Object.keys(LARK_TABLES) as LarkTableKey[]) {
-    const names = new Set(await source.fieldNames(key));
-    for (const field of REQUIRED_FIELDS[key])
-      if (!names.has(field)) changed.push(`${key}: ${field}`);
+  for (const check of checks) {
+    const names = new Set(await source.fieldNames(check.id));
+    for (const field of check.required)
+      if (!names.has(field)) changed.push(`${check.label}: ${field}`);
   }
   if (changed.length > 0)
     throw new LarkImportError(
       'LARK_CAU_TRUC_DOI',
       `The Lark structure changed; missing or renamed fields: ${changed.join('; ')}`,
     );
-  for (const key of Object.keys(LARK_TABLES) as LarkTableKey[]) {
-    data[key] = await source.records(key);
-    log(`read ${key}: ${data[key]?.length ?? 0} records`);
-  }
-  return data as LarkData;
+
+  const read = async (label: string, id: string) => {
+    const records = await source.records(id);
+    log(`read ${label}: ${records.length} records`);
+    return records;
+  };
+  const lopHoc = await read('lopHoc', LARK_TABLES.lopHoc.id);
+  const hocVien = await read('hocVien', LARK_TABLES.hocVien.id);
+  const level = await read('level', LARK_TABLES.level.id);
+  const nhanXet: LarkRecord[] = [];
+  for (const { year, id } of yearly)
+    nhanXet.push(...(await read(`nhanXet${year}`, id)));
+  return { lopHoc, hocVien, level, nhanXet };
 }
 
 export interface LarkCliOptions {
@@ -367,12 +460,18 @@ export async function createLarkCliSource(
   }
 
   async function listAll(
-    table: LarkTableKey,
-    suffix: 'fields' | 'records',
+    suffix: 'tables' | 'fields' | 'records',
+    tableId: string | null,
     pageSize: number,
   ): Promise<unknown[]> {
-    const template = `/open-apis/bitable/v1/apps/:app_token/tables/:table_id/${suffix}`;
-    const apiPath = `/open-apis/bitable/v1/apps/${LARK_BASE_TOKEN}/tables/${LARK_TABLES[table].id}/${suffix}`;
+    const template =
+      tableId === null
+        ? '/open-apis/bitable/v1/apps/:app_token/tables'
+        : `/open-apis/bitable/v1/apps/:app_token/tables/:table_id/${suffix}`;
+    const apiPath =
+      tableId === null
+        ? `/open-apis/bitable/v1/apps/${LARK_BASE_TOKEN}/tables`
+        : `/open-apis/bitable/v1/apps/${LARK_BASE_TOKEN}/tables/${tableId}/${suffix}`;
     const items: unknown[] = [];
     let pageToken: string | undefined;
     for (;;) {
@@ -391,16 +490,31 @@ export async function createLarkCliSource(
   }
 
   return {
-    async fieldNames(table) {
-      const items = (await listAll(table, 'fields', 100)) as {
+    async tables() {
+      const items = (await listAll('tables', null, 100)) as {
+        table_id?: string;
+        name?: string;
+      }[];
+      return items
+        .filter(
+          (item) =>
+            typeof item.table_id === 'string' && typeof item.name === 'string',
+        )
+        .map((item) => ({
+          id: item.table_id as string,
+          name: item.name as string,
+        }));
+    },
+    async fieldNames(tableId) {
+      const items = (await listAll('fields', tableId, 100)) as {
         field_name?: string;
       }[];
       return items
         .map((item) => item.field_name)
         .filter((name): name is string => typeof name === 'string');
     },
-    async records(table) {
-      const items = (await listAll(table, 'records', 500)) as {
+    async records(tableId) {
+      const items = (await listAll('records', tableId, 500)) as {
         record_id?: string;
         fields?: Record<string, unknown>;
       }[];

@@ -1,10 +1,12 @@
 import {
   LARK_TABLES,
+  NHAN_XET_BAT_BUOC,
+  NHAN_XET_FIELDS,
   REQUIRED_FIELDS,
   type LarkData,
   type LarkRecord,
   type LarkSource,
-  type LarkTableKey,
+  type LarkTableInfo,
 } from '../../server/edu/lark/nguon.js';
 
 /**
@@ -56,7 +58,6 @@ const attendance = (
   lop: string,
   day: string,
   present: unknown,
-  remaining: string,
   extra: Record<string, unknown> = {},
 ): LarkRecord =>
   rec(id, {
@@ -73,11 +74,22 @@ const attendance = (
     'Nhận xét': 'Nhận xét mẫu',
     'Giao BTVN': 'Bài mẫu',
     'KH buổi sau': 'Kế hoạch mẫu 2',
-    'Số buổi còn lại': remaining,
     ...extra,
   });
 
-export function buildFixture(): { [K in LarkTableKey]: LarkRecord[] } {
+/** The tables of the made-up Base, by the key the tests use: the fixed ones and one attendance table per year. */
+export type FixtureTables = Record<
+  | 'level'
+  | 'lopHoc'
+  | 'hocVien'
+  | 'nhanXet2024'
+  | 'nhanXet2025'
+  | 'nhanXet2026',
+  LarkRecord[]
+>;
+export type FixtureKey = keyof FixtureTables;
+
+export function buildFixture(): FixtureTables {
   return {
     level: [
       rec('recLevel1', { 'Tên viết tắt level': 'NM1' }),
@@ -164,14 +176,14 @@ export function buildFixture(): { [K in LarkTableKey]: LarkRecord[] } {
       }),
     ],
     nhanXet2024: [
-      attendance('recNhanXet2024a', IDS.s1, IDS.lopA, '2024-12-02', '1', '9'),
+      attendance('recNhanXet2024a', IDS.s1, IDS.lopA, '2024-12-02', '1'),
     ],
     nhanXet2025: [
       // Before the cut-off of 2025-02-01: already inside the opening balance.
-      attendance('recNhanXet2025a', IDS.s1, IDS.lopA, '2025-01-27', '1', '5'),
-      attendance('recNhanXet2025b', IDS.s1, IDS.lopA, '2025-02-03', '1', '4'),
-      attendance('recNhanXet2025c', IDS.s1, IDS.lopA, '2025-02-10', '0', '4'),
-      attendance('recNhanXet2025d', IDS.s1, IDS.lopA, '2025-02-17', '1', '3'),
+      attendance('recNhanXet2025a', IDS.s1, IDS.lopA, '2025-01-27', '1'),
+      attendance('recNhanXet2025b', IDS.s1, IDS.lopA, '2025-02-03', '1'),
+      attendance('recNhanXet2025c', IDS.s1, IDS.lopA, '2025-02-10', '0'),
+      attendance('recNhanXet2025d', IDS.s1, IDS.lopA, '2025-02-17', '1'),
       // "học lớp 2" is the age of the student, not a make-up: an error, never a deduction.
       attendance(
         'recNhanXet2025e',
@@ -179,41 +191,123 @@ export function buildFixture(): { [K in LarkTableKey]: LarkRecord[] } {
         IDS.lopA,
         '2025-02-24',
         'học lớp 2',
-        '3',
       ),
       // Sibling: one session after the cut-off; Lark says 2, the recomputed balance is 3.
-      attendance('recNhanXet2025f', IDS.s2, IDS.lopA, '2025-02-03', '1', '2'),
+      attendance('recNhanXet2025f', IDS.s2, IDS.lopA, '2025-02-03', '1'),
       // Student left out (unknown level): his row goes with him.
-      attendance('recNhanXet2025g', IDS.s3, IDS.lopB, '2025-02-04', '1', '1'),
+      attendance('recNhanXet2025g', IDS.s3, IDS.lopB, '2025-02-04', '1'),
+    ],
+    nhanXet2026: [
+      attendance('recNhanXet2026a', IDS.s2, IDS.lopA, '2026-01-12', '1'),
+      // A row with nothing in it (the real table has over a hundred): skipped and counted, never an error.
+      rec('recNhanXet2026blank', {}),
+      // A row with a date and nothing else is just as empty.
+      rec('recNhanXet2026date', {
+        'Ngày học - Day format': ms('2026-01-19'),
+      }),
+      // A mark of attendance with no student cannot be placed: an error.
+      rec('recNhanXet2026nostudent', {
+        'Ngày học - Day format': ms('2026-01-19'),
+        'có mặt': 1,
+      }),
     ],
   };
 }
 
-export function fixtureData(): LarkData {
-  return buildFixture();
+export function fixtureData(tables: FixtureTables = buildFixture()): LarkData {
+  return {
+    lopHoc: tables.lopHoc,
+    hocVien: tables.hocVien,
+    level: tables.level,
+    nhanXet: [
+      ...tables.nhanXet2024,
+      ...tables.nhanXet2025,
+      ...tables.nhanXet2026,
+    ],
+  };
 }
 
-/** A source over the fixture; `drop` removes a field from a table's field list to simulate a renamed field. */
+const YEARLY: Record<'nhanXet2024' | 'nhanXet2025' | 'nhanXet2026', number> = {
+  nhanXet2024: 2024,
+  nhanXet2025: 2025,
+  nhanXet2026: 2026,
+};
+
+/** Id, name and required fields of every table of the fixture. */
+export function fixtureTableList(): {
+  key: FixtureKey;
+  id: string;
+  name: string;
+  fields: readonly string[];
+}[] {
+  return [
+    ...(Object.keys(LARK_TABLES) as (keyof typeof LARK_TABLES)[]).map(
+      (key) => ({
+        key,
+        id: LARK_TABLES[key].id,
+        name: LARK_TABLES[key].title,
+        fields: REQUIRED_FIELDS[key],
+      }),
+    ),
+    ...(Object.keys(YEARLY) as (keyof typeof YEARLY)[]).map((key) => ({
+      key,
+      id: NHAN_XET_BAT_BUOC[YEARLY[key]] as string,
+      name: `${YEARLY[key]} Nhận xét mỗi buổi`,
+      fields: NHAN_XET_FIELDS,
+    })),
+  ];
+}
+
+/**
+ * A source over the fixture. `drop` removes a field from a table's field list to simulate a renamed field; `hide`
+ * leaves a table out of the list the way the Base hides a table the app may not read; `extra` adds tables to the list.
+ */
 export function fixtureSource(
-  data: LarkData = fixtureData(),
-  drop?: { table: LarkTableKey; field: string },
+  tables: FixtureTables = buildFixture(),
+  options: {
+    drop?: { table: FixtureKey; field: string };
+    hide?: FixtureKey[];
+    extra?: (LarkTableInfo & { fields?: readonly string[] })[];
+  } = {},
 ): LarkSource & { calls: string[] } {
   const calls: string[] = [];
+  const list = fixtureTableList();
+  const byId = new Map(list.map((entry) => [entry.id, entry]));
   return {
     calls,
-    async fieldNames(table) {
-      calls.push(`fields ${table}`);
-      return REQUIRED_FIELDS[table].filter(
-        (field) => !(drop && drop.table === table && drop.field === field),
+    async tables() {
+      calls.push('tables');
+      return [
+        ...list
+          .filter((entry) => !options.hide?.includes(entry.key))
+          .map(({ id, name }) => ({ id, name })),
+        ...(options.extra ?? []).map(({ id, name }) => ({ id, name })),
+      ];
+    },
+    async fieldNames(tableId) {
+      const entry = byId.get(tableId);
+      calls.push(`fields ${entry?.key ?? tableId}`);
+      if (!entry)
+        return (
+          options.extra?.find((table) => table.id === tableId)?.fields ?? []
+        );
+      return entry.fields.filter(
+        (field) =>
+          !(
+            options.drop &&
+            options.drop.table === entry.key &&
+            options.drop.field === field
+          ),
       );
     },
-    async records(table) {
-      calls.push(`records ${table}`);
-      return data[table];
+    async records(tableId) {
+      const entry = byId.get(tableId);
+      calls.push(`records ${entry?.key ?? tableId}`);
+      return entry ? tables[entry.key] : [];
     },
   };
 }
 
 export const TABLE_IDS = Object.fromEntries(
-  Object.entries(LARK_TABLES).map(([key, value]) => [key, value.id]),
+  fixtureTableList().map((entry) => [entry.key, entry.id]),
 );

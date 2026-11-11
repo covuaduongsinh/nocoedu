@@ -136,6 +136,31 @@ describe('rows that fail, and what goes with them', () => {
     ).toBeUndefined();
   });
 
+  it('skips an empty row of the 2026 table with DONG_TRONG, and still reports a mark with no student', () => {
+    const p = plan();
+    expect(p.warnings).toContainEqual({
+      table: 'diemDanh',
+      id: 'recNhanXet2026blank',
+      code: 'DONG_TRONG',
+    });
+    // A row with only a date is as empty as a blank one.
+    expect(p.warnings).toContainEqual({
+      table: 'diemDanh',
+      id: 'recNhanXet2026date',
+      code: 'DONG_TRONG',
+    });
+    expect(p.problems.map((x) => x.id)).not.toContain('recNhanXet2026blank');
+    expect(p.problems.map((x) => x.id)).not.toContain('recNhanXet2026date');
+    expect(p.problems).toContainEqual({
+      table: 'diemDanh',
+      id: 'recNhanXet2026nostudent',
+      code: 'HOC_VIEN_KHONG_RO',
+    });
+    expect(p.diemDanh.map((row) => row.externalId)).toContain(
+      'recNhanXet2026a',
+    );
+  });
+
   it('imports a student without a parent or a balance with a warning, not an error', () => {
     const p = plan();
     expect(codes(p.warnings)).toEqual(
@@ -166,9 +191,9 @@ describe('the balance', () => {
     // 5 − (02-03 present, 02-17 present); the absence of 02-10 costs nothing; 2024-12-02 and 01-27 are before the cut-off.
     expect(s1).toMatchObject({
       externalCode: 'HV-20240101-001',
-      larkBalance: 3,
+      larkBalance: null,
       recomputed: 3,
-      difference: 0,
+      difference: null,
     });
     const rows = p.diemDanh.filter((row) => row.hocVienKey === IDS.s1);
     expect(
@@ -180,10 +205,11 @@ describe('the balance', () => {
       ['recNhanXet2025c', true, 0],
       ['recNhanXet2025d', true, 1],
     ]);
+    // 4 − (2025-02-03) − (2026-01-12): the 2026 table is read like the others.
     expect(p.balances.find((row) => row.hocVienKey === IDS.s2)).toMatchObject({
-      recomputed: 3,
-      larkBalance: 2,
-      difference: 1,
+      recomputed: 2,
+      larkBalance: null,
+      difference: null,
     });
     expect(p.balances.find((row) => row.hocVienKey === IDS.s5)).toMatchObject({
       larkBalance: null,
@@ -206,7 +232,7 @@ describe('the balance', () => {
 
   it('groups the attendance of one class and day into one session and keeps its content', () => {
     const p = plan();
-    expect(p.buoiHoc).toHaveLength(5);
+    expect(p.buoiHoc).toHaveLength(6);
     const shared = p.buoiHoc.find(
       (row) => row.externalId === `lark:buoi:${IDS.lopA}:2025-02-03`,
     );
@@ -404,7 +430,7 @@ describe('sessions the school already holds', () => {
       ),
     ).toHaveLength(2);
     expect(p.buoiHoc.map((row) => row.externalId)).not.toContain(key);
-    expect(p.buoiHoc).toHaveLength(4);
+    expect(p.buoiHoc).toHaveLength(5);
     // A session that came from an earlier run of this import is a duplicate, not a conflict.
     const again = plan({
       ...EMPTY_STATE,
@@ -469,7 +495,7 @@ describe('the report and the options', () => {
     expect(text).not.toMatch(
       /Mẫu 0|Phụ Huynh|0900|example\.com|2016-05-20|Ghi chú nhạy cảm/u,
     );
-    expect(report.balance).toMatchObject({ match: 1, differ: 1, unknown: 2 });
+    expect(report.balance).toMatchObject({ match: 0, differ: 0, unknown: 4 });
   });
 
   it('refuses --dry-run with --commit, --commit without --user, and a bad delay', () => {
@@ -499,9 +525,8 @@ describe('the report and the options', () => {
   });
 
   it('stops with LARK_CAU_TRUC_DOI when a field was renamed, before reading any record', async () => {
-    const source = fixtureSource(fixtureData(), {
-      table: 'hocVien',
-      field: 'SDT PH',
+    const source = fixtureSource(undefined, {
+      drop: { table: 'hocVien', field: 'SDT PH' },
     });
     await expect(readLarkData(source)).rejects.toMatchObject({
       code: 'LARK_CAU_TRUC_DOI',
