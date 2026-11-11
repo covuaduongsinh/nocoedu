@@ -98,7 +98,10 @@ if (${JSON.stringify(options.rateLimitOnce ?? false)} && match[2] === 'records' 
   out({ ok: false, error: { code: 99991400, subtype: 'rate_limit' } });
   process.exit(1);
 }
-const all = tables[match[1]][match[2]];
+const asked = params.field_names ? JSON.parse(params.field_names) : null;
+const all = tables[match[1]][match[2]].map((item) => asked && match[2] === 'records'
+  ? { ...item, fields: Object.fromEntries(Object.entries(item.fields).filter(([name]) => asked.includes(name))) }
+  : item);
 // The fake serves at most two items a page, whatever page_size says, to force pagination.
 const start = params.page_token ? Number(params.page_token) : 0;
 const items = all.slice(start, start + 2);
@@ -154,6 +157,22 @@ describe('reading the Base through lark-cli', () => {
     // The list of tables, then 8 tables × (fields + records), each cut into pages of two.
     expect(made.length).toBeGreaterThan(15);
     expect(made[0]?.args[2]).toMatch(/\/tables$/u);
+    // Every read of records names the fields it needs, on every page, so nothing else is downloaded (knowledge doc 05).
+    const recordCalls = made.filter((call) => /\/records$/u.test(call.args[2]));
+    expect(recordCalls.length).toBeGreaterThan(8);
+    for (const call of recordCalls) {
+      const params = JSON.parse(call.args[call.args.indexOf('--params') + 1]);
+      expect(JSON.parse(params.field_names)).toEqual(expect.any(Array));
+      expect(params.page_size).toBe(500);
+    }
+    expect(
+      recordCalls.some(
+        (call) =>
+          JSON.parse(call.args[call.args.indexOf('--params') + 1]).page_token,
+      ),
+    ).toBe(true);
+    // The made-up sensitive columns of the fixture (a note, an address) are not in memory.
+    expect(JSON.stringify(data)).not.toMatch(/nhạy cảm/u);
     expect(
       made.every((call) => call.args.slice(0, 2).join(' ') === 'api GET'),
     ).toBe(true);

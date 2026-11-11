@@ -77,6 +77,10 @@ export interface ExistingStudent {
   readonly phones: readonly string[];
   /** The student already holds a package or a non-zero balance: an opening balance from Lark must not be added. */
   readonly coSoDu: boolean;
+  /** An attendance row of the import already written with `tinhVaoSoDu = false` (history inside an opening balance). */
+  readonly diemDanhCuKhongTru?: boolean;
+  /** The student already holds a package of `Deal HP` (`lark:deal:*`). */
+  readonly coGoiDeal?: boolean;
 }
 
 /** What NocoEdu holds now. The command builds it from the database; the tests build it by hand. */
@@ -820,7 +824,11 @@ export function lapKeHoach(
       ? (numberOf(f['Số buổi đã học chưa thống kê']) ?? 0)
       : 0;
     const soBuoi = Math.max(0, sessionsPaid - unrecorded);
-    if (soBuoi === 0) continue;
+    if (soBuoi === 0) {
+      // Everything paid was already taught before the attendance tables existed: no package, but not silent.
+      warn('goiHoc', id, 'DEAL_HET_SAU_TRU');
+      continue;
+    }
     const externalId = `lark:deal:${id}`;
     dealsOfStudent.set(studentKey, [
       ...(dealsOfStudent.get(studentKey) ?? []),
@@ -860,10 +868,23 @@ export function lapKeHoach(
     }
     if (
       deals.length > 0 &&
+      existingStudent?.diemDanhCuKhongTru === true &&
+      existingStudent.coGoiDeal !== true
+    ) {
+      // An earlier run wrote his attendance as "already inside the opening balance" (`tinhVaoSoDu = false`). With
+      // Deal packages added now, the dry run would count those sessions and the commit would not: the two balances
+      // would differ. He keeps the balance he has (see docs/lark/nhap-production.md).
+      warn('goiHoc', student.externalId, 'DIEM_DANH_CU_KHONG_TRU');
+      deals = [];
+    }
+    let skipWarned = false;
+    if (
+      deals.length > 0 &&
       student.action === 'ghep' &&
       existingStudent?.coSoDu
     ) {
       warn('goiHoc', student.externalId, 'GHEP_BO_QUA_SO_DU');
+      skipWarned = true;
       deals = [];
     }
     const usesDeals = deals.length > 0;
@@ -877,7 +898,7 @@ export function lapKeHoach(
       existingStudent?.coSoDu
     ) {
       // A student already in NocoEdu with a package or a balance: Lark's balance is not added on top of it.
-      warn('goiHoc', student.externalId, 'GHEP_BO_QUA_SO_DU');
+      if (!skipWarned) warn('goiHoc', student.externalId, 'GHEP_BO_QUA_SO_DU');
       packageToUse = null;
     } else if (!usesDeals && !packageToUse && opening.ok) {
       warn('goiHoc', student.externalId, 'KHONG_CO_SO_DU');

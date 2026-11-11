@@ -75,6 +75,27 @@ export async function docTrangThaiHienCo(
     .selectFrom('eduHocVienPhuHuynh')
     .select(['hocVienId', 'phuHuynhId'])
     .execute();
+  // Students whose imported attendance was written as history of an opening balance, and who hold a Deal package.
+  const history = new Set<number>();
+  for (const row of await query
+    .selectFrom('eduDiemDanh')
+    .select(['hocVienId', 'tinhVaoSoDu'])
+    .where('externalId', 'is not', null)
+    .execute())
+    if (
+      row.tinhVaoSoDu === false ||
+      row.tinhVaoSoDu === 0 ||
+      row.tinhVaoSoDu === 'false'
+    )
+      history.add(Number(row.hocVienId));
+  const withDeal = new Set<number>();
+  for (const row of await query
+    .selectFrom('eduGoiHoc')
+    .select(['hocVienId', 'externalId'])
+    .where('externalId', 'is not', null)
+    .execute())
+    if (asText(row.externalId).startsWith('lark:deal:'))
+      withDeal.add(Number(row.hocVienId));
   const withPackage = new Set(
     (await query.selectFrom('eduGoiHoc').select('hocVienId').execute()).map(
       (row) => Number(row.hocVienId),
@@ -95,6 +116,8 @@ export async function docTrangThaiHienCo(
       .map((link) => phoneOf.get(Number(link.phuHuynhId)) ?? '')
       .filter((phone) => phone !== ''),
     coSoDu: withPackage.has(Number(row.id)) || Number(row.soBuoiConLai) !== 0,
+    diemDanhCuKhongTru: history.has(Number(row.id)),
+    coGoiDeal: withDeal.has(Number(row.id)),
   }));
   const importedClasses = new Map(
     (

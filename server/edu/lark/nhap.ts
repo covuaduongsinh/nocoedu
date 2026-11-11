@@ -144,6 +144,17 @@ export function inBaoCao(report: ImportReport, maxBalanceRows = 200): string[] {
   };
   printGroups('Dòng bị bỏ (lỗi) theo bảng và lý do:', report.problems);
   printGroups('Cảnh báo (vẫn nhập):', report.warnings);
+  const kept = report.warnings
+    .filter(
+      (g) =>
+        g.code === 'GOI_CU_LARK_SODU' || g.code === 'DIEM_DANH_CU_KHONG_TRU',
+    )
+    .reduce((sum, g) => sum + g.count, 0);
+  if (kept > 0)
+    lines.push(
+      '',
+      `Học viên đã nhập trước giai đoạn 3 và GIỮ số dư cũ (bỏ qua Deal HP của họ, xem docs/lark/nhap-production.md): ${kept}.`,
+    );
   lines.push(
     '',
     `So sánh số dư buổi tính lại với số dư trên Lark: ${report.balance.match} khớp, ${report.balance.differ} lệch, ${report.balance.unknown} không so được.`,

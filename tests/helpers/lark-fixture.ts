@@ -333,10 +333,20 @@ export function fixtureSource(
           ),
       );
     },
-    async records(tableId) {
+    async records(tableId, fields) {
       const entry = byId.get(tableId);
       calls.push(`records ${entry?.key ?? tableId}`);
-      return entry ? tables[entry.key] : [];
+      const rows = entry ? tables[entry.key] : [];
+      // Like Lark with `field_names`: only the fields asked for come back, so a field the plan reads without asking
+      // for it is missing here and the tests catch it.
+      if (!fields) return rows;
+      const wanted = new Set(fields);
+      return rows.map((row) => ({
+        recordId: row.recordId,
+        fields: Object.fromEntries(
+          Object.entries(row.fields).filter(([name]) => wanted.has(name)),
+        ),
+      }));
     },
   };
 }

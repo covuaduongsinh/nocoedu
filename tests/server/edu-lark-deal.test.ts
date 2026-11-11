@@ -330,3 +330,255 @@ test('--commit writes the packages without a price or a payment, recomputes the 
   );
   expect(first.written?.goiHoc).toBe(4);
 });
+
+describe('students imported before the Deal packages', () => {
+  const student = (over: object) => ({
+    id: 7,
+    hoTen: 'x',
+    namSinh: 2014,
+    externalId: IDS.s6,
+    phones: [] as string[],
+    coSoDu: false,
+    ...over,
+  });
+  const imported = (over: object): ExistingState =>
+    known({
+      externalIds: { ...EMPTY_STATE.externalIds, hocVien: new Set([IDS.s6]) },
+      students: [student(over)],
+    });
+
+  it('keeps the balance of a student whose attendance was written as history, and says so once', () => {
+    const p = plan(imported({ diemDanhCuKhongTru: true }));
+    expect(p.warnings).toContainEqual({
+      table: 'goiHoc',
+      id: IDS.s6,
+      code: 'DIEM_DANH_CU_KHONG_TRU',
+    });
+    // No Deal package for him; he falls back to what he had (here the opening balance of his row).
+    expect(
+      p.goiHoc.some((row) => row.loai === 'mua' && row.hocVienKey === IDS.s6),
+    ).toBe(false);
+    const report = taoBaoCao(p, 'dry-run');
+    expect(inBaoCao(report).join('\n')).toMatch(/GIỮ số dư cũ.*: 1\./u);
+  });
+
+  it('adds Deal packages when he already holds one (the attendance is then counted)', () => {
+    const p = plan(imported({ diemDanhCuKhongTru: true, coGoiDeal: true }));
+    expect(p.warnings.some((w) => w.code === 'DIEM_DANH_CU_KHONG_TRU')).toBe(
+      false,
+    );
+    expect(
+      p.goiHoc.filter((row) => row.loai === 'mua' && row.hocVienKey === IDS.s6),
+    ).toHaveLength(2);
+  });
+
+  it('warns GHEP_BO_QUA_SO_DU once for a merged student who already has a balance', () => {
+    const p = plan(
+      known({
+        students: [
+          student({
+            externalId: null,
+            hoTen: 'Học Viên Mẫu 06',
+            phones: ['0900000066'],
+            coSoDu: true,
+          }),
+        ],
+      }),
+    );
+    expect(
+      p.warnings.filter(
+        (w) => w.code === 'GHEP_BO_QUA_SO_DU' && w.id === IDS.s6,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('reports a Deal that is empty after "chưa thống kê" instead of dropping it silently', () => {
+    const tables = withDealStudents(buildFixture());
+    tables.dealHp.push({
+      recordId: 'recDealMau06c',
+      fields: {
+        'Học viên': [
+          {
+            record_ids: [IDS.s6],
+            table_id: 't',
+            text: 'x',
+            text_arr: ['x'],
+            type: 'text',
+          },
+        ],
+        'Ngày nộp HP': Date.parse('2025-06-01T00:00:00+07:00'),
+        'Đã nộp': 1,
+        'Số buổi nộp': 3,
+        'Số buổi đã học chưa thống kê': 3,
+      },
+    });
+    const p = lapKeHoach(fixtureData(tables), EMPTY_STATE, {
+      unexcusedAbsenceDeducts: false,
+    });
+    expect(p.warnings).toContainEqual({
+      table: 'goiHoc',
+      id: 'recDealMau06c',
+      code: 'DEAL_HET_SAU_TRU',
+    });
+    expect(p.goiHoc.map((row) => row.externalId)).not.toContain(
+      'lark:deal:recDealMau06c',
+    );
+  });
+});
+
+const ALL_TABLES = [
+  'eduNhapLarkNhatKy',
+  'eduSoDuNhatKy',
+  'eduThanhToan',
+  'eduGoiHoc',
+  'eduDiemDanh',
+  'eduBuoiHoc',
+  'eduHocVienPhuHuynh',
+  'eduPhuHuynh',
+  'eduHocVien',
+  'eduLopLich',
+  'eduLop',
+  'eduCoSo',
+];
+
+async function freshDatabase(connection: any): Promise<string> {
+  for (const table of ALL_TABLES)
+    await connection.query.deleteFrom(table).allowAllRows().execute();
+  return String(
+    (
+      await connection.query
+        .selectFrom('user')
+        .select('id')
+        .executeTakeFirstOrThrow()
+    ).id,
+  );
+}
+
+/** The balance every student of the dry run is promised, against what the database holds after the commit. */
+async function balancesAgree(
+  connection: any,
+  report: Awaited<ReturnType<typeof chayNhap>>,
+) {
+  const rows = await connection.query
+    .selectFrom('eduHocVien')
+    .select(['externalCode', 'soBuoiConLai'])
+    .execute();
+  const stored = new Map(
+    rows.map((row: any) => [row.externalCode, Number(row.soBuoiConLai)]),
+  );
+  expect(report.balance.rows.length).toBeGreaterThan(0);
+  for (const row of report.balance.rows)
+    expect([row.externalCode, stored.get(row.externalCode)]).toEqual([
+      row.externalCode,
+      row.recomputed,
+    ]);
+}
+
+test('for every student the dry run balance is the balance --commit writes', async ({
+  database,
+  connection,
+}) => {
+  const userId = await freshDatabase(connection);
+  const tables = withDealStudents(buildFixture());
+  const dry = await chayNhap(database, fixtureSource(tables), {
+    commit: false,
+    userId: null,
+    delayMs: 0,
+  });
+  await chayNhap(database, fixtureSource(tables), {
+    commit: true,
+    userId,
+    delayMs: 0,
+  });
+  await balancesAgree(connection, dry);
+});
+
+test('Deals that appear after a first commit never make the dry run and the commit disagree', async ({
+  database,
+  connection,
+}) => {
+  const userId = await freshDatabase(connection);
+  const options = { commit: true, userId, delayMs: 0 };
+  // First run: s5 has attendance and no opening balance, so his history is written as "inside the balance".
+  const tables = buildFixture();
+  tables.nhanXet2025.push({
+    recordId: 'recNhanXet2025s5a',
+    fields: {
+      ...tables.nhanXet2025[0]?.fields,
+      'Tên HS': tables.nhanXet2025[0]?.fields['Tên HS'],
+    },
+  });
+  const first = tables.nhanXet2025.at(-1);
+  if (first) {
+    first.fields = {
+      ...first.fields,
+      'Tên HS': [
+        {
+          record_ids: [IDS.s5],
+          table_id: 't',
+          text: 'x',
+          text_arr: ['x'],
+          type: 'text',
+        },
+      ],
+      Lớp: [
+        {
+          record_ids: [IDS.lopB],
+          table_id: 't',
+          text: 'x',
+          text_arr: ['x'],
+          type: 'text',
+        },
+      ],
+      'Ngày học': '10/03/2025',
+      'Ngày học - Day format': Date.parse('2025-03-10T00:00:00+07:00'),
+    };
+  }
+  await chayNhap(database, fixtureSource(tables), options);
+
+  // Second run: the same Base, now with a paid Deal for s5.
+  tables.dealHp.push({
+    recordId: 'recDealMau05',
+    fields: {
+      'Học viên': [
+        {
+          record_ids: [IDS.s5],
+          table_id: 't',
+          text: 'x',
+          text_arr: ['x'],
+          type: 'text',
+        },
+      ],
+      'Ngày nộp HP': Date.parse('2025-01-01T00:00:00+07:00'),
+      'Đã nộp': 1,
+      'Số buổi nộp': 10,
+    },
+  });
+  const dry = await chayNhap(database, fixtureSource(tables), {
+    commit: false,
+    userId: null,
+    delayMs: 0,
+  });
+  expect(dry.warnings).toContainEqual(
+    expect.objectContaining({
+      table: 'goiHoc',
+      code: 'DIEM_DANH_CU_KHONG_TRU',
+      count: 1,
+    }),
+  );
+  await chayNhap(database, fixtureSource(tables), options);
+  const s5 = await connection.query
+    .selectFrom('eduHocVien')
+    .select(['id', 'soBuoiConLai'])
+    .where('externalId', '=', IDS.s5)
+    .executeTakeFirstOrThrow();
+  expect(Number(s5.soBuoiConLai)).toBe(0);
+  expect(
+    await connection.query
+      .selectFrom('eduGoiHoc')
+      .select('id')
+      .where('hocVienId', '=', s5.id)
+      .execute(),
+  ).toHaveLength(0);
+  await balancesAgree(connection, dry);
+});
