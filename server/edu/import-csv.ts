@@ -38,9 +38,10 @@ export type ImportProblem =
   | 'BAD_RELATION'
   | 'DUPLICATE_IN_FILE'
   | 'DUPLICATE_EXISTING'
-  // Only the web import: the row targets a branch or class that exists but is outside the caller's scope.
-  | 'OUT_OF_SCOPE_BRANCH'
-  | 'OUT_OF_SCOPE_CLASS'
+  // Only the web import.
+  | 'BRANCH_PAUSED'
+  | 'CLASS_CLOSED'
+  | 'AMBIGUOUS_STUDENT'
   | 'TOO_MANY_ROWS'
   | 'FILE_TOO_LARGE'
   | 'BAD_ENCODING';

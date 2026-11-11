@@ -22,6 +22,7 @@ const MAX_BYTES = 512 * 1024;
 interface Report {
   readonly rows: number;
   readonly problems: readonly { line: number; code: string }[];
+  readonly warnings?: readonly { line: number; code: string }[];
   readonly written: number;
   readonly hocVienMoi: number;
   readonly hocVienTrung: number;
@@ -193,6 +194,21 @@ export function ImportCsv(props: {
                         <li key={`${problem.line}-${problem.code}`}>
                           {t('edu.import.line', { line: problem.line })}:{' '}
                           {t(`edu.import.problem.${problem.code}`)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {report.warnings && report.warnings.length > 0 ? (
+                  <div className='flex flex-col gap-1'>
+                    <h3 className='text-sm font-medium'>
+                      {t('edu.import.warnings')}: {report.warnings.length}
+                    </h3>
+                    <ul className='max-h-32 overflow-y-auto text-sm'>
+                      {report.warnings.slice(0, 100).map((warning) => (
+                        <li key={`${warning.line}-${warning.code}`}>
+                          {t('edu.import.line', { line: warning.line })}:{' '}
+                          {t(`edu.import.warning.${warning.code}`)}
                         </li>
                       ))}
                     </ul>
