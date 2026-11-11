@@ -158,6 +158,9 @@ export function ImportCsv(props: {
               <p className='text-xs text-muted-foreground'>
                 {t('edu.import.limits')}
               </p>
+              <p className='text-xs text-muted-foreground'>
+                {t('edu.import.reimport')}
+              </p>
               <Button
                 type='button'
                 variant='link'

@@ -170,6 +170,18 @@ export const EDU_IMPORT_ROWS: readonly (readonly [
     'A student with the same name, birth year and branch exists but none of his parents has this row’s phone (or he has no parent on file), so it cannot be compared. This row creates a new student; check for a duplicate.',
     '已有同名、同出生年份、同分校的学员，但其家长的电话都与此行不同（或该学员没有家长信息），无法比对。此行将新建学员，请检查是否重复。',
   ],
+  [
+    'import.warning.STUDENT_WITHOUT_PARENT',
+    'Dòng không có phụ huynh khớp một học viên đã có; không có gì thay đổi.',
+    'This row has no parent and matches a student who already exists; nothing changes.',
+    '此行没有家长信息，且匹配一名已有学员；不会有任何变化。',
+  ],
+  [
+    'import.reimport',
+    'Nhập lại tệp vừa xuất: dòng khớp đúng một học viên đã có chỉ được bỏ qua, kể cả khi lớp đã đóng, cơ sở tạm dừng hoặc học viên chưa có phụ huynh. Lớp đã đóng hoặc cơ sở tạm dừng chỉ chặn dòng tạo học viên mới.',
+    'Importing a file you just exported: a row that matches exactly one existing student is only skipped, even if the class is closed, the branch is paused or the student has no parent. A closed class or paused branch only stops a row that would create a new student.',
+    '重新导入刚导出的文件：与唯一一名已有学员匹配的行只会被跳过，即使班级已关闭、分校已暂停或学员没有家长。已关闭的班级或已暂停的分校只会阻止新建学员的行。',
+  ],
   ['import.warnings', 'Cần lưu ý', 'Please note', '请注意'],
   [
     'import.warning.STUDENT_LEFT',
