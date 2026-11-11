@@ -160,16 +160,22 @@ export const EDU_IMPORT_ROWS: readonly (readonly [
   ],
   [
     'import.problem.AMBIGUOUS_STUDENT',
-    'Có nhiều học viên đã có khớp dòng này (cùng tên, năm sinh, cơ sở và số điện thoại phụ huynh). Hãy xử lý trùng trên hệ thống trước.',
-    'Several existing students match this row (same name, birth year, branch and parent phone). Resolve the duplicates in the system first.',
-    '有多名已有学员与此行匹配（姓名、出生年份、分校和家长电话相同）。请先在系统中处理重复记录。',
+    'Không xác định được dòng này thuộc học viên nào: các dòng cùng tên, năm sinh, cơ sở có số điện thoại phụ huynh trỏ vào những học viên khác nhau (hoặc vừa khớp học viên đã có vừa không khớp). Hãy tách tệp hoặc xử lý trùng trên hệ thống trước.',
+    'It cannot be told which student this row belongs to: rows with the same name, birth year and branch have parent phones that point at different students (or some match an existing student and some do not). Split the file or resolve the duplicates in the system first.',
+    '无法确定此行属于哪名学员：姓名、出生年份、分校相同的行，其家长电话指向不同学员（或部分匹配已有学员、部分不匹配）。请拆分文件或先在系统中处理重复记录。',
+  ],
+  [
+    'import.warning.POSSIBLE_DUPLICATE',
+    'Đã có học viên cùng tên, năm sinh, cơ sở nhưng chưa có phụ huynh nào nên không đối chiếu được. Dòng này sẽ tạo học viên mới; hãy kiểm tra trùng.',
+    'A student with the same name, birth year and branch exists but has no parent on file, so it cannot be compared. This row creates a new student; check for a duplicate.',
+    '已有同名、同出生年份、同分校的学员，但没有任何家长信息，无法比对。此行将新建学员，请检查是否重复。',
   ],
   ['import.warnings', 'Cần lưu ý', 'Please note', '请注意'],
   [
     'import.warning.STUDENT_LEFT',
-    'Gắn thêm phụ huynh cho học viên đã nghỉ.',
-    'A parent is added to a student who has left.',
-    '为已退学的学员添加家长。',
+    'Dòng này khớp một học viên đã nghỉ; không có gì thay đổi.',
+    'This row matches a student who has left; nothing changes.',
+    '此行匹配一名已退学的学员，不会有任何变化。',
   ],
   [
     'errors.EDU_IMPORT_TOO_LARGE',

@@ -47,7 +47,10 @@ export interface WebImportReport extends ImportCounts {
   readonly rows: number;
   readonly problems: readonly { line: number; code: ImportProblem }[];
   /** Rows that are allowed but worth a look: they attach to a student who has left (`da_nghi`). */
-  readonly warnings: readonly { line: number; code: 'STUDENT_LEFT' }[];
+  readonly warnings: readonly {
+    line: number;
+    code: 'STUDENT_LEFT' | 'POSSIBLE_DUPLICATE';
+  }[];
   /** CSV rows that changed data (0 on a preview or when there are problems). */
   readonly written: number;
 }
@@ -258,48 +261,76 @@ export async function planImport(
     phuHuynhDungLai: 0,
     lienKetMoi: 0,
   };
-  const createdKeys = new Set<string>();
-  // The student each key of this file stands for: an existing id, or `null` for one this import creates.
+  // Decide, for every key of the file (name, year, branch), which student its rows stand for. Each row is matched on its
+  // own phone, never on the phone of the first row of the key (that put a family on the wrong child). The rows of a key
+  // are merged only when they all point at the same existing student, or when none points at an existing one (one new
+  // child with several parents: nothing in the file tells them apart). Anything else is refused row by row.
+  const rowsOfKey = new Map<string, Candidate[]>();
+  for (const row of candidates) {
+    const key = studentKeyOf(row);
+    rowsOfKey.set(key, [...(rowsOfKey.get(key) ?? []), row]);
+  }
   const resolved = new Map<string, number | null>();
-  const warnings: { line: number; code: 'STUDENT_LEFT' }[] = [];
+  const warnings: {
+    line: number;
+    code: 'STUDENT_LEFT' | 'POSSIBLE_DUPLICATE';
+  }[] = [];
+  const refused = new Set<number>();
+  for (const [key, rows] of rowsOfKey) {
+    const existingIds = students.get(key) ?? [];
+    const matches = rows.map((row) =>
+      existingIds.filter((id) => phonesLinked.get(id)?.has(row.phone)),
+    );
+    const targets = new Set(matches.flat());
+    const mixed =
+      targets.size === 1 && matches.some((match) => match.length === 0);
+    if (matches.some((m) => m.length > 1) || targets.size > 1 || mixed) {
+      for (const row of rows) {
+        problems.push({ line: row.line, code: 'AMBIGUOUS_STUDENT' });
+        refused.add(row.line);
+      }
+      continue;
+    }
+    resolved.set(key, [...targets][0] ?? null);
+    if (targets.size === 0) {
+      // An existing student of this key with no parent on file may be the same child: the import cannot tell.
+      const unattached = existingIds.some(
+        (id) => (phonesLinked.get(id)?.size ?? 0) === 0,
+      );
+      if (unattached && rows[0]) {
+        warnings.push({ line: rows[0].line, code: 'POSSIBLE_DUPLICATE' });
+      }
+    }
+  }
   const studentsOfRun = new Map<string, number>();
+  for (const [key, id] of resolved) if (id !== null) studentsOfRun.set(key, id);
+  const createdKeys = new Set<string>();
   // Phones that earlier rows of this file already attached to a student.
   const phonesInFile = new Map<string, Set<string>>();
   const parentSeen = new Set<string>();
   for (const row of candidates) {
+    if (refused.has(row.line)) continue;
     const studentKey = studentKeyOf(row);
-    if (!resolved.has(studentKey)) {
-      // A name, a year and a branch are not enough to be sure of a child: the parent's phone must agree too, as in the
-      // Lark import. No candidate with this phone → a new student; several → the row is refused, nothing is guessed.
-      const matching = (students.get(studentKey) ?? []).filter((id) =>
-        phonesLinked.get(id)?.has(row.phone),
-      );
-      if (matching.length > 1) {
-        problems.push({ line: row.line, code: 'AMBIGUOUS_STUDENT' });
-        continue;
-      }
-      resolved.set(studentKey, matching[0] ?? null);
-      if (matching[0] !== undefined) studentsOfRun.set(studentKey, matching[0]);
-    }
-    const studentId = resolved.get(studentKey) ?? undefined;
     if (phonesInFile.get(studentKey)?.has(row.phone)) {
       problems.push({ line: row.line, code: 'DUPLICATE_IN_FILE' });
       continue;
     }
+    const studentId = resolved.get(studentKey) ?? undefined;
     if (
       studentId !== undefined &&
       phonesLinked.get(studentId)?.has(row.phone)
     ) {
       counts.hocVienTrung += 1;
+      // The row matches a child who has left: nothing is changed, but the person importing should know.
+      if (left.has(studentId)) {
+        warnings.push({ line: row.line, code: 'STUDENT_LEFT' });
+      }
       steps.push({ row, action: 'trung', studentKey });
       continue;
     }
     const exists = studentId !== undefined || createdKeys.has(studentKey);
     if (exists) {
       counts.chiLienKet += 1;
-      if (studentId !== undefined && left.has(studentId)) {
-        warnings.push({ line: row.line, code: 'STUDENT_LEFT' });
-      }
     } else {
       counts.hocVienMoi += 1;
       createdKeys.add(studentKey);
@@ -317,6 +348,7 @@ export async function planImport(
     steps.push({ row, action: exists ? 'lien_ket' : 'tao', studentKey });
   }
   problems.sort((a, b) => a.line - b.line);
+  warnings.sort((a, b) => a.line - b.line);
   return {
     report: { ...empty(rowCount, problems), ...counts, warnings },
     steps,
