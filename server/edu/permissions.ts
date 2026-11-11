@@ -416,6 +416,17 @@ export const hocVien = defineCompositeResource('edu.hocVien', (r) =>
         .grant('branches', perm('coSo', { read: FIELDS.coSo.read }))
         .grant('classes', perm('lop', { read: FIELDS.lop.read }))
         .grant('parents', perm('phuHuynh', FIELDS.phuHuynh)),
+    )
+    // Export to a CSV file (DS-60): read-only over the same collections, through the caller's own scope. The route
+    // reads students, their branch and class codes, and their parents and links; it writes only the export log.
+    .action('export', (a) =>
+      a
+        .title('Xuất học viên và phụ huynh ra tệp CSV')
+        .grant('data', hocVienRead)
+        .grant('branches', perm('coSo', { read: FIELDS.coSo.read }))
+        .grant('classes', perm('lop', { read: FIELDS.lop.read }))
+        .grant('parents', perm('phuHuynh', FIELDS.phuHuynh))
+        .grant('links', perm('lienKet', FIELDS.lienKet)),
     ),
 );
 

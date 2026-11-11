@@ -824,14 +824,20 @@ export function lapKeHoach(
       return Math.max(0, sessionsPaid - unrecorded);
     };
     const writtenDeal = existing.packages?.get(`lark:deal:${id}`);
+    if (writtenDeal !== undefined && studentKey === undefined) {
+      // A Deal that was imported and has lost its student on Lark: the package stays where it is, a warning not an error.
+      warn('goiHoc', id, 'DEAL_DOI_HOC_VIEN');
+      continue;
+    }
     if (
       writtenDeal !== undefined &&
       studentKey !== undefined &&
       studentByKey.has(studentKey)
     ) {
       const holder = studentByKey.get(studentKey)?.existingId;
-      if (holder !== undefined && holder !== writtenDeal.hocVienId) {
-        // The row now points at another student; the package stays with the student who holds it in NocoEdu.
+      if (holder !== writtenDeal.hocVienId) {
+        // The row now points at another student (or a student who is new here); the package stays with the student who
+        // holds it in NocoEdu.
         warn('goiHoc', id, 'DEAL_DOI_HOC_VIEN');
         continue;
       }

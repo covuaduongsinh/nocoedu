@@ -621,3 +621,28 @@ test('the sample file holds the columns and made-up data only', async ({
     expect(csv).toContain('0900000001');
   }
 });
+
+test('warns POSSIBLE_DUPLICATE when a child of the same name, year and branch exists whose parents do not match the row', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin } = await setup(testApp, connection);
+  await post(admin, CONFIRM, {
+    csv: file('Học viên Cũ Có PH,2016,CS-A,,,Phụ huynh Cũ,0900888001,,me'),
+  });
+  const preview = await post(admin, PREVIEW, {
+    csv: file('Học viên Cũ Có PH,2016,CS-A,,,Phụ huynh Khác,0900888002,,me'),
+  });
+  const data = (await body(preview)).data;
+  expect(data).toMatchObject({ problems: [], hocVienMoi: 1 });
+  expect(data.warnings).toEqual([{ line: 2, code: 'POSSIBLE_DUPLICATE' }]);
+  // The same child with his own parent's phone is no warning.
+  const same = (
+    await body(
+      await post(admin, PREVIEW, {
+        csv: file('Học viên Cũ Có PH,2016,CS-A,,,Phụ huynh Cũ,0900888001,,me'),
+      }),
+    )
+  ).data;
+  expect(same.warnings).toEqual([]);
+});

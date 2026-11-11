@@ -1017,3 +1017,70 @@ describe('the report of the simulated write', () => {
     expect(text).toMatch(/HV-20240101-001 \| 5 \| \? \| 3 \| 99 \|/u);
   });
 });
+
+describe('a written Deal whose student changed on Lark', () => {
+  const holder = (id: number) =>
+    known({
+      externalIds: {
+        ...EMPTY_STATE.externalIds,
+        hocVien: new Set([IDS.s6]),
+        goiHoc: new Set([deal('recDealMau06a')]),
+      },
+      students: [
+        {
+          id,
+          hoTen: 'y',
+          namSinh: 2014,
+          externalId: IDS.s6,
+          phones: [],
+          coSoDu: false,
+        },
+      ],
+      packages: new Map([
+        [
+          deal('recDealMau06a'),
+          { soBuoi: 8, ngayMua: '2025-01-10', hocVienId: 6 },
+        ],
+      ]),
+    });
+
+  it('warns DEAL_DOI_HOC_VIEN, not an error, when the link to the student was removed', () => {
+    const tables = withDealStudents(buildFixture());
+    const row = tables.dealHp.find((r) => r.recordId === 'recDealMau06a');
+    delete (row?.fields as Record<string, unknown>)['Học viên'];
+    const p = lapKeHoach(fixtureData(tables), holder(6), {
+      unexcusedAbsenceDeducts: false,
+    });
+    expect(p.warnings).toContainEqual({
+      table: 'goiHoc',
+      id: 'recDealMau06a',
+      code: 'DEAL_DOI_HOC_VIEN',
+    });
+    expect(p.problems.some((x) => x.id === 'recDealMau06a')).toBe(false);
+  });
+
+  it('warns DEAL_DOI_HOC_VIEN when the Deal now points at a student who is new in NocoEdu', () => {
+    // The package is held by student 6, but the student of this Lark record has no row in NocoEdu yet.
+    const p = lapKeHoach(
+      fixtureData(withDealStudents(buildFixture())),
+      known({
+        externalIds: {
+          ...EMPTY_STATE.externalIds,
+          goiHoc: new Set([deal('recDealMau06a')]),
+        },
+        packages: new Map([
+          [
+            deal('recDealMau06a'),
+            { soBuoi: 8, ngayMua: '2025-01-10', hocVienId: 6 },
+          ],
+        ]),
+      }),
+      { unexcusedAbsenceDeducts: false },
+    );
+    expect(p.warnings).toContainEqual({
+      table: 'goiHoc',
+      id: 'recDealMau06a',
+      code: 'DEAL_DOI_HOC_VIEN',
+    });
+  });
+});
