@@ -8,6 +8,7 @@ import { EDU_EDIT_ROWS } from './edu-copy-edit.js';
 import { EDU_EXPORT_ROWS } from './edu-copy-export.js';
 import { EDU_IMPORT_ROWS } from './edu-copy-import.js';
 import { EDU_MORE_ROWS } from './edu-copy-more.js';
+import { EDU_SACH_ROWS } from './edu-copy-sach.js';
 
 type Row = readonly [key: string, vi: string, en: string, zh: string];
 
@@ -312,6 +313,7 @@ function build(index: 1 | 2 | 3): Tree {
     ...EDU_EDIT_ROWS,
     ...EDU_IMPORT_ROWS,
     ...EDU_EXPORT_ROWS,
+    ...EDU_SACH_ROWS,
   ]) {
     const parts = row[0].split('.');
     let node = root;
