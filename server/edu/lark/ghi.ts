@@ -9,6 +9,12 @@ import type {
   PlanTable,
 } from './ke-hoach.js';
 import { EMPTY_STATE } from './ke-hoach.js';
+import {
+  ghiThanhToan,
+  KHONG_GHI_THANH_TOAN,
+  type ThanhToanKetQua,
+  type ThanhToanPlan,
+} from './thanh-toan.js';
 
 type Query = ReturnType<DatabaseManager['connection']>['query'];
 
@@ -211,6 +217,8 @@ export interface WriteTotals {
   readonly ledgerRows: number;
   /** Links added to students that were already in NocoEdu (`bo_sung`). */
   readonly boSung: number;
+  /** The tuition payments of `Tổng Deal` written after the packages (none when the plan has none). */
+  readonly thanhToan: ThanhToanKetQua;
 }
 
 /**
@@ -223,7 +231,7 @@ type Connection = Parameters<Parameters<DatabaseManager['transaction']>[0]>[0];
 export async function ghiKeHoach(
   database: DatabaseManager,
   plan: Plan,
-  options: { userId: string },
+  options: { userId: string; thanhToan?: ThanhToanPlan },
 ): Promise<WriteTotals> {
   let totals: WriteTotals | undefined;
   await database.transaction(async (connection) => {
@@ -252,7 +260,7 @@ class MoPhongXong extends Error {
 export async function moPhongGhi(
   database: DatabaseManager,
   plan: Plan,
-  options: { userId: string },
+  options: { userId: string; thanhToan?: ThanhToanPlan },
 ): Promise<{ totals: WriteTotals; soDu: ReadonlyMap<string, number> }> {
   try {
     await database.transaction(async (connection) => {
@@ -280,7 +288,7 @@ export async function moPhongGhi(
 export async function ghiTrongGiaoDich(
   connection: Connection,
   plan: Plan,
-  options: { userId: string },
+  options: { userId: string; thanhToan?: ThanhToanPlan },
 ): Promise<WriteTotals> {
   const written = Object.fromEntries(
     [
@@ -489,7 +497,7 @@ export async function ghiTrongGiaoDich(
         ngayMua: row.ngayChot,
         trangThai: 'hieu_luc',
         nguoiTaoId: options.userId,
-        // `chuyen_so_du`: an opening balance; `mua`: a payment of `Deal HP`. Lark holds no amount, so the price is 0.
+        // `chuyen_so_du`: an opening balance; `mua`: a payment of `Deal HP`. `Deal HP` holds no amount, so the price is 0 (the money is in `eduThanhToan`, see `thanh-toan.ts`).
         loai: row.loai,
         ghiChu: 'chuyen_tu_lark',
         externalId: row.externalId,
@@ -613,7 +621,11 @@ export async function ghiTrongGiaoDich(
         );
     }
   }
-  return { written, ledgerRows, boSung };
+  // 7. The tuition payments of `Tổng Deal`: after the packages they point to, in the same transaction.
+  const thanhToan = options.thanhToan
+    ? await ghiThanhToan(connection.query, options.thanhToan, options)
+    : KHONG_GHI_THANH_TOAN;
+  return { written, ledgerRows, boSung, thanhToan };
 }
 
 /** One row of `eduNhapLarkNhatKy`: counts and reason codes only. Written in its own transaction so a failure is kept. */
