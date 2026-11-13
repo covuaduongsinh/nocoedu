@@ -53,6 +53,12 @@ export const EDU_NOI_DUNG_ROWS: readonly (readonly [
     'Negative balance (fee due)',
     '余额为负（需缴费）',
   ],
+  [
+    'baoCao.k.thieuDongY',
+    'Thiếu đồng ý của phụ huynh',
+    'Missing parent consent',
+    '缺少家长同意',
+  ],
   ['baoCao.col.buoiNo', 'Số buổi nợ', 'Sessions owed', '欠课时'],
   [
     'errors.EDU_ATTENDANCE_NOT_FOUND',

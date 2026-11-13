@@ -464,3 +464,53 @@ test('the negative-balance report lists only studying students who owe sessions,
   const exported = await post(admin, '/baoCao/xuatCsv', { loai: 'soDuAm' });
   expect(exported.status).toBe(200);
 });
+
+test('the missing-consent report lists studying students with no learning consent in force', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin, hlvA, ids } = await setup(testApp, connection);
+  const q = connection.query;
+  await q
+    .insertInto('eduPhuHuynh')
+    .values({ ma: 'PH-MAU', hoTen: 'Phụ huynh Mẫu', soDienThoai: '0900000001' })
+    .execute();
+  const parent = await q
+    .selectFrom('eduPhuHuynh')
+    .select('id')
+    .where('ma', '=', 'PH-MAU')
+    .executeTakeFirstOrThrow();
+  const consent = (
+    hocVienId: number,
+    over: Record<string, unknown> = {},
+  ): Promise<unknown> =>
+    q
+      .insertInto('eduDongY')
+      .values({
+        hocVienId,
+        phuHuynhId: Number(parent.id),
+        mucDich: 'hoc_tap',
+        dongY: true,
+        phienBanDieuKhoan: 'v1',
+        thoiDiem: new Date(),
+        kenh: 'giay',
+        nguoiGhiNhanId: 'x',
+        ...over,
+      })
+      .execute();
+  const rows = async (s: any) =>
+    ((await (await report(s, { loai: 'thieuDongY' })).json()) as Report).data
+      .rows;
+
+  // Nobody consented yet: both students, the coach only their own.
+  expect((await rows(admin)).map((r) => r.ma)).toEqual(['HS-A', 'HS-B']);
+  expect((await rows(hlvA.session)).map((r) => r.ma)).toEqual(['HS-A']);
+
+  // A consent for another purpose, a refusal and a withdrawn consent do not count; a valid one does.
+  await consent(ids.hocVienA, { mucDich: 'anh_video' });
+  await consent(ids.hocVienA, { dongY: false });
+  await consent(ids.hocVienA, { rutLaiLuc: new Date() });
+  expect((await rows(admin)).map((r) => r.ma)).toEqual(['HS-A', 'HS-B']);
+  await consent(ids.hocVienA);
+  expect((await rows(admin)).map((r) => r.ma)).toEqual(['HS-B']);
+});

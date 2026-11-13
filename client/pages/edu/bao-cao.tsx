@@ -51,6 +51,7 @@ export default function BaoCaoPage(): ReactElement {
     'siSo',
     'sapHetBuoi',
     'soDuAm',
+    'thieuDongY',
     ...(canAttendance ? ['chuyenCan', 'nghiDai'] : []),
     ...(canRevenue ? ['doanhThu'] : []),
   ];
