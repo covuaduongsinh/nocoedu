@@ -277,6 +277,13 @@ export const EDU_MORE_ROWS: readonly (readonly [
     'Revenue (VND)',
     '收入（越南盾）',
   ],
+  ['baoCao.col.soKhoan', 'Số khoản nộp', 'Payments', '缴费笔数'],
+  [
+    'baoCao.col.trungBinh',
+    'Trung bình mỗi khoản (đồng)',
+    'Average per payment (VND)',
+    '每笔平均（越南盾）',
+  ],
 
   [
     'errors.EDU_BALANCE_CONFLICT',

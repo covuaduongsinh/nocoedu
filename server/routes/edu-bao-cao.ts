@@ -178,6 +178,7 @@ export default [
         const from = input.tuThang ?? addDays(today, -150).slice(0, 7);
         const to = input.denThang ?? today.slice(0, 7);
         const totals = new Map<string, number>();
+        const counts = new Map<string, number>();
         for (const month of monthsBetween(from, to)) {
           const payments = await readAll(
             'eduThanhToan',
@@ -188,6 +189,7 @@ export default [
           for (const p of payments) {
             const key = `${month}|${num(p.coSoId)}`;
             totals.set(key, (totals.get(key) ?? 0) + num(p.soTien));
+            counts.set(key, (counts.get(key) ?? 0) + 1);
           }
         }
         const branches = await nameMap(
@@ -201,6 +203,8 @@ export default [
               thang,
               coSo: branches.get(num(coSoId)) ?? '',
               doanhThu: total,
+              soKhoan: counts.get(key) ?? 0,
+              trungBinh: Math.round(total / (counts.get(key) || 1)),
             };
           })
           .sort((a, b) =>
@@ -211,6 +215,8 @@ export default [
             { key: 'thang', label: 'Tháng' },
             { key: 'coSo', label: 'Cơ sở' },
             { key: 'doanhThu', label: 'Doanh thu (đồng)' },
+            { key: 'soKhoan', label: 'Số khoản nộp' },
+            { key: 'trungBinh', label: 'Trung bình mỗi khoản (đồng)' },
           ],
           rows,
         };
