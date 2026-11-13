@@ -19,6 +19,7 @@ import {
   type TableTotals,
 } from './ke-hoach.js';
 import { LarkImportError, readLarkData, type LarkSource } from './nguon.js';
+import { lapSach, type SachKetQua, type SachPlan } from './sach.js';
 import {
   lapThanhToan,
   type ThanhToanKetQua,
@@ -86,9 +87,58 @@ export type Simulation =
       readonly ok: true;
       readonly soDu: ReadonlyMap<string, number>;
       readonly thanhToan?: ThanhToanKetQua;
+      readonly sach?: SachKetQua;
     }
   | { readonly ok: false; readonly hint: string }
   | null;
+
+/** The books of `Sách` in the report: counts, Lark ids and reason codes. */
+export interface SachBaoCao {
+  readonly doc: boolean;
+  readonly dong: number;
+  readonly problems: readonly {
+    code: string;
+    count: number;
+    ids: readonly string[];
+  }[];
+  readonly warnings: readonly {
+    code: string;
+    count: number;
+    ids: readonly string[];
+  }[];
+  readonly ghi?: {
+    readonly tao: number;
+    readonly trung: number;
+    readonly daCoKyHieu: number;
+  };
+}
+
+function nhomSach(items: readonly { id: string; code: string }[]) {
+  const groups = new Map<string, string[]>();
+  for (const item of items)
+    groups.set(item.code, [...(groups.get(item.code) ?? []), item.id]);
+  return [...groups]
+    .map(([code, ids]) => ({ code, count: ids.length, ids: ids.slice(0, 20) }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+}
+
+export function baoCaoSach(plan: SachPlan, ketQua?: SachKetQua): SachBaoCao {
+  return {
+    doc: plan.doc,
+    dong: plan.rows.length,
+    problems: nhomSach(plan.problems),
+    warnings: nhomSach(plan.warnings),
+    ...(ketQua
+      ? {
+          ghi: {
+            tao: ketQua.tao,
+            trung: ketQua.trung,
+            daCoKyHieu: ketQua.daCoKyHieu.length,
+          },
+        }
+      : {}),
+  };
+}
 
 /** The tuition payments of `Tổng Deal` in the report: counts, Lark ids, reason codes and sums in dong. */
 export interface ThanhToanBaoCao {
@@ -188,6 +238,8 @@ export interface ImportReport {
   readonly skippedTables: readonly string[];
   /** The tuition of `Tổng Deal` (money); absent in a report built without it. */
   readonly thanhToan?: ThanhToanBaoCao;
+  /** The books of `Sách`; absent in a report built without it. */
+  readonly sach?: SachBaoCao;
   readonly written?: Readonly<Record<PlanTable, number>>;
   readonly ledgerRows?: number;
   readonly boSung?: number;
@@ -198,6 +250,7 @@ export function taoBaoCao(
   mode: 'dry-run' | 'commit',
   simulation: Simulation = null,
   thanhToan?: ThanhToanPlan,
+  sach?: SachPlan,
 ): ImportReport {
   // "Tính lại từ Lark" is what Lark alone gives; "số dư sau nhập" is what the database holds after the write, read after
   // a simulated write that was rolled back (mode dry-run) — the two differ when earlier data was changed since.
@@ -237,6 +290,14 @@ export function taoBaoCao(
       rows,
     },
     skippedTables: SKIPPED_TABLES,
+    ...(sach
+      ? {
+          sach: baoCaoSach(
+            sach,
+            simulation?.ok === true ? simulation.sach : undefined,
+          ),
+        }
+      : {}),
     ...(thanhToan
       ? {
           thanhToan: baoCaoThanhToan(
@@ -332,11 +393,32 @@ export function inBaoCao(report: ImportReport, maxBalanceRows = 200): string[] {
         `  … còn ${differing.length - maxBalanceRows} dòng (dùng --json)`,
       );
   }
+  if (report.sach) lines.push(...inSach(report.sach));
   if (report.thanhToan) lines.push(...inThanhToan(report.thanhToan));
   if (report.written)
     lines.push(
       '',
       `Đã ghi: ${PLAN_TABLES.map((t) => `${t} ${report.written?.[t] ?? 0}`).join(', ')}; sổ số dư ${report.ledgerRows ?? 0} dòng; liên kết phụ huynh bổ sung ${report.boSung ?? 0}.`,
+    );
+  return lines;
+}
+
+/** The books part of the report as lines: counts, Lark ids and codes, never a title. */
+function inSach(report: SachBaoCao): string[] {
+  if (!report.doc)
+    return ['', 'Sách: app KHÔNG đọc được bảng Sách, không nhập cuốn nào.'];
+  const lines = ['', `Sách: ${report.dong} cuốn hợp lệ.`];
+  for (const group of report.problems)
+    lines.push(
+      `  BỎ ${group.code}: ${group.count} dòng, ví dụ ${group.ids.slice(0, 5).join(', ')}`,
+    );
+  for (const group of report.warnings)
+    lines.push(
+      `  Cảnh báo ${group.code}: ${group.count} dòng, ví dụ ${group.ids.slice(0, 5).join(', ')}`,
+    );
+  if (report.ghi)
+    lines.push(
+      `  Ghi (hoặc ghi thử): tạo ${report.ghi.tao}, đã có sẵn ${report.ghi.trung}, ký hiệu đã có sẵn trong NocoEdu ${report.ghi.daCoKyHieu}.`,
     );
   return lines;
 }
@@ -390,6 +472,7 @@ export async function chayNhap(
   const plan = lapKeHoach(data, existing, {
     unexcusedAbsenceDeducts: unexcusedAbsenceDeducts(process.env),
   });
+  const sach = lapSach(data);
   // The students the plan holds, new or already in NocoEdu: a payment of anybody else cannot be placed.
   const thanhToan = lapThanhToan(
     data,
@@ -404,19 +487,21 @@ export async function chayNhap(
         const result = await moPhongGhi(database, plan, {
           userId: 'dry-run',
           thanhToan,
+          sach,
         });
         simulation = {
           ok: true,
           soDu: result.soDu,
           thanhToan: result.totals.thanhToan,
+          sach: result.totals.sach,
         };
       } catch (error) {
         simulation = { ok: false, hint: identifiersOf(error) };
       }
     }
-    return taoBaoCao(plan, 'dry-run', simulation, thanhToan);
+    return taoBaoCao(plan, 'dry-run', simulation, thanhToan, sach);
   }
-  const report = taoBaoCao(plan, 'commit', null, thanhToan);
+  const report = taoBaoCao(plan, 'commit', null, thanhToan, sach);
   if (plan.structural.length > 0)
     throw new LarkImportError(
       'LARK_KE_HOACH_LOI_CAU_TRUC',
@@ -427,7 +512,7 @@ export async function chayNhap(
   const userId = options.userId as string;
   let result: Awaited<ReturnType<typeof ghiKeHoach>>;
   try {
-    result = await ghiKeHoach(database, plan, { userId, thanhToan });
+    result = await ghiKeHoach(database, plan, { userId, thanhToan, sach });
   } catch (error) {
     // The transaction rolled back. The failure is kept in its own row as codes and identifiers only (no message that
     // could hold a value), and the command names the table or constraint that refused the write.
@@ -461,6 +546,7 @@ export async function chayNhap(
   const done = {
     ...report,
     thanhToan: baoCaoThanhToan(thanhToan, result.thanhToan),
+    sach: baoCaoSach(sach, result.sach),
     written: result.written,
     ledgerRows: result.ledgerRows,
     boSung: result.boSung,
