@@ -3,6 +3,7 @@ import { readAppClientRuntimeConfig } from '@nocobase/app-client/runtime';
 import { includeNotificationTemplateRoutes } from './pages/settings/notification-routes.js';
 import {
   BarChart3,
+  BookOpen,
   Building2,
   CalendarCheck,
   Contact,
@@ -33,7 +34,8 @@ function eduPage(
     | 'diemDanh'
     | 'hocPhi'
     | 'nhanXet'
-    | 'baoCao',
+    | 'baoCao'
+    | 'sach',
   path: string,
   icon: typeof Home,
   order: number,
@@ -153,6 +155,7 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     8,
     () => import('./pages/edu/bao-cao.js'),
   ),
+  ...eduPage('sach', '/sach', BookOpen, 9, () => import('./pages/edu/sach.js')),
   {
     // Declares no navigation, so the application decides where its entry goes (for example a sidebar item with an
     // unread badge). The plugin's API answers each person's own messages only, so the page needs no authorization of

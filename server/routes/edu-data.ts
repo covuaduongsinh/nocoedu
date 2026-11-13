@@ -27,6 +27,7 @@ import {
   lopLich,
   nhanXet,
   phuHuynh,
+  sach,
   soDu,
   thanhToan,
 } from '../edu/permissions.js';
@@ -106,6 +107,14 @@ const EXPOSURES: readonly Exposure[] = [
   { name: 'thanhToan', key: 'thanhToan', resource: thanhToan },
   { name: 'nhanXetThang', key: 'nhanXetThang', resource: nhanXet },
   { name: 'soDuNhatKy', key: 'soDuNhatKy', resource: soDu },
+  // The books catalogue: a book is withdrawn by its status, never deleted.
+  {
+    name: 'sach',
+    key: 'sach',
+    resource: sach,
+    create: true,
+    update: FIELDS.sach.write,
+  },
 ];
 
 /**
