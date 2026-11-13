@@ -20,3 +20,6 @@ coverage/
 /.claude/skills/
 /.agent-annotations/
 *.log
+
+# OMC (oh-my-claudecode) state
+/.omc/
