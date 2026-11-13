@@ -414,3 +414,53 @@ test('the class form lists coaches by name, for those who manage classes', async
   expect((await post(keToan.session, '/hlv/danhSach', {})).status).toBe(403);
   expect((await post(hlvA.session, '/hlv/danhSach', {})).status).toBe(403);
 });
+
+test('the negative-balance report lists only studying students who owe sessions, inside the caller scope', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin, hlvA, managerA, keToan, ids } = await setup(
+    testApp,
+    connection,
+  );
+  const q = connection.query;
+  await q
+    .updateTable('eduHocVien')
+    .set({ soBuoiConLai: -3 })
+    .where('id', '=', ids.hocVienA)
+    .execute();
+  await q
+    .updateTable('eduHocVien')
+    .set({ soBuoiConLai: -1 })
+    .where('id', '=', ids.hocVienB)
+    .execute();
+
+  const rows = async (s: any) =>
+    ((await (await report(s, { loai: 'soDuAm' })).json()) as Report).data.rows;
+  // The coach sees their class, the manager their branch, the administrator both (worst balance first).
+  expect((await rows(hlvA.session)).map((r) => r.ma)).toEqual(['HS-A']);
+  expect(await rows(hlvA.session)).toMatchObject([
+    { soBuoiConLai: -3, buoiNo: 3 },
+  ]);
+  expect((await rows(managerA.session)).map((r) => r.ma)).toEqual(['HS-A']);
+  expect((await rows(admin)).map((r) => r.ma)).toEqual(['HS-A', 'HS-B']);
+  // The accountant sees every branch, like the other balance reports.
+  expect((await rows(keToan.session)).length).toBe(2);
+
+  // A student who left, or whose balance is zero or positive, is not listed.
+  await q
+    .updateTable('eduHocVien')
+    .set({ trangThai: 'da_nghi' })
+    .where('id', '=', ids.hocVienA)
+    .execute();
+  await q
+    .updateTable('eduHocVien')
+    .set({ soBuoiConLai: 0 })
+    .where('id', '=', ids.hocVienB)
+    .execute();
+  expect(await rows(admin)).toEqual([]);
+
+  // It exports like the other reports, and the export is logged without names.
+  const exported = await post(admin, '/baoCao/xuatCsv', { loai: 'soDuAm' });
+  expect(exported.status).toBe(200);
+});

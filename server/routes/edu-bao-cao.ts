@@ -37,6 +37,7 @@ const REPORTS = [
   'siSo',
   'chuyenCan',
   'sapHetBuoi',
+  'soDuAm',
   'nghiDai',
   'doanhThu',
 ] as const;
@@ -64,6 +65,7 @@ const GATE: Record<ReportKind, string> = {
   siSo: 'edu.hocVien',
   chuyenCan: 'edu.diemDanh',
   sapHetBuoi: 'edu.hocVien',
+  soDuAm: 'edu.hocVien',
   nghiDai: 'edu.diemDanh',
   doanhThu: 'edu.thanhToan',
 };
@@ -283,6 +285,34 @@ export default [
               { key: 'hoTen', label: 'Họ tên' },
               { key: 'lop', label: 'Lớp' },
               { key: 'soBuoiConLai', label: 'Số buổi còn lại' },
+            ],
+            rows,
+          };
+        }
+        case 'soDuAm': {
+          // Students who are studying and owe sessions (a negative balance, DS-61): the list to tell their parents that
+          // the next term's fee is due. The balance itself is read from the student row, never recomputed here.
+          const rows = students
+            .filter(
+              (s) => s.trangThai === 'dang_hoc' && num(s.soBuoiConLai) < 0,
+            )
+            .sort((a, b) => num(a.soBuoiConLai) - num(b.soBuoiConLai))
+            .map((s) => ({
+              ma: asText(s.ma),
+              hoTen: asText(s.hoTen),
+              coSo: branches.get(num(s.coSoId)) ?? '',
+              lop: s.lopId == null ? '' : (lops.get(num(s.lopId)) ?? ''),
+              soBuoiConLai: num(s.soBuoiConLai),
+              buoiNo: -num(s.soBuoiConLai),
+            }));
+          return {
+            columns: [
+              { key: 'ma', label: 'Mã' },
+              { key: 'hoTen', label: 'Họ tên' },
+              { key: 'coSo', label: 'Cơ sở' },
+              { key: 'lop', label: 'Lớp' },
+              { key: 'soBuoiConLai', label: 'Số buổi còn lại' },
+              { key: 'buoiNo', label: 'Số buổi nợ' },
             ],
             rows,
           };
