@@ -208,3 +208,27 @@ describeMigration('202611100002_edu_nhap_lark', {
     await expectCollection('eduBuoiHoc').toHaveField('truVangCoPhep');
   },
 });
+
+describeMigration('202611130001_edu_thanh_toan_external_id', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduThanhToan').toHaveField('externalId', {
+      nullable: true,
+    });
+    await expectCollection('eduThanhToan').toHaveIndex(['externalId'], {
+      unique: true,
+    });
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduThanhToan').toExist();
+    await expectCollection('eduThanhToan').not.toHaveField('externalId');
+  },
+});
