@@ -365,6 +365,57 @@ test('a coach writes monthly comments for their own class only, and exports them
   expect(other.data.soDong).toBe(0);
 });
 
+test('a periodic review and a year-end summary are comments of their own, apart from the month', async ({
+  testApp,
+  connection,
+}) => {
+  const { hlvA, ids } = await setup(testApp, connection);
+  for (const [thang, noiDung] of [
+    ['2026-K3', 'Ý thức: tốt.'],
+    ['2026-CN', 'Ưu điểm: bền bỉ.'],
+    ['2026-10', 'Nhận xét tháng.'],
+  ] as const)
+    expect(
+      (
+        await post(hlvA.session, '/nhanXet/luu', {
+          hocVienId: ids.hocVienA,
+          thang,
+          noiDung,
+        })
+      ).status,
+    ).toBe(201);
+  // Three comments, no replacement: each key is its own comment.
+  expect(
+    (
+      await connection.query
+        .selectFrom('eduNhanXetThang')
+        .select('id')
+        .execute()
+    ).length,
+  ).toBe(3);
+  const text = async (thang: string) =>
+    (
+      (await (
+        await post(hlvA.session, '/nhanXet/xuatVanBan', { thang })
+      ).json()) as { data: { danhSach: { vanBan: string }[] } }
+    ).data.danhSach.map((x) => x.vanBan);
+  expect((await text('2026-K3'))[0]).toContain(
+    'Nhận xét định kỳ lần 3 năm 2026',
+  );
+  expect((await text('2026-CN'))[0]).toContain('Tổng kết cuối năm 2026');
+  // Keys that are neither a month nor a review are refused.
+  for (const thang of ['2026-13', '2026-K0', '2026-K10', '2026-XX'])
+    expect(
+      (
+        await post(hlvA.session, '/nhanXet/luu', {
+          hocVienId: ids.hocVienA,
+          thang,
+          noiDung: 'x',
+        })
+      ).status,
+    ).toBe(400);
+});
+
 test('the home summary lists today sessions and unmarked ones for the coach only', async ({
   testApp,
   connection,
