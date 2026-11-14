@@ -10,6 +10,12 @@ import type {
 } from './ke-hoach.js';
 import { EMPTY_STATE } from './ke-hoach.js';
 import {
+  ghiSach,
+  KHONG_GHI_SACH,
+  type SachKetQua,
+  type SachPlan,
+} from './sach.js';
+import {
   ghiThanhToan,
   KHONG_GHI_THANH_TOAN,
   type ThanhToanKetQua,
@@ -219,6 +225,8 @@ export interface WriteTotals {
   readonly boSung: number;
   /** The tuition payments of `Tổng Deal` written after the packages (none when the plan has none). */
   readonly thanhToan: ThanhToanKetQua;
+  /** The books of `Sách` written (none when the plan has none). */
+  readonly sach: SachKetQua;
 }
 
 /**
@@ -231,7 +239,7 @@ type Connection = Parameters<Parameters<DatabaseManager['transaction']>[0]>[0];
 export async function ghiKeHoach(
   database: DatabaseManager,
   plan: Plan,
-  options: { userId: string; thanhToan?: ThanhToanPlan },
+  options: { userId: string; thanhToan?: ThanhToanPlan; sach?: SachPlan },
 ): Promise<WriteTotals> {
   let totals: WriteTotals | undefined;
   await database.transaction(async (connection) => {
@@ -260,7 +268,7 @@ class MoPhongXong extends Error {
 export async function moPhongGhi(
   database: DatabaseManager,
   plan: Plan,
-  options: { userId: string; thanhToan?: ThanhToanPlan },
+  options: { userId: string; thanhToan?: ThanhToanPlan; sach?: SachPlan },
 ): Promise<{ totals: WriteTotals; soDu: ReadonlyMap<string, number> }> {
   try {
     await database.transaction(async (connection) => {
@@ -288,7 +296,7 @@ export async function moPhongGhi(
 export async function ghiTrongGiaoDich(
   connection: Connection,
   plan: Plan,
-  options: { userId: string; thanhToan?: ThanhToanPlan },
+  options: { userId: string; thanhToan?: ThanhToanPlan; sach?: SachPlan },
 ): Promise<WriteTotals> {
   const written = Object.fromEntries(
     [
@@ -625,7 +633,10 @@ export async function ghiTrongGiaoDich(
   const thanhToan = options.thanhToan
     ? await ghiThanhToan(connection.query, options.thanhToan, options)
     : KHONG_GHI_THANH_TOAN;
-  return { written, ledgerRows, boSung, thanhToan };
+  const sach = options.sach
+    ? await ghiSach(connection.query, options.sach)
+    : KHONG_GHI_SACH;
+  return { written, ledgerRows, boSung, thanhToan, sach };
 }
 
 /** One row of `eduNhapLarkNhatKy`: counts and reason codes only. Written in its own transaction so a failure is kept. */

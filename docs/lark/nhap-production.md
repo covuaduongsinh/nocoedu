@@ -197,3 +197,12 @@ Từ bản này `import-lark` đọc thêm bảng `Tổng Deal (HP + book)` (`tb
 - **Số kỳ vọng (đọc từ file `.base` ngày 13/11/2026):** 270 khoản có học phí, tổng 511.134.000 đ; 225 khoản có học viên (445.870.000 đ), 45 khoản (65.264.000 đ, toàn bộ năm 2024) chưa gắn học viên trên Lark nên sẽ bị bỏ cho tới khi điền cột `Tên HS link`. Tiền sách và `Mua khác` chưa nhập (giai đoạn sách).
 - **Đối chiếu sau khi ghi:** báo cáo doanh thu theo tháng phải cộng đúng tổng đã nhập (`SELECT sum(so_tien) FROM edu_thanh_toan`).
 - **Hoàn tác:** `DELETE FROM edu_thanh_toan WHERE external_id LIKE 'lark:tongdeal:%'` (không động tới gói hay số dư; thanh toán không đổi số dư buổi).
+
+## Sách từ bảng `Sách` (DS-61 phase E)
+
+`import-lark` đọc thêm bảng `Sách` (`tbl324dOlvbf3BUu`, 37 cuốn) và ghi vào danh mục `eduSach` (`externalId = lark:sach:<rec>`): ký hiệu, tên, giá bìa, giá bán cho phụ huynh. Cần migration `202611130002_create_edu_sach` đã chạy (deploy bản có PR danh mục sách trước).
+
+- Bảng này là tùy chọn: app không thấy thì lệnh vẫn chạy như cũ và in "app KHÔNG đọc được bảng Sách".
+- `--dry-run` in mục "Sách": số cuốn hợp lệ, các dòng bị bỏ theo mã (`SACH_THIEU_KY_HIEU`, `SACH_TRUNG_KY_HIEU`, `SACH_QUA_DAI`), cảnh báo (`SACH_THIEU_TEN`, `SACH_THIEU_GIA`) và số cuốn sẽ tạo. Số kỳ vọng từ file `.base`: 37 cuốn, không trùng ký hiệu; 1 cuốn thiếu giá bán và 1 cuốn thiếu tên (cảnh báo, vẫn nhập, giá 0, tên lấy theo ký hiệu).
+- Sách đã ghi không bao giờ bị sửa lại; ký hiệu đã có trong NocoEdu (nhập tay) được giữ nguyên và báo `daCoKyHieu`.
+- Hoàn tác: `DELETE FROM edu_sach WHERE external_id LIKE 'lark:sach:%'` (chỉ khi chưa có lần phát sách nào trỏ tới).

@@ -47,6 +47,18 @@ export const LARK_TONG_DEAL = {
   title: 'Tổng Deal (HP + book)',
 } as const;
 
+/**
+ * `Sách` (37 rows): the books the club sells. Optional like `Tổng Deal`: an app that cannot see it imports as before
+ * (`sachDoc = false`). Only symbol, title and the two prices are read; the summary of the content is not.
+ */
+export const LARK_SACH = { id: 'tbl324dOlvbf3BUu', title: 'Sách' } as const;
+export const SACH_REQUIRED_FIELDS: readonly string[] = [
+  'Ký hiệu sách',
+  'Tên sách',
+  'Giá bìa',
+  'Giá bán cho PH',
+];
+
 /** The fields of `Tổng Deal` the plan needs; one missing or renamed stops the import (`LARK_CAU_TRUC_DOI`). */
 export const TONG_DEAL_REQUIRED_FIELDS: readonly string[] = [
   'Tên HS link',
@@ -188,6 +200,9 @@ export interface LarkData {
   readonly tongDeal: readonly LarkRecord[];
   /** False when `Tổng Deal` is not in the list of tables the app can read. */
   readonly tongDealDoc: boolean;
+  /** The books of `Sách`; empty when the app cannot see that table (`sachDoc`). */
+  readonly sach: readonly LarkRecord[];
+  readonly sachDoc: boolean;
   /** The rows of every yearly attendance table, oldest year first. */
   readonly nhanXet: readonly LarkRecord[];
 }
@@ -315,6 +330,20 @@ export async function readLarkData(
   } else {
     log('tongDeal: not in the list of tables the app can read');
   }
+  const sachDoc = listedIds.has(LARK_SACH.id);
+  let sach: readonly LarkRecord[] = [];
+  if (sachDoc) {
+    const names = new Set(await source.fieldNames(LARK_SACH.id));
+    const lost = SACH_REQUIRED_FIELDS.filter((f) => !names.has(f));
+    if (lost.length > 0)
+      throw new LarkImportError(
+        'LARK_CAU_TRUC_DOI',
+        `The Lark structure changed; missing or renamed fields: ${lost.map((f) => `sach: ${f}`).join('; ')}`,
+      );
+    sach = await read('sach', LARK_SACH.id, SACH_REQUIRED_FIELDS);
+  } else {
+    log('sach: not in the list of tables the app can read');
+  }
   const nhanXet: LarkRecord[] = [];
   for (const { year, id } of yearly)
     nhanXet.push(...(await read(`nhanXet${year}`, id, NHAN_XET_READ_FIELDS)));
@@ -326,6 +355,8 @@ export async function readLarkData(
     dealHp,
     tongDeal,
     tongDealDoc,
+    sach,
+    sachDoc,
     nhanXet,
   };
 }
