@@ -37,6 +37,8 @@ const REPORTS = [
   'siSo',
   'chuyenCan',
   'sapHetBuoi',
+  'soDuAm',
+  'thieuDongY',
   'nghiDai',
   'doanhThu',
 ] as const;
@@ -64,6 +66,8 @@ const GATE: Record<ReportKind, string> = {
   siSo: 'edu.hocVien',
   chuyenCan: 'edu.diemDanh',
   sapHetBuoi: 'edu.hocVien',
+  soDuAm: 'edu.hocVien',
+  thieuDongY: 'edu.hocVien',
   nghiDai: 'edu.diemDanh',
   doanhThu: 'edu.thanhToan',
 };
@@ -178,6 +182,7 @@ export default [
         const from = input.tuThang ?? addDays(today, -150).slice(0, 7);
         const to = input.denThang ?? today.slice(0, 7);
         const totals = new Map<string, number>();
+        const counts = new Map<string, number>();
         for (const month of monthsBetween(from, to)) {
           const payments = await readAll(
             'eduThanhToan',
@@ -188,6 +193,7 @@ export default [
           for (const p of payments) {
             const key = `${month}|${num(p.coSoId)}`;
             totals.set(key, (totals.get(key) ?? 0) + num(p.soTien));
+            counts.set(key, (counts.get(key) ?? 0) + 1);
           }
         }
         const branches = await nameMap(
@@ -201,6 +207,8 @@ export default [
               thang,
               coSo: branches.get(num(coSoId)) ?? '',
               doanhThu: total,
+              soKhoan: counts.get(key) ?? 0,
+              trungBinh: Math.round(total / (counts.get(key) || 1)),
             };
           })
           .sort((a, b) =>
@@ -211,6 +219,8 @@ export default [
             { key: 'thang', label: 'Tháng' },
             { key: 'coSo', label: 'Cơ sở' },
             { key: 'doanhThu', label: 'Doanh thu (đồng)' },
+            { key: 'soKhoan', label: 'Số khoản nộp' },
+            { key: 'trungBinh', label: 'Trung bình mỗi khoản (đồng)' },
           ],
           rows,
         };
@@ -283,6 +293,79 @@ export default [
               { key: 'hoTen', label: 'Họ tên' },
               { key: 'lop', label: 'Lớp' },
               { key: 'soBuoiConLai', label: 'Số buổi còn lại' },
+            ],
+            rows,
+          };
+        }
+        case 'soDuAm': {
+          // Students who are studying and owe sessions (a negative balance, DS-61): the list to tell their parents that
+          // the next term's fee is due. The balance itself is read from the student row, never recomputed here.
+          const rows = students
+            .filter(
+              (s) => s.trangThai === 'dang_hoc' && num(s.soBuoiConLai) < 0,
+            )
+            .sort((a, b) => num(a.soBuoiConLai) - num(b.soBuoiConLai))
+            .map((s) => ({
+              ma: asText(s.ma),
+              hoTen: asText(s.hoTen),
+              coSo: branches.get(num(s.coSoId)) ?? '',
+              lop: s.lopId == null ? '' : (lops.get(num(s.lopId)) ?? ''),
+              soBuoiConLai: num(s.soBuoiConLai),
+              buoiNo: -num(s.soBuoiConLai),
+            }));
+          return {
+            columns: [
+              { key: 'ma', label: 'Mã' },
+              { key: 'hoTen', label: 'Họ tên' },
+              { key: 'coSo', label: 'Cơ sở' },
+              { key: 'lop', label: 'Lớp' },
+              { key: 'soBuoiConLai', label: 'Số buổi còn lại' },
+              { key: 'buoiNo', label: 'Số buổi nợ' },
+            ],
+            rows,
+          };
+        }
+        case 'thieuDongY': {
+          // Students who are studying and have no consent for learning (`hoc_tap`) in force: given and not withdrawn
+          // (DS-61). Only the ids of students the caller's policy already returned are looked up; the report shows
+          // that a consent is missing, never what a parent answered.
+          const studying = students.filter((s) => s.trangThai === 'dang_hoc');
+          const covered = new Set<number>();
+          for (const part of chunks(
+            studying.map((s) => num(s.id)),
+            400,
+          )) {
+            const given = await q()
+              .selectFrom('eduDongY')
+              .select('hocVienId')
+              .where('hocVienId', 'in', part)
+              .where('mucDich', '=', 'hoc_tap')
+              .where('dongY', '=', true)
+              .where('rutLaiLuc', 'is', null)
+              .execute();
+            for (const row of given) covered.add(num(row.hocVienId));
+          }
+          const rows = studying
+            .filter((s) => !covered.has(num(s.id)))
+            .sort(
+              (a, b) =>
+                (branches.get(num(a.coSoId)) ?? '').localeCompare(
+                  branches.get(num(b.coSoId)) ?? '',
+                  'vi',
+                ) || asText(a.ma).localeCompare(asText(b.ma)),
+            )
+            .map((s) => ({
+              ma: asText(s.ma),
+              hoTen: asText(s.hoTen),
+              coSo: branches.get(num(s.coSoId)) ?? '',
+              lop: s.lopId == null ? '' : (lops.get(num(s.lopId)) ?? ''),
+            }));
+          return {
+            columns: [
+              { key: 'ma', label: 'Mã' },
+              { key: 'hoTen', label: 'Họ tên' },
+              { key: 'coSo', label: 'Cơ sở' },
+              { key: 'lop', label: 'Lớp' },
             ],
             rows,
           };
