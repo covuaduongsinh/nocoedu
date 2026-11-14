@@ -57,6 +57,30 @@ export const EDU_MORE_ROWS: readonly (readonly [
     '剩余 2 节课或更少。',
   ],
   [
+    'home.callBack',
+    'Gia đình cần gọi lại',
+    'Families to call back',
+    '需要回访的家庭',
+  ],
+  [
+    'home.callBackHint',
+    'Liên hệ tuyển sinh còn mở và đã đến ngày gọi lại.',
+    'Open admissions contacts whose call-back day has come.',
+    '仍在跟进且已到回访日期的招生联系人。',
+  ],
+  [
+    'home.callBackEmpty',
+    'Không có gia đình nào cần gọi lại hôm nay.',
+    'No family to call back today.',
+    '今天没有需要回访的家庭。',
+  ],
+  [
+    'home.callBackOpen',
+    'Mở trang Tuyển sinh',
+    'Open Admissions',
+    '打开招生页面',
+  ],
+  [
     'home.lowEmpty',
     'Chưa có học viên nào sắp hết buổi.',
     'No student is running out.',
