@@ -12,6 +12,7 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
+import { asText } from '../edu/names.js';
 import { addDays, todayVn } from '../edu/so-du.js';
 import { needs, policyOf, type EduEnv } from './edu-support.js';
 
@@ -54,7 +55,7 @@ export default [
             sort: (s) => s.field('id').asc(),
             limit: 5000,
           });
-          const old = rows.filter((row) => String(row.ngayTao) < cutoff);
+          const old = rows.filter((row) => asText(row.ngayTao) < cutoff);
           for (const row of old)
             await contacts.deleteOne({ filter: { id: Number(row.id) } });
           return old.length;
