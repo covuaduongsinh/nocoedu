@@ -112,9 +112,9 @@ export default [
             soDienThoai: input.soDienThoai,
             coSoId,
             trangThai: 'moi',
-            kenhTiepNhan: input.kenhTiepNhan,
+            kenh: input.kenhTiepNhan,
             ghiChu: input.ghiChu ? `[NocoCRM] ${input.ghiChu}` : '[NocoCRM Đồng bộ]',
-            ngayHenHocThu: input.ngayHenHocThu ?? null,
+            ngayNhac: input.ngayHenHocThu ?? null,
             ngayTao: todayVn(),
           })
           .execute();
