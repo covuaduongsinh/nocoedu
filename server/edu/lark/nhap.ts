@@ -113,6 +113,18 @@ export interface SachBaoCao {
     readonly phatTao: number;
     readonly phatTrung: number;
     readonly phatKhongCo: number;
+    readonly nopTao: number;
+    readonly nopTrung: number;
+    readonly nopKhongCo: number;
+  };
+  /** The book money of `Tổng Deal`. */
+  readonly nop: {
+    readonly dong: number;
+    readonly problems: readonly {
+      code: string;
+      count: number;
+      ids: readonly string[];
+    }[];
   };
   /** The handouts of `Từng lần phát sách`. */
   readonly phat: {
@@ -141,6 +153,10 @@ export function baoCaoSach(plan: SachPlan, ketQua?: SachKetQua): SachBaoCao {
     dong: plan.rows.length,
     problems: nhomSach(plan.problems),
     warnings: nhomSach(plan.warnings),
+    nop: {
+      dong: plan.nop.length,
+      problems: nhomSach(plan.nopProblems),
+    },
     phat: {
       doc: plan.phatDoc,
       dong: plan.phat.length,
@@ -155,6 +171,9 @@ export function baoCaoSach(plan: SachPlan, ketQua?: SachKetQua): SachBaoCao {
             phatTao: ketQua.phatTao,
             phatTrung: ketQua.phatTrung,
             phatKhongCo: ketQua.phatKhongCo,
+            nopTao: ketQua.nopTao,
+            nopTrung: ketQua.nopTrung,
+            nopKhongCo: ketQua.nopKhongCo,
           },
         }
       : {}),
@@ -444,6 +463,17 @@ function inSach(report: SachBaoCao): string[] {
   if (!report.phat.doc)
     lines.push('Phát sách: app KHÔNG đọc được bảng Từng lần phát sách.');
   else {
+    lines.push(
+      `Tiền sách đã nộp (Tổng Deal): ${report.nop.dong} khoản hợp lệ.`,
+    );
+    for (const group of report.nop.problems)
+      lines.push(
+        `  BỎ ${group.code}: ${group.count} dòng, ví dụ ${group.ids.slice(0, 5).join(', ')}`,
+      );
+    if (report.ghi)
+      lines.push(
+        `  Ghi (hoặc ghi thử): tạo ${report.ghi.nopTao}, đã có sẵn ${report.ghi.nopTrung}, không tìm thấy học viên ${report.ghi.nopKhongCo}.`,
+      );
     lines.push(`Phát sách: ${report.phat.dong} lượt hợp lệ.`);
     for (const group of report.phat.problems)
       lines.push(

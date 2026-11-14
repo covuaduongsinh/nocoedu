@@ -197,6 +197,18 @@ const withHandouts = () => {
     handout('recPhat6', IDS.s1, 'recSachMau1', { 'Ưu đãi': 150000 }),
     handout('recPhat7', IDS.s1, 'recSachMau1', { 'Ngày dùng': undefined }),
   );
+  // Book money of `Tổng Deal`: one good row, one of a student left out, one with no student.
+  const money = (id: string, student: string | null, amount: number) =>
+    book(id, {
+      ...(student ? { 'Tên HS link': link(student, 'Học viên Mẫu') } : {}),
+      'Ngày nộp': ms('2026-05-09'),
+      'Tiền sách': amount,
+    });
+  tables.tongDeal.push(
+    money('recTien1', IDS.s1, 50000),
+    money('recTien2', IDS.s3, 30000),
+    money('recTien3', null, 10000),
+  );
   return tables;
 };
 
@@ -232,6 +244,7 @@ test('the commit writes the handouts once, with the branch of the student and th
     ).id,
   );
   await connection.query.deleteFrom('eduPhatSach').allowAllRows().execute();
+  await connection.query.deleteFrom('eduNopSach').allowAllRows().execute();
   await connection.query.deleteFrom('eduSach').allowAllRows().execute();
   const run = (commit: boolean) =>
     chayNhap(database, fixtureSource(withHandouts()), {
@@ -246,7 +259,11 @@ test('the commit writes the handouts once, with the branch of the student and th
   const dry = await run(false);
   expect(await count()).toBe(0);
   expect(dry.sach?.phat).toMatchObject({ doc: true, dong: 2 });
-  expect(dry.sach?.ghi).toMatchObject({ phatTao: 2, phatTrung: 0 });
+  expect(dry.sach?.ghi).toMatchObject({ phatTao: 2, phatTrung: 0, nopTao: 1 });
+  expect(dry.sach?.nop.problems.map((g) => g.code).sort()).toEqual([
+    'NOP_SACH_HOC_VIEN_BI_BO',
+    'NOP_SACH_THIEU_HOC_VIEN',
+  ]);
   const text = inBaoCao(dry).join(' | ');
   expect(text).toContain('PHAT_SACH_UU_DAI_SAI');
   expect(text).not.toMatch(/Học viên Mẫu/u);
@@ -265,6 +282,18 @@ test('the commit writes the handouts once, with the branch of the student and th
   expect(Number(rows[0]?.coSoId)).toBeGreaterThan(0);
 
   const again = await run(true);
-  expect(again.sach?.ghi).toMatchObject({ phatTao: 0, phatTrung: 2 });
+  expect(again.sach?.ghi).toMatchObject({
+    phatTao: 0,
+    phatTrung: 2,
+    nopTao: 0,
+    nopTrung: 1,
+  });
+  const paid = await connection.query
+    .selectFrom('eduNopSach')
+    .select(['soTien', 'externalId'])
+    .execute();
+  expect(paid).toEqual([
+    { soTien: 50000, externalId: 'lark:tongdeal-sach:recTien1' },
+  ]);
   expect(await count()).toBe(2);
 });

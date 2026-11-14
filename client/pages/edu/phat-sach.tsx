@@ -4,6 +4,14 @@ import { useTranslation } from '@nocobase/i18n/client';
 import { useState, type ReactElement } from 'react';
 
 import { Button } from '#components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#components/ui/table';
 
 import { FormDialog, SelectField, TextField } from './form-parts.js';
 import {
@@ -13,6 +21,7 @@ import {
   useListState,
   usePagedRows,
   useRows,
+  useRequest,
   useRowsByIds,
 } from './kit.js';
 import { ListPage } from './list-page.js';
@@ -27,6 +36,52 @@ interface Form {
 
 const money = (value: unknown): string =>
   Number(value ?? 0).toLocaleString('vi-VN');
+
+interface FundRow {
+  hocVienId: number;
+  ma: string;
+  hoTen: string;
+  daNop: number;
+  daPhat: number;
+  conLai: number;
+}
+
+/** The book fund of each student: what the parent paid for books, what was handed out, what is left. */
+function QuySach(props: { version: number }): ReactElement | null {
+  const { t } = useTranslation();
+  const { result } = useRequest<{ rows: FundRow[] }>('/quySach/xem', {
+    v: props.version,
+  });
+  if (result.state !== 'ready' || result.data.rows.length === 0) return null;
+  return (
+    <section className='mx-auto w-full max-w-6xl px-4 pb-8'>
+      <h2 className='mb-1 text-lg font-semibold'>{t('edu.quySach.title')}</h2>
+      <p className='mb-3 text-sm text-muted-foreground'>
+        {t('edu.quySach.description')}
+      </p>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t('edu.phatSach.hocVien')}</TableHead>
+            <TableHead>{t('edu.quySach.daNop')}</TableHead>
+            <TableHead>{t('edu.quySach.daPhat')}</TableHead>
+            <TableHead>{t('edu.quySach.conLai')}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {result.data.rows.map((row) => (
+            <TableRow key={row.hocVienId}>
+              <TableCell>{`${row.ma} · ${row.hoTen}`}</TableCell>
+              <TableCell>{money(row.daNop)}</TableCell>
+              <TableCell>{money(row.daPhat)}</TableCell>
+              <TableCell>{money(row.conLai)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </section>
+  );
+}
 
 /**
  * The books handed out to students. The server fills the branch of the student and the price of the book; the
@@ -114,6 +169,7 @@ export default function PhatSachPage(): ReactElement {
           { key: 'ghiChu', label: t('edu.phatSach.ghiChu') },
         ]}
       />
+      <QuySach version={total} />
       {form ? (
         <FormDialog
           open

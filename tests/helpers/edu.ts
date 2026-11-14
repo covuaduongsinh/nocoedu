@@ -108,6 +108,7 @@ export async function seedSchool(
   // The file shares one application, so start every case from an empty school.
   for (const table of [
     'eduPhatSach',
+    'eduNopSach',
     'eduNhanXetThang',
     'eduSoDuNhatKy',
     'eduThanhToan',

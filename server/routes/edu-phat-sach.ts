@@ -13,6 +13,7 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
+import { asText } from '../edu/names.js';
 import { todayVn } from '../edu/so-du.js';
 import {
   currentUserId,
@@ -45,11 +46,85 @@ export default [
     const database = app.container.resolve(databaseManagerToken);
     const router = new Hono<EduEnv>();
 
-    router.use(
-      '/phatSach/ghi',
-      auth.required(),
-      authz.middleware(),
-      bodyLimit({ maxSize: 16 * 1024 }),
+    for (const path of ['/phatSach/ghi', '/quySach/xem']) {
+      router.use(
+        path,
+        auth.required(),
+        authz.middleware(),
+        bodyLimit({ maxSize: 16 * 1024 }),
+      );
+    }
+
+    // The book fund: what a parent paid for books minus what was handed out, per student the caller sees. Only the
+    // students of the caller's scope are summed (the sums read the two tables by those ids).
+    router.post(
+      '/quySach/xem',
+      describeRoute({
+        tags: ['NocoEdu'],
+        summary: 'Book fund of the students: paid, handed out, left',
+        operationId: 'bookFund',
+        responses: {
+          '200': dataResponse(z.object({}).passthrough()),
+          ...apiErrorResponses,
+        },
+      }),
+      needs('edu.phatSach', 'view'),
+      async (c) => {
+        const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view'))
+          .eduHocVien;
+        if (!studentPolicy) return c.json({ data: { rows: [] } });
+        const students = await database
+          .repository('eduHocVien')
+          .withPolicy(studentPolicy)
+          .findMany({ sort: (s) => s.field('id').asc(), limit: 5000 });
+        const ids = students.map((row) => Number(row.id));
+        if (ids.length === 0) return c.json({ data: { rows: [] } });
+        const q = database.connection().query;
+        const sum = (
+          list: readonly { hocVienId: unknown; amount: unknown }[],
+        ): Map<number, number> => {
+          const totals = new Map<number, number>();
+          for (const row of list)
+            totals.set(
+              Number(row.hocVienId),
+              (totals.get(Number(row.hocVienId)) ?? 0) + Number(row.amount),
+            );
+          return totals;
+        };
+        const paidBy = sum(
+          (
+            await q
+              .selectFrom('eduNopSach')
+              .select(['hocVienId', 'soTien'])
+              .where('hocVienId', 'in', ids)
+              .execute()
+          ).map((row) => ({ hocVienId: row.hocVienId, amount: row.soTien })),
+        );
+        const givenBy = sum(
+          (
+            await q
+              .selectFrom('eduPhatSach')
+              .select(['hocVienId', 'tienSach'])
+              .where('hocVienId', 'in', ids)
+              .execute()
+          ).map((row) => ({ hocVienId: row.hocVienId, amount: row.tienSach })),
+        );
+        const rows = students
+          .filter((s) => paidBy.has(Number(s.id)) || givenBy.has(Number(s.id)))
+          .map((s) => {
+            const daNop = paidBy.get(Number(s.id)) ?? 0;
+            const daPhat = givenBy.get(Number(s.id)) ?? 0;
+            return {
+              hocVienId: Number(s.id),
+              ma: asText(s.ma),
+              hoTen: asText(s.hoTen),
+              daNop,
+              daPhat,
+              conLai: daNop - daPhat,
+            };
+          });
+        return c.json({ data: { rows } });
+      },
     );
 
     router.post(
