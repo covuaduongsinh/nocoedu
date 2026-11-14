@@ -205,4 +205,13 @@ Từ bản này `import-lark` đọc thêm bảng `Tổng Deal (HP + book)` (`tb
 - Bảng này là tùy chọn: app không thấy thì lệnh vẫn chạy như cũ và in "app KHÔNG đọc được bảng Sách".
 - `--dry-run` in mục "Sách": số cuốn hợp lệ, các dòng bị bỏ theo mã (`SACH_THIEU_KY_HIEU`, `SACH_TRUNG_KY_HIEU`, `SACH_QUA_DAI`), cảnh báo (`SACH_THIEU_TEN`, `SACH_THIEU_GIA`) và số cuốn sẽ tạo. Số kỳ vọng từ file `.base`: 37 cuốn, không trùng ký hiệu; 1 cuốn thiếu giá bán và 1 cuốn thiếu tên (cảnh báo, vẫn nhập, giá 0, tên lấy theo ký hiệu).
 - Sách đã ghi không bao giờ bị sửa lại; ký hiệu đã có trong NocoEdu (nhập tay) được giữ nguyên và báo `daCoKyHieu`.
-- Hoàn tác: `DELETE FROM edu_sach WHERE external_id LIKE 'lark:sach:%'` (chỉ khi chưa có lần phát sách nào trỏ tới).
+- Hoàn tác: `DELETE FROM edu_sach WHERE external_id LIKE 'lark:sach:%'` (chỉ sau khi đã xoá các lần phát sách bên dưới).
+
+### Lần phát sách từ bảng `Từng lần phát sách`
+
+Cùng lệnh, cần migration `202611140001_create_edu_phat_sach` (deploy bản có PR phát sách trước). Bảng `tblU8nwesckl40Ff` (338 lượt) ghi vào `eduPhatSach` (`externalId = lark:phatsach:<rec>`) sau khi ghi sách, trong cùng giao dịch; chỉ đọc học viên, ngày, sách và ưu đãi (không đọc ghi chú).
+
+- Mỗi lượt phải có đúng một học viên và đúng một sách. Tiền sách = giá bán của đúng cuốn sách đó − ưu đãi (Lark tra giá theo "chứa" nên `CT1` có thể khớp nhầm `CT10`; ở đây khớp chính xác theo liên kết).
+- `--dry-run` in mục "Phát sách": số lượt hợp lệ và các dòng bị bỏ theo mã `PHAT_SACH_THIEU_HOC_VIEN`, `PHAT_SACH_NHIEU_HOC_VIEN`, `PHAT_SACH_THIEU_SACH`, `PHAT_SACH_NHIEU_SACH`, `PHAT_SACH_HOC_VIEN_BI_BO` (học viên không được nhập), `PHAT_SACH_SACH_BI_BO` (sách bị bỏ), `PHAT_SACH_THIEU_NGAY`, `PHAT_SACH_UU_DAI_SAI` (không phải số nguyên đồng, âm hoặc lớn hơn giá); và số sẽ tạo. Số kỳ vọng: 338 lượt; số lượt bị bỏ chỉ biết sau lần chạy thử đầu tiên.
+- Lượt đã ghi không bao giờ bị sửa; chạy lại không trùng.
+- Hoàn tác: `DELETE FROM edu_phat_sach WHERE external_id LIKE 'lark:phatsach:%'`.

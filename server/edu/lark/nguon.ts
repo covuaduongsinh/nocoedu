@@ -59,6 +59,22 @@ export const SACH_REQUIRED_FIELDS: readonly string[] = [
   'Giá bán cho PH',
 ];
 
+/**
+ * `Từng lần phát sách` (338 rows): a book handed to a student. Optional like `Sách`. Only the student, the day, the book
+ * and the discount are read; the looked-up price and the amount are recomputed from the catalogue, and the note is not
+ * read.
+ */
+export const LARK_PHAT_SACH = {
+  id: 'tblU8nwesckl40Ff',
+  title: 'Từng lần phát sách',
+} as const;
+export const PHAT_SACH_REQUIRED_FIELDS: readonly string[] = [
+  'Tên học sinh',
+  'Ngày dùng',
+  'Sách dùng',
+  'Ưu đãi',
+];
+
 /** The fields of `Tổng Deal` the plan needs; one missing or renamed stops the import (`LARK_CAU_TRUC_DOI`). */
 export const TONG_DEAL_REQUIRED_FIELDS: readonly string[] = [
   'Tên HS link',
@@ -203,6 +219,9 @@ export interface LarkData {
   /** The books of `Sách`; empty when the app cannot see that table (`sachDoc`). */
   readonly sach: readonly LarkRecord[];
   readonly sachDoc: boolean;
+  /** The handouts of `Từng lần phát sách`; empty when the app cannot see that table (`phatSachDoc`). */
+  readonly phatSach: readonly LarkRecord[];
+  readonly phatSachDoc: boolean;
   /** The rows of every yearly attendance table, oldest year first. */
   readonly nhanXet: readonly LarkRecord[];
 }
@@ -344,6 +363,24 @@ export async function readLarkData(
   } else {
     log('sach: not in the list of tables the app can read');
   }
+  const phatSachDoc = listedIds.has(LARK_PHAT_SACH.id);
+  let phatSach: readonly LarkRecord[] = [];
+  if (phatSachDoc) {
+    const names = new Set(await source.fieldNames(LARK_PHAT_SACH.id));
+    const lost = PHAT_SACH_REQUIRED_FIELDS.filter((f) => !names.has(f));
+    if (lost.length > 0)
+      throw new LarkImportError(
+        'LARK_CAU_TRUC_DOI',
+        `The Lark structure changed; missing or renamed fields: ${lost.map((f) => `phatSach: ${f}`).join('; ')}`,
+      );
+    phatSach = await read(
+      'phatSach',
+      LARK_PHAT_SACH.id,
+      PHAT_SACH_REQUIRED_FIELDS,
+    );
+  } else {
+    log('phatSach: not in the list of tables the app can read');
+  }
   const nhanXet: LarkRecord[] = [];
   for (const { year, id } of yearly)
     nhanXet.push(...(await read(`nhanXet${year}`, id, NHAN_XET_READ_FIELDS)));
@@ -357,6 +394,8 @@ export async function readLarkData(
     tongDealDoc,
     sach,
     sachDoc,
+    phatSach,
+    phatSachDoc,
     nhanXet,
   };
 }

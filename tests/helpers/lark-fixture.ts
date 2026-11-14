@@ -1,10 +1,12 @@
 import {
   LARK_TABLES,
+  LARK_PHAT_SACH,
   LARK_SACH,
   LARK_TONG_DEAL,
   NHAN_XET_BAT_BUOC,
   NHAN_XET_FIELDS,
   REQUIRED_FIELDS,
+  PHAT_SACH_REQUIRED_FIELDS,
   SACH_REQUIRED_FIELDS,
   TONG_DEAL_REQUIRED_FIELDS,
   type LarkData,
@@ -93,6 +95,7 @@ export type FixtureTables = Record<
   | 'dealHp'
   | 'tongDeal'
   | 'sach'
+  | 'phatSach'
   | 'nhanXet2024'
   | 'nhanXet2025'
   | 'nhanXet2026',
@@ -214,6 +217,7 @@ export function buildFixture(): FixtureTables {
     dealHp: [],
     tongDeal: [],
     sach: [],
+    phatSach: [],
     nhanXet2024: [
       attendance('recNhanXet2024a', IDS.s1, IDS.lopA, '2024-12-02', '1'),
     ],
@@ -264,6 +268,8 @@ export function fixtureData(tables: FixtureTables = buildFixture()): LarkData {
     tongDealDoc: true,
     sach: tables.sach,
     sachDoc: true,
+    phatSach: tables.phatSach,
+    phatSachDoc: true,
     nhanXet: [
       ...tables.nhanXet2024,
       ...tables.nhanXet2025,
@@ -299,6 +305,12 @@ export function fixtureTableList(): {
       id: LARK_SACH.id,
       name: LARK_SACH.title,
       fields: SACH_REQUIRED_FIELDS,
+    },
+    {
+      key: 'phatSach',
+      id: LARK_PHAT_SACH.id,
+      name: LARK_PHAT_SACH.title,
+      fields: PHAT_SACH_REQUIRED_FIELDS,
     },
     {
       key: 'tongDeal',

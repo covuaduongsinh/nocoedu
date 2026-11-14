@@ -110,6 +110,19 @@ export interface SachBaoCao {
     readonly tao: number;
     readonly trung: number;
     readonly daCoKyHieu: number;
+    readonly phatTao: number;
+    readonly phatTrung: number;
+    readonly phatKhongCo: number;
+  };
+  /** The handouts of `Từng lần phát sách`. */
+  readonly phat: {
+    readonly doc: boolean;
+    readonly dong: number;
+    readonly problems: readonly {
+      code: string;
+      count: number;
+      ids: readonly string[];
+    }[];
   };
 }
 
@@ -128,12 +141,20 @@ export function baoCaoSach(plan: SachPlan, ketQua?: SachKetQua): SachBaoCao {
     dong: plan.rows.length,
     problems: nhomSach(plan.problems),
     warnings: nhomSach(plan.warnings),
+    phat: {
+      doc: plan.phatDoc,
+      dong: plan.phat.length,
+      problems: nhomSach(plan.phatProblems),
+    },
     ...(ketQua
       ? {
           ghi: {
             tao: ketQua.tao,
             trung: ketQua.trung,
             daCoKyHieu: ketQua.daCoKyHieu.length,
+            phatTao: ketQua.phatTao,
+            phatTrung: ketQua.phatTrung,
+            phatKhongCo: ketQua.phatKhongCo,
           },
         }
       : {}),
@@ -420,6 +441,19 @@ function inSach(report: SachBaoCao): string[] {
     lines.push(
       `  Ghi (hoặc ghi thử): tạo ${report.ghi.tao}, đã có sẵn ${report.ghi.trung}, ký hiệu đã có sẵn trong NocoEdu ${report.ghi.daCoKyHieu}.`,
     );
+  if (!report.phat.doc)
+    lines.push('Phát sách: app KHÔNG đọc được bảng Từng lần phát sách.');
+  else {
+    lines.push(`Phát sách: ${report.phat.dong} lượt hợp lệ.`);
+    for (const group of report.phat.problems)
+      lines.push(
+        `  BỎ ${group.code}: ${group.count} dòng, ví dụ ${group.ids.slice(0, 5).join(', ')}`,
+      );
+    if (report.ghi)
+      lines.push(
+        `  Ghi (hoặc ghi thử): tạo ${report.ghi.phatTao}, đã có sẵn ${report.ghi.phatTrung}, không tìm thấy học viên hoặc sách ${report.ghi.phatKhongCo}.`,
+      );
+  }
   return lines;
 }
 
@@ -472,12 +506,10 @@ export async function chayNhap(
   const plan = lapKeHoach(data, existing, {
     unexcusedAbsenceDeducts: unexcusedAbsenceDeducts(process.env),
   });
-  const sach = lapSach(data);
-  // The students the plan holds, new or already in NocoEdu: a payment of anybody else cannot be placed.
-  const thanhToan = lapThanhToan(
-    data,
-    new Set(plan.hocVien.map((row) => row.externalId)),
-  );
+  // The students the plan holds, new or already in NocoEdu: a payment or a book of anybody else cannot be placed.
+  const students = new Set(plan.hocVien.map((row) => row.externalId));
+  const sach = lapSach(data, students);
+  const thanhToan = lapThanhToan(data, students);
   if (!options.commit) {
     // The dry run runs the write of `--commit` inside a transaction and rolls it back, so "số dư sau nhập" is the
     // balance the commit leaves. Nothing stays, not even the log row. A plan with structural errors is not written.

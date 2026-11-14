@@ -8,6 +8,8 @@ import {
   buildFixture,
   fixtureData,
   fixtureSource,
+  IDS,
+  ms,
 } from '../helpers/lark-fixture.js';
 
 // The books of the club (`Sách`, DS-61 phase E). Every symbol, title and price is made up.
@@ -156,4 +158,113 @@ test('a dry run writes no book; the commit writes them once, and keeps a symbol 
     .execute();
   const hand = await run(false);
   expect(hand.sach?.ghi).toMatchObject({ tao: 1, daCoKyHieu: 1 });
+});
+
+// The books handed out (`Từng lần phát sách`, DS-61 phase E2).
+
+const link = (id: string, text: string) => [
+  {
+    record_ids: [id],
+    table_id: 'tblFixture',
+    text,
+    text_arr: [text],
+    type: 'text',
+  },
+];
+
+const handout = (
+  id: string,
+  student: string | null,
+  bookId: string | null,
+  fields: Record<string, unknown> = {},
+): LarkRecord =>
+  book(id, {
+    ...(student ? { 'Tên học sinh': link(student, 'Học viên Mẫu') } : {}),
+    ...(bookId ? { 'Sách dùng': link(bookId, 'MAU1') } : {}),
+    'Ngày dùng': ms('2026-05-10'),
+    ...fields,
+  });
+
+const withHandouts = () => {
+  const tables = withBooks();
+  tables.phatSach.push(
+    handout('recPhat1', IDS.s1, 'recSachMau1', { 'Ưu đãi': 20000 }),
+    handout('recPhat2', IDS.s2, 'recSachMau1'),
+    // Left out: no student, a student left out of the import, a book left out, a discount above the price, no day.
+    handout('recPhat3', null, 'recSachMau1'),
+    handout('recPhat4', IDS.s3, 'recSachMau1'),
+    handout('recPhat5', IDS.s1, 'recSachMau3'),
+    handout('recPhat6', IDS.s1, 'recSachMau1', { 'Ưu đãi': 150000 }),
+    handout('recPhat7', IDS.s1, 'recSachMau1', { 'Ngày dùng': undefined }),
+  );
+  return tables;
+};
+
+const students = new Set([IDS.s1, IDS.s2]);
+
+describe('lapSach: the handouts', () => {
+  it('prices a handout from its book and reports each row it leaves out', () => {
+    const p = lapSach(fixtureData(withHandouts()), students);
+    expect(p.phat.map((r) => [r.externalId, r.tienSach])).toEqual([
+      ['lark:phatsach:recPhat1', 80000],
+      ['lark:phatsach:recPhat2', 100000],
+    ]);
+    expect(p.phatProblems).toEqual([
+      { id: 'recPhat3', code: 'PHAT_SACH_THIEU_HOC_VIEN' },
+      { id: 'recPhat4', code: 'PHAT_SACH_HOC_VIEN_BI_BO' },
+      { id: 'recPhat5', code: 'PHAT_SACH_SACH_BI_BO' },
+      { id: 'recPhat6', code: 'PHAT_SACH_UU_DAI_SAI' },
+      { id: 'recPhat7', code: 'PHAT_SACH_THIEU_NGAY' },
+    ]);
+  });
+});
+
+test('the commit writes the handouts once, with the branch of the student and the price of the book', async ({
+  database,
+  connection,
+}) => {
+  const userId = String(
+    (
+      await connection.query
+        .selectFrom('user')
+        .select('id')
+        .executeTakeFirstOrThrow()
+    ).id,
+  );
+  await connection.query.deleteFrom('eduPhatSach').allowAllRows().execute();
+  await connection.query.deleteFrom('eduSach').allowAllRows().execute();
+  const run = (commit: boolean) =>
+    chayNhap(database, fixtureSource(withHandouts()), {
+      commit,
+      userId: commit ? userId : null,
+      delayMs: 0,
+    });
+  const count = async () =>
+    (await connection.query.selectFrom('eduPhatSach').select('id').execute())
+      .length;
+
+  const dry = await run(false);
+  expect(await count()).toBe(0);
+  expect(dry.sach?.phat).toMatchObject({ doc: true, dong: 2 });
+  expect(dry.sach?.ghi).toMatchObject({ phatTao: 2, phatTrung: 0 });
+  const text = inBaoCao(dry).join(' | ');
+  expect(text).toContain('PHAT_SACH_UU_DAI_SAI');
+  expect(text).not.toMatch(/Học viên Mẫu/u);
+
+  const done = await run(true);
+  expect(done.sach?.ghi).toMatchObject({ phatTao: 2 });
+  const rows = await connection.query
+    .selectFrom('eduPhatSach')
+    .select(['ngay', 'uuDai', 'tienSach', 'externalId', 'coSoId'])
+    .orderBy('externalId')
+    .execute();
+  expect(rows.map((r) => [r.externalId, r.ngay, r.uuDai, r.tienSach])).toEqual([
+    ['lark:phatsach:recPhat1', '2026-05-10', 20000, 80000],
+    ['lark:phatsach:recPhat2', '2026-05-10', 0, 100000],
+  ]);
+  expect(Number(rows[0]?.coSoId)).toBeGreaterThan(0);
+
+  const again = await run(true);
+  expect(again.sach?.ghi).toMatchObject({ phatTao: 0, phatTrung: 2 });
+  expect(await count()).toBe(2);
 });
