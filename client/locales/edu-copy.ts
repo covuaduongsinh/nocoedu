@@ -11,6 +11,7 @@ import { EDU_MORE_ROWS } from './edu-copy-more.js';
 import { EDU_SACH_ROWS } from './edu-copy-sach.js';
 import { EDU_HO_SO_GV_ROWS } from './edu-copy-ho-so-gv.js';
 import { EDU_TUYEN_SINH_ROWS } from './edu-copy-tuyen-sinh.js';
+import { EDU_NOI_DUNG_ROWS } from './edu-copy-noi-dung.js';
 
 type Row = readonly [key: string, vi: string, en: string, zh: string];
 
@@ -318,6 +319,7 @@ function build(index: 1 | 2 | 3): Tree {
     ...EDU_SACH_ROWS,
     ...EDU_TUYEN_SINH_ROWS,
     ...EDU_HO_SO_GV_ROWS,
+    ...EDU_NOI_DUNG_ROWS,
   ]) {
     const parts = row[0].split('.');
     let node = root;

@@ -15,7 +15,7 @@ import {
 } from '#components/ui/dialog';
 import { Textarea } from '#components/ui/textarea';
 
-import { TextField } from './form-parts.js';
+import { SelectField, TextField } from './form-parts.js';
 import { post, text, todayVn, useErrorMessage, useRows } from './kit.js';
 
 /**
@@ -31,13 +31,26 @@ export default function NhanXetPage(): ReactElement {
     resource: { type: 'composite', id: 'edu.nhanXet' },
     action: 'write',
   });
-  const [month, setMonth] = useState(() => todayVn().slice(0, 7));
+  // What the comment is about: a month, the periodic review after five sessions (`K1`…`K9`) or the year-end summary
+  // (`CN`). The server keeps it in one key (`2026-05`, `2026-K3`, `2026-CN`).
+  const [kind, setKind] = useState<'thang' | 'dinhKy' | 'cuoiNam'>('thang');
+  const [monthValue, setMonthValue] = useState(() => todayVn().slice(0, 7));
+  const [year, setYear] = useState(() => todayVn().slice(0, 4));
+  const [round, setRound] = useState('1');
+  const month =
+    kind === 'thang'
+      ? monthValue
+      : kind === 'dinhKy'
+        ? `${year}-K${round}`
+        : `${year}-CN`;
+  const periodValid = /^\d{4}-(0[1-9]|1[0-2]|K[1-9]|CN)$/u.test(month);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [status, setStatus] = useState<Record<number, 'saved' | 'error'>>({});
   const [exported, setExported] = useState<{ ma: string; vanBan: string }[]>();
   const [error, setError] = useState<string>();
 
   useEffect(() => {
+    if (!periodValid) return;
     let live = true;
     api
       .request<{ data: Record<string, unknown>[] }>({
@@ -63,7 +76,7 @@ export default function NhanXetPage(): ReactElement {
     return () => {
       live = false;
     };
-  }, [api, month]);
+  }, [api, month, periodValid]);
 
   const rows =
     students.loaded.state === 'ready'
@@ -73,6 +86,7 @@ export default function NhanXetPage(): ReactElement {
   const save = async (id: number): Promise<void> => {
     const noiDung = (drafts[id] ?? '').trim();
     if (!noiDung) return;
+    if (!periodValid) return;
     try {
       await post(api, '/nhanXet/luu', { hocVienId: id, thang: month, noiDung });
       setStatus((s) => ({ ...s, [id]: 'saved' }));
@@ -105,15 +119,53 @@ export default function NhanXetPage(): ReactElement {
           </Button>
         }
       />
-      <div className='max-w-xs'>
-        <TextField
-          id='nx-month'
-          label={t('edu.nhanXet.month')}
-          type='month'
-          value={month}
-          onChange={setMonth}
+      <div className='grid max-w-xl gap-3 sm:grid-cols-3'>
+        <SelectField
+          id='nx-kind'
+          label={t('edu.nhanXet.kind')}
+          value={kind}
+          onChange={(value) => setKind(value as typeof kind)}
+          options={[
+            { value: 'thang', label: t('edu.nhanXet.kind.thang') },
+            { value: 'dinhKy', label: t('edu.nhanXet.kind.dinhKy') },
+            { value: 'cuoiNam', label: t('edu.nhanXet.kind.cuoiNam') },
+          ]}
         />
+        {kind === 'thang' ? (
+          <TextField
+            id='nx-month'
+            label={t('edu.nhanXet.month')}
+            type='month'
+            value={monthValue}
+            onChange={setMonthValue}
+          />
+        ) : (
+          <TextField
+            id='nx-year'
+            label={t('edu.nhanXet.year')}
+            type='number'
+            value={year}
+            onChange={setYear}
+          />
+        )}
+        {kind === 'dinhKy' ? (
+          <SelectField
+            id='nx-round'
+            label={t('edu.nhanXet.round')}
+            value={round}
+            onChange={setRound}
+            options={['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((n) => ({
+              value: n,
+              label: n,
+            }))}
+          />
+        ) : null}
       </div>
+      {kind !== 'thang' ? (
+        <p className='text-sm text-muted-foreground'>
+          {t('edu.nhanXet.template')}
+        </p>
+      ) : null}
       {error ? (
         <p role='alert' className='text-sm text-destructive'>
           {error}
@@ -143,6 +195,9 @@ export default function NhanXetPage(): ReactElement {
               <Textarea
                 id={`nx-${student.id}`}
                 value={drafts[student.id] ?? ''}
+                placeholder={
+                  kind === 'thang' ? undefined : t('edu.nhanXet.templateText')
+                }
                 maxLength={3000}
                 disabled={!canWrite}
                 onChange={(event) =>
