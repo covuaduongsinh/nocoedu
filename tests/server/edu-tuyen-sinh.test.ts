@@ -116,4 +116,19 @@ test('admissions belong to a branch: its manager works there, nobody else sees t
   expect(del.status).toBe(200);
   expect(await count(managerA.session)).toBe(0);
   expect(await count(admin)).toBe(1);
+
+  // The retention rule: a contact made over a year ago is deleted on request, a recent one stays; a coach may not ask.
+  await post(
+    admin,
+    '/lienHe/createOne',
+    values(ids.coSoB, { ngayTao: '2020-01-01' }),
+  );
+  await post(admin, '/lienHe/createOne', values(ids.coSoB));
+  expect((await post(hlvA.session, '/lienHe/donQuaHan', {})).status).toBe(403);
+  const purged = await post(admin, '/lienHe/donQuaHan', {});
+  expect(purged.status).toBe(200);
+  expect(
+    ((await purged.json()) as { data: { daXoa: number } }).data.daXoa,
+  ).toBe(1);
+  expect(await count(admin)).toBe(2);
 });

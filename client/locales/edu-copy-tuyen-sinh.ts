@@ -25,6 +25,18 @@ export const EDU_TUYEN_SINH_ROWS: readonly (readonly [
     'Delete this contact? It cannot be restored.',
     '删除此联系人？无法恢复。',
   ],
+  [
+    'tuyenSinh.purge',
+    'Xóa liên hệ quá một năm',
+    'Delete contacts older than a year',
+    '删除超过一年的联系人',
+  ],
+  [
+    'tuyenSinh.purgeHint',
+    'Xóa mọi liên hệ tạo cách đây hơn một năm (theo quy tắc lưu trữ). Không khôi phục được.',
+    'Deletes every contact made more than a year ago (the retention rule). It cannot be restored.',
+    '删除所有创建超过一年的联系人（按保留规则）。无法恢复。',
+  ],
   ['tuyenSinh.hoTen', 'Tên phụ huynh', 'Parent name', '家长姓名'],
   ['tuyenSinh.soDienThoai', 'Số điện thoại', 'Phone', '电话'],
   ['tuyenSinh.coSo', 'Cơ sở', 'Branch', '分校'],
