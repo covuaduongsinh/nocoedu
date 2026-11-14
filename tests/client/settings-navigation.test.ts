@@ -243,6 +243,7 @@ describe('System settings navigation', () => {
       'edu-nhanXet',
       'edu-baoCao',
       'edu-sach',
+      'edu-phatSach',
       'settingsHome',
     ]);
   });

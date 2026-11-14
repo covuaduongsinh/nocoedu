@@ -15,6 +15,7 @@ import {
   lop,
   lopLich,
   nhanXet,
+  phatSach,
   phuHuynh,
   sach,
   soDu,
@@ -40,9 +41,11 @@ const ALL = 'allRecords';
 // The books page was added after the first seed ran: it and its grant are the last ones of every set that has them
 // (`202611130003_edu_sach_grant` appends them in this order).
 const everyPage = Object.entries(PAGES)
-  .filter(([key]) => key !== 'sach')
+  .filter(([key]) => key !== 'sach' && key !== 'phatSach')
   .map(([, id]) => page(id));
 const sachPage = page(PAGES.sach);
+// The handouts page came after the books page: `202611140002_edu_phat_sach_grant` appends it after the books grants.
+const phatSachPage = page(PAGES.phatSach);
 
 export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .title('NocoEdu - Quản trị')
@@ -106,6 +109,10 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .grant(baoCao.reference().grant({ export: { data: ALL } }))
   .grant(sachPage)
   .grant(sach.reference().grant({ view: { data: ALL }, manage: { data: ALL } }))
+  .grant(phatSachPage)
+  .grant(
+    phatSach.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
+  )
   .build();
 
 export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
@@ -189,6 +196,13 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
   .grant(baoCao.reference().grant({ export: { data: MY_BRANCHES } }))
   .grant(sachPage)
   .grant(sach.reference().grant({ view: { data: ALL } }))
+  .grant(phatSachPage)
+  .grant(
+    phatSach.reference().grant({
+      view: { data: MY_BRANCHES },
+      manage: { data: MY_BRANCHES },
+    }),
+  )
   .build();
 
 export const eduHlv = definePermissionSet('edu_hlv')
@@ -259,6 +273,8 @@ export const eduKeToan = definePermissionSet('edu_ke_toan')
   .grant(baoCao.reference().grant({ export: { data: ALL } }))
   .grant(sachPage)
   .grant(sach.reference().grant({ view: { data: ALL } }))
+  .grant(phatSachPage)
+  .grant(phatSach.reference().grant({ view: { data: ALL } }))
   .build();
 
 export const eduApiDoc = definePermissionSet('edu_api_doc')

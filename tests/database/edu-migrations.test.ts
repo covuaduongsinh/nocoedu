@@ -267,3 +267,30 @@ describeMigration('202611130002_create_edu_sach', {
     await expectCollection('eduSach').not.toExist();
   },
 });
+
+describeMigration('202611140001_create_edu_phat_sach', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduPhatSach').toHaveField('hocVienId', {
+      nullable: false,
+    });
+    await expectCollection('eduPhatSach').toHaveField('tienSach', {
+      nullable: false,
+    });
+    await expectCollection('eduPhatSach').toHaveIndex(['externalId'], {
+      unique: true,
+    });
+    await expectCollection('eduPhatSach').toHaveIndex(['hocVienId', 'ngay']);
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduPhatSach').not.toExist();
+  },
+});

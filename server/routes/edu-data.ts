@@ -26,6 +26,7 @@ import {
   lop,
   lopLich,
   nhanXet,
+  phatSach,
   phuHuynh,
   sach,
   soDu,
@@ -107,6 +108,8 @@ const EXPOSURES: readonly Exposure[] = [
   { name: 'thanhToan', key: 'thanhToan', resource: thanhToan },
   { name: 'nhanXetThang', key: 'nhanXetThang', resource: nhanXet },
   { name: 'soDuNhatKy', key: 'soDuNhatKy', resource: soDu },
+  // Books handed out: created by `/phatSach/ghi` (it takes the price and the branch from the book and the student).
+  { name: 'phatSach', key: 'phatSach', resource: phatSach },
   // The books catalogue: a book is withdrawn by its status, never deleted.
   {
     name: 'sach',
