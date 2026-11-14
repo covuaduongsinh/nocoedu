@@ -50,6 +50,7 @@ export default function BaoCaoPage(): ReactElement {
   const kinds = [
     'siSo',
     'sapHetBuoi',
+    'soDuAm',
     ...(canAttendance ? ['chuyenCan', 'nghiDai'] : []),
     ...(canRevenue ? ['doanhThu'] : []),
   ];
