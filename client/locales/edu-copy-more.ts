@@ -199,6 +199,29 @@ export const EDU_MORE_ROWS: readonly (readonly [
     '复制每段内容粘贴到 Zalo。导出会被记录。',
   ],
   ['nhanXet.month', 'Tháng', 'Month', '月份'],
+  ['nhanXet.kind', 'Loại nhận xét', 'Kind of comment', '评语类型'],
+  ['nhanXet.kind.thang', 'Theo tháng', 'Monthly', '按月'],
+  [
+    'nhanXet.kind.dinhKy',
+    'Định kỳ (sau 5 buổi)',
+    'Periodic (every 5 sessions)',
+    '定期（每5节课）',
+  ],
+  ['nhanXet.kind.cuoiNam', 'Tổng kết cuối năm', 'Year-end summary', '年终总结'],
+  ['nhanXet.year', 'Năm', 'Year', '年份'],
+  ['nhanXet.round', 'Lần', 'Round', '第几次'],
+  [
+    'nhanXet.template',
+    'Gợi ý các ý: ý thức; khai cuộc; trung cuộc; tàn cuộc; chiến thuật; ưu điểm; điểm cần cải thiện; kế hoạch tới.',
+    'Suggested points: attitude; opening; middlegame; endgame; tactics; strengths; to improve; plan.',
+    '建议内容：态度；开局；中局；残局；战术；优点；待改进；计划。',
+  ],
+  [
+    'nhanXet.templateText',
+    'Ý thức:\nKhai cuộc:\nTrung cuộc:\nTàn cuộc:\nChiến thuật:\nƯu điểm:\nCần cải thiện:\nKế hoạch tới:',
+    'Attitude:\nOpening:\nMiddlegame:\nEndgame:\nTactics:\nStrengths:\nTo improve:\nPlan:',
+    '态度：\n开局：\n中局：\n残局：\n战术：\n优点：\n待改进：\n计划：',
+  ],
   ['nhanXet.saved', 'Đã lưu', 'Saved', '已保存'],
   [
     'nhanXet.none',
@@ -276,6 +299,13 @@ export const EDU_MORE_ROWS: readonly (readonly [
     'Doanh thu (đồng)',
     'Revenue (VND)',
     '收入（越南盾）',
+  ],
+  ['baoCao.col.soKhoan', 'Số khoản nộp', 'Payments', '缴费笔数'],
+  [
+    'baoCao.col.trungBinh',
+    'Trung bình mỗi khoản (đồng)',
+    'Average per payment (VND)',
+    '每笔平均（越南盾）',
   ],
 
   [
