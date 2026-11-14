@@ -14,7 +14,6 @@ import {
   type ApiCall,
 } from '@nocobase/app-testing/client';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
