@@ -105,6 +105,12 @@ export default function DiemDanhPage(): ReactElement {
     denNgay: string;
   }>();
 
+  const [filterLop, setFilterLop] = useState<string>('all');
+  const [filterMonth, setFilterMonth] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'chua_diem_danh' | 'da_diem_danh'>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'cards' | 'select'>('cards');
+
   const classRows = classes.state === 'ready' ? classes.rows : [];
   const loadedSessions = sessions.loaded;
   const ordered = useMemo(
@@ -116,9 +122,36 @@ export default function DiemDanhPage(): ReactElement {
         : [],
     [loadedSessions],
   );
-  const session = ordered.find((row) => row.id === selectedId);
+
+  const availableMonths = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of ordered) {
+      const d = text(s.ngay);
+      if (d.length >= 7) set.add(d.slice(0, 7));
+    }
+    return Array.from(set).sort().reverse();
+  }, [ordered]);
+
   const className = (id: unknown): string =>
     text(classRows.find((row) => row.id === id)?.ten);
+
+  const filteredSessions = useMemo(() => {
+    return ordered.filter((row) => {
+      if (filterLop !== 'all' && String(row.lopId) !== filterLop) return false;
+      const d = text(row.ngay);
+      if (filterMonth !== 'all' && !d.startsWith(filterMonth)) return false;
+      if (filterStatus === 'da_diem_danh' && row.trangThai !== 'da_diem_danh') return false;
+      if (filterStatus === 'chua_diem_danh' && row.trangThai === 'da_diem_danh') return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const cName = className(row.lopId).toLowerCase();
+        if (!d.includes(q) && !cName.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [ordered, filterLop, filterMonth, filterStatus, searchQuery, classRows]);
+
+  const session = ordered.find((row) => row.id === selectedId);
   const roster: Row[] =
     session && students.state === 'ready'
       ? students.rows.filter(
@@ -220,6 +253,53 @@ export default function DiemDanhPage(): ReactElement {
     }
   };
 
+  const QUICK_TAGS = [
+    'Con tiếp thu bài tốt',
+    'Chăm chỉ tập trung',
+    'Con hay nói chuyện',
+    'Chưa làm BTVN',
+    'Cờ tàn tiến bộ',
+    'Cần cẩn thận hơn',
+  ];
+
+  const markAllPresent = (): void => {
+    const next: Record<number, Mark> = {};
+    for (const student of roster) {
+      const cur = markOf(student.id);
+      next[student.id] = { ...cur, trangThai: 'co_mat' };
+    }
+    setMarks((curr) => ({ ...curr, ...next }));
+  };
+
+  const appendTag = (studentId: number, tag: string): void => {
+    const cur = markOf(studentId);
+    const existing = cur.nhanXet.trim();
+    const updated = existing ? `${existing}. ${tag}` : tag;
+    change(studentId, { nhanXet: updated });
+  };
+
+  const exportCsv = async (): Promise<void> => {
+    try {
+      const res = await api.request({
+        path: '/diemDanh/xuatCsv',
+        method: 'POST',
+        json: {
+          lopId: filterLop !== 'all' ? Number(filterLop) : undefined,
+          thang: filterMonth !== 'all' ? filterMonth : undefined,
+        },
+      });
+      const blob = new Blob([res as unknown as string], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `diem-danh-${filterMonth !== 'all' ? filterMonth : todayVn()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const markOf = (id: number): Mark =>
     marks[id] ?? { trangThai: 'co_mat', daLamBtvn: false, nhanXet: '' };
   const change = (id: number, patch: Partial<Mark>): void =>
@@ -261,20 +341,26 @@ export default function DiemDanhPage(): ReactElement {
         title={t('edu.diemDanh.title')}
         description={t('edu.diemDanh.description')}
         actions={
-          canGenerate ? (
-            <Button
-              variant='outline'
-              onClick={() =>
-                setGenerate({
-                  lopId: '',
-                  tuNgay: todayVn(),
-                  denNgay: todayVn(),
-                })
-              }
-            >
-              {t('edu.diemDanh.generate')}
+          <div className='flex items-center gap-2'>
+            <Button variant='outline' size='sm' onClick={() => void exportCsv()}>
+              📥 Xuất CSV
             </Button>
-          ) : null
+            {canGenerate ? (
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={() =>
+                  setGenerate({
+                    lopId: '',
+                    tuNgay: todayVn(),
+                    denNgay: todayVn(),
+                  })
+                }
+              >
+                {t('edu.diemDanh.generate')}
+              </Button>
+            ) : null}
+          </div>
         }
       />
       {sessions.loaded.state === 'loading' ? (
@@ -292,40 +378,197 @@ export default function DiemDanhPage(): ReactElement {
         </div>
       ) : (
         <div className='flex flex-col gap-4'>
-          <SelectField
-            id='dd-buoi'
-            label={t('edu.diemDanh.session')}
-            value={selectedId ? String(selectedId) : ''}
-            onChange={(value) => {
-              setSaved({});
-              setContentSaved(false);
-              setError(undefined);
-              setParams(value ? { buoi: value } : {});
-            }}
-            options={ordered.map((row) => ({
-              value: String(row.id),
-              label: `${text(row.ngay)} ${text(row.gioBatDau)} · ${className(row.lopId)}${
-                row.trangThai === 'da_diem_danh'
-                  ? ` · ${t('edu.diemDanh.done')}`
-                  : ''
-              }`,
-            }))}
-          />
-          {ordered.length === 0 ? (
-            <p className='text-sm text-muted-foreground'>
-              {t('edu.diemDanh.noSessions')}
-            </p>
-          ) : null}
-          {session ? (
-            <div className='flex items-center gap-2 text-sm text-muted-foreground'>
-              <span>{t('edu.hocVien.lop')}:</span>
-              <RecordLink to={`/lop/${String(session.lopId)}`}>
-                {className(session.lopId)}
-              </RecordLink>
+          {/* Thanh công cụ lọc buổi học thông minh */}
+          <div className='flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm'>
+            <div className='flex flex-wrap items-center justify-between gap-2 border-b pb-3'>
+              <h2 className='text-sm font-semibold tracking-wide text-foreground flex items-center gap-2'>
+                📅 Chọn Ca Học Điểm Danh
+                <span className='rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary font-medium'>
+                  {filteredSessions.length} buổi phù hợp
+                </span>
+              </h2>
+              <div className='flex items-center gap-1.5'>
+                <Button
+                  size='sm'
+                  variant={viewMode === 'cards' ? 'default' : 'outline'}
+                  onClick={() => setViewMode('cards')}
+                  className='h-8 text-xs'
+                >
+                  🗂️ Thẻ ca học
+                </Button>
+                <Button
+                  size='sm'
+                  variant={viewMode === 'select' ? 'default' : 'outline'}
+                  onClick={() => setViewMode('select')}
+                  className='h-8 text-xs'
+                >
+                  📋 Danh sách
+                </Button>
+              </div>
             </div>
-          ) : null}
+
+            {/* Các bộ lọc theo Lớp, Tháng, Trạng thái, Tìm kiếm */}
+            <div className='grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-4'>
+              <div>
+                <label className='mb-1 block text-xs font-medium text-muted-foreground'>Lớp học</label>
+                <select
+                  value={filterLop}
+                  onChange={(e) => setFilterLop(e.target.value)}
+                  className='h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm'
+                >
+                  <option value='all'>Tất cả các lớp ({classRows.length})</option>
+                  {classRows.map((c) => (
+                    <option key={c.id} value={String(c.id)}>
+                      {text(c.ten)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className='mb-1 block text-xs font-medium text-muted-foreground'>Tháng</label>
+                <select
+                  value={filterMonth}
+                  onChange={(e) => setFilterMonth(e.target.value)}
+                  className='h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm'
+                >
+                  <option value='all'>Tất cả các tháng</option>
+                  {availableMonths.map((m) => (
+                    <option key={m} value={m}>
+                      Tháng {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className='mb-1 block text-xs font-medium text-muted-foreground'>Trạng thái</label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as 'all' | 'chua_diem_danh' | 'da_diem_danh')}
+                  className='h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm'
+                >
+                  <option value='all'>Tất cả trạng thái</option>
+                  <option value='chua_diem_danh'>🟡 Chưa điểm danh</option>
+                  <option value='da_diem_danh'>🟢 Đã điểm danh</option>
+                </select>
+              </div>
+
+              <div>
+                <label className='mb-1 block text-xs font-medium text-muted-foreground'>Tìm kiếm ngày/lớp</label>
+                <Input
+                  placeholder='VD: 2026-10 hoặc KL7...'
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className='h-9 text-sm'
+                />
+              </div>
+            </div>
+
+            {/* Hiển thị dạng Thẻ hoặc Dropdown */}
+            {viewMode === 'cards' ? (
+              <div className='mt-2 max-h-56 overflow-y-auto rounded-lg border bg-muted/20 p-2'>
+                {filteredSessions.length === 0 ? (
+                  <p className='py-6 text-center text-xs text-muted-foreground'>
+                    Không có buổi học nào phù hợp với bộ lọc hiện tại.
+                  </p>
+                ) : (
+                  <div className='grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3'>
+                    {filteredSessions.map((row) => {
+                      const isSelected = row.id === selectedId;
+                      const isDone = row.trangThai === 'da_diem_danh';
+                      return (
+                        <div
+                          key={row.id}
+                          onClick={() => {
+                            setSaved({});
+                            setContentSaved(false);
+                            setError(undefined);
+                            setParams({ buoi: String(row.id) });
+                          }}
+                          className={`cursor-pointer rounded-lg border p-2.5 transition-all ${
+                            isSelected
+                              ? 'border-primary bg-primary/10 ring-2 ring-primary/20 shadow-sm'
+                              : 'border-border bg-card hover:border-primary/50 hover:bg-muted/40'
+                          }`}
+                        >
+                          <div className='flex items-center justify-between gap-1'>
+                            <span className='font-bold text-sm text-foreground truncate'>
+                              {className(row.lopId)}
+                            </span>
+                            <StatusBadge tone={isDone ? 'success' : 'warning'}>
+                              {isDone ? 'Đã điểm danh' : 'Chưa điểm danh'}
+                            </StatusBadge>
+                          </div>
+                          <div className='mt-1 flex items-center justify-between text-xs text-muted-foreground'>
+                            <span>📅 {text(row.ngay)}</span>
+                            <span>⏰ {text(row.gioBatDau)?.slice(0, 5)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className='mt-1'>
+                <SelectField
+                  id='dd-buoi'
+                  label={t('edu.diemDanh.session')}
+                  value={selectedId ? String(selectedId) : ''}
+                  onChange={(value) => {
+                    setSaved({});
+                    setContentSaved(false);
+                    setError(undefined);
+                    setParams(value ? { buoi: value } : {});
+                  }}
+                  options={filteredSessions.map((row) => ({
+                    value: String(row.id),
+                    label: `${text(row.ngay)} ${text(row.gioBatDau)} · ${className(row.lopId)}${
+                      row.trangThai === 'da_diem_danh' ? ' · Đã điểm danh' : ''
+                    }`,
+                  }))}
+                />
+              </div>
+            )}
+          </div>
+
           {session ? (
-            <div className='overflow-x-auto rounded-lg border'>
+            <div className='overflow-x-auto rounded-lg border bg-card shadow-sm'>
+              <div className='flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 px-4 py-2.5'>
+                <div className='flex items-center gap-2'>
+                  <span className='font-semibold text-sm'>
+                    Lớp: <RecordLink to={`/lop/${String(session.lopId)}`}>{className(session.lopId)}</RecordLink>
+                  </span>
+                  <span className='text-xs text-muted-foreground'>
+                    · {text(session.ngay)} ({text(session.gioBatDau)?.slice(0, 5)})
+                  </span>
+                  <StatusBadge tone={session.trangThai === 'da_diem_danh' ? 'success' : 'warning'}>
+                    {session.trangThai === 'da_diem_danh' ? 'Đã lưu' : 'Chưa lưu'}
+                  </StatusBadge>
+                </div>
+                {canRecord && roster.length > 0 ? (
+                  <div className='flex items-center gap-2'>
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      onClick={markAllPresent}
+                      className='h-8 text-xs font-medium border-emerald-500/40 text-emerald-700 hover:bg-emerald-50'
+                    >
+                      ⚡ Tất cả có mặt
+                    </Button>
+                    <Button
+                      size='sm'
+                      onClick={() => void save()}
+                      disabled={busy}
+                      className='h-8 text-xs font-medium'
+                    >
+                      {busy ? t('edu.common.saving') : t('edu.diemDanh.save')}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -382,11 +625,12 @@ export default function DiemDanhPage(): ReactElement {
                             }
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className='min-w-[280px]'>
                           <Input
                             aria-label={t('edu.diemDanh.comment')}
                             value={mark.nhanXet}
                             maxLength={500}
+                            placeholder='Nhập nhận xét...'
                             disabled={!canRecord}
                             onChange={(event) =>
                               change(student.id, {
@@ -394,6 +638,20 @@ export default function DiemDanhPage(): ReactElement {
                               })
                             }
                           />
+                          {canRecord ? (
+                            <div className='mt-1 flex flex-wrap gap-1'>
+                              {QUICK_TAGS.map((tag) => (
+                                <button
+                                  key={tag}
+                                  type='button'
+                                  onClick={() => appendTag(student.id, tag)}
+                                  className='rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors'
+                                >
+                                  +{tag}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
                         </TableCell>
                         <TableCell>
                           <Input
@@ -403,7 +661,7 @@ export default function DiemDanhPage(): ReactElement {
                             min={0}
                             max={10}
                             step={1}
-                            className='w-20'
+                            className='w-16 h-8 text-center font-bold'
                             value={scores[student.id] ?? ''}
                             disabled={!canRecord || !registered.has(student.id)}
                             onChange={(event) =>
@@ -415,21 +673,31 @@ export default function DiemDanhPage(): ReactElement {
                           />
                         </TableCell>
                         <TableCell>
-                          {result ? (
-                            <StatusBadge
-                              tone={result.canhBao ? 'warning' : 'success'}
-                            >
-                              {result.canhBao
-                                ? t('edu.diemDanh.low', {
-                                    count: result.soBuoiConLai,
-                                  })
-                                : t('edu.home.sessionsLeft', {
-                                    count: result.soBuoiConLai,
-                                  })}
-                            </StatusBadge>
-                          ) : (
-                            text(student.soBuoiConLai)
-                          )}
+                          {(() => {
+                            const num = result ? result.soBuoiConLai : Number(student.soBuoiConLai);
+                            if (num < 0) {
+                              return (
+                                <StatusBadge
+                                  tone='neutral'
+                                  className='border-destructive/30 bg-destructive/10 text-destructive font-semibold'
+                                >
+                                  🔴 Vượt {Math.abs(num)}
+                                </StatusBadge>
+                              );
+                            }
+                            if (num <= 2) {
+                              return (
+                                <StatusBadge tone='warning'>
+                                  🟡 Còn {num}
+                                </StatusBadge>
+                              );
+                            }
+                            return (
+                              <StatusBadge tone='success'>
+                                🟢 Còn {num}
+                              </StatusBadge>
+                            );
+                          })()}
                         </TableCell>
                       </TableRow>
                     );

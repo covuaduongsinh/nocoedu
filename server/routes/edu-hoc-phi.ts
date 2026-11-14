@@ -98,6 +98,7 @@ const PaymentInput = z.object({
 
 const QrInput = z.object({ goiHocId: Id });
 const DetailInput = z.object({ goiHocId: Id });
+const DoiSoatInput = z.object({ hocVienId: Id });
 
 const today = (): string => todayVn();
 
@@ -130,6 +131,7 @@ export default [
       '/thanhToan/ghiNhan',
       '/thanhToan/vietQr',
       '/soDu/canhBao',
+      '/hocVien/doiSoatTongThe',
     ]) {
       router.use(
         path,
@@ -752,6 +754,231 @@ export default [
               (sum, entry) => sum + entry.soBuoi,
               0,
             ),
+          },
+        });
+      },
+    );
+
+    // --- Student full audit trail (Tuition cycles, sessions, books) --------------------------------------------
+    router.post(
+      '/hocVien/doiSoatTongThe',
+      declare('Full audit trail of sessions, tuition cycles and books', 'studentAuditTrail'),
+      needs('edu.hocVien', 'view'),
+      apiValidator('json', DoiSoatInput),
+      async (c) => {
+        const input = c.req.valid('json');
+        const hocVienId = input.hocVienId;
+        const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view')).eduHocVien;
+        const connection = database.connection();
+        const student = studentPolicy
+          ? await database
+              .repository('eduHocVien')
+              .withPolicy(studentPolicy)
+              .findOne({ filter: { id: hocVienId } })
+          : null;
+        if (!student) throw notFound('EDU_STUDENT_NOT_FOUND', 'Student not found.');
+
+        let lopTen: string | null = null;
+        if (student.lopId) {
+          const lop = await connection.query
+            .selectFrom('eduLop')
+            .select('ten')
+            .where('id', '=', Number(student.lopId))
+            .executeTakeFirst();
+          if (lop) lopTen = asText(lop.ten);
+        }
+        let coSoTen: string | null = null;
+        if (student.coSoId) {
+          const coSo = await connection.query
+            .selectFrom('eduCoSo')
+            .select('ten')
+            .where('id', '=', Number(student.coSoId))
+            .executeTakeFirst();
+          if (coSo) coSoTen = asText(coSo.ten);
+        }
+
+        const packages = await connection.query
+          .selectFrom('eduGoiHoc')
+          .selectAll()
+          .where('hocVienId', '=', hocVienId)
+          .orderBy('id', 'asc')
+          .execute();
+
+        const payments = await connection.query
+          .selectFrom('eduThanhToan')
+          .selectAll()
+          .where('hocVienId', '=', hocVienId)
+          .execute();
+
+        const issuedBooks = await connection.query
+          .selectFrom('eduPhatSach')
+          .innerJoin('eduSach', 'eduSach.id', 'eduPhatSach.sachId')
+          .select([
+            'eduPhatSach.id',
+            'eduPhatSach.ngayPhat',
+            'eduPhatSach.soLuong',
+            'eduPhatSach.trangThaiThanhToan',
+            'eduSach.ten as tenSach',
+            'eduSach.giaBia',
+          ])
+          .where('eduPhatSach.hocVienId', '=', hocVienId)
+          .orderBy('eduPhatSach.ngayPhat', 'desc')
+          .execute();
+
+        const ledger = await readAll(async (limit, offset) =>
+          connection.query
+            .selectFrom('eduSoDuNhatKy')
+            .selectAll()
+            .where('hocVienId', '=', hocVienId)
+            .orderBy('id', 'asc')
+            .limit(limit)
+            .offset(offset)
+            .execute(),
+        );
+
+        const attendanceIds = [
+          ...new Set(
+            ledger
+              .filter((row) => row.diemDanhId != null)
+              .map((row) => Number(row.diemDanhId)),
+          ),
+        ];
+        const sessions = await sessionsOf(connection, attendanceIds);
+        const sessionTime = new Map(
+          [...sessions].map(([id, info]) => [id, `${info.ngay} ${info.gioBatDau}`]),
+        );
+
+        const { deductions, adjustments } = fromLedger(
+          ledger.map((row) => ({
+            id: Number(row.id),
+            thayDoi: Number(row.thayDoi),
+            lyDo: asText(row.lyDo),
+            goiHocId: row.goiHocId == null ? null : Number(row.goiHocId),
+            diemDanhId: row.diemDanhId == null ? null : Number(row.diemDanhId),
+            ngay: toDay(row.createdAt),
+          })),
+          sessionTime,
+        );
+
+        const inputs: PackageInput[] = [
+          ...packages.map((row) => ({
+            goiHocId: Number(row.id),
+            soBuoi: Number(row.soBuoi),
+            ngayMua: asText(row.ngayMua),
+            thuTu: Number(row.id),
+            hieuLuc: asText(row.trangThai) === 'hieu_luc',
+            loai: asText(row.loai) === 'chuyen_so_du' ? ('chuyen_so_du' as const) : ('mua' as const),
+          })),
+          ...adjustments,
+        ];
+        const fifoResult = allocateFifo(inputs, deductions);
+        const fifoByGoi = new Map(fifoResult.cacGoi.map((g) => [g.goiHocId, g]));
+
+        const attendanceRows = await connection.query
+          .selectFrom('eduDiemDanh')
+          .innerJoin('eduBuoiHoc', 'eduBuoiHoc.id', 'eduDiemDanh.buoiHocId')
+          .leftJoin('eduLop', 'eduLop.id', 'eduBuoiHoc.lopId')
+          .select([
+            'eduDiemDanh.id as diemDanhId',
+            'eduDiemDanh.buoiHocId',
+            'eduDiemDanh.trangThai',
+            'eduDiemDanh.daLamBtvn',
+            'eduDiemDanh.nhanXet',
+            'eduDiemDanh.soBuoiDaTru',
+            'eduDiemDanh.yThucDiem',
+            'eduBuoiHoc.ngay',
+            'eduBuoiHoc.gioBatDau',
+            'eduBuoiHoc.gioKetThuc',
+            'eduLop.ten as lopTen',
+          ])
+          .where('eduDiemDanh.hocVienId', '=', hocVienId)
+          .orderBy('eduBuoiHoc.ngay', 'desc')
+          .orderBy('eduBuoiHoc.gioBatDau', 'desc')
+          .execute();
+
+        let tongTienHocPhi = 0;
+        let tongDaThanhToanHocPhi = 0;
+        const cacKyNop = packages.map((pack) => {
+          const packId = Number(pack.id);
+          const thanhTien = Number(pack.thanhTien);
+          tongTienHocPhi += thanhTien;
+          const paid = payments
+            .filter((p) => Number(p.goiHocId) === packId)
+            .reduce((sum, p) => sum + Number(p.soTien), 0);
+          tongDaThanhToanHocPhi += paid;
+          const fifo = fifoByGoi.get(packId);
+          return {
+            id: packId,
+            tenKy: `Gói ${pack.soBuoi} buổi (${asText(pack.ngayMua)})`,
+            ngayMua: asText(pack.ngayMua),
+            soBuoi: Number(pack.soBuoi),
+            donGia: Number(pack.donGia),
+            thanhTien,
+            daThanhToan: paid,
+            conNo: Math.max(0, thanhTien - paid),
+            daDung: fifo?.daDung ?? 0,
+            conLai: fifo?.conLai ?? 0,
+            trangThai: asText(pack.trangThai),
+          };
+        });
+
+        const tongTienSach = issuedBooks.reduce(
+          (sum, b) => sum + Number(b.soLuong) * Number(b.giaBia),
+          0,
+        );
+        const tongSoBuoiDaMua = packages.reduce((sum, p) => sum + Number(p.soBuoi), 0);
+        const tongSoBuoiDaHoc = attendanceRows.reduce(
+          (sum, a) => sum + Number(a.soBuoiDaTru),
+          0,
+        );
+        const vuotSoDu = fifoResult.vuotSoDu.reduce((sum, e) => sum + e.soBuoi, 0);
+
+        return c.json({
+          data: {
+            hocVien: {
+              id: Number(student.id),
+              ma: asText(student.ma),
+              hoTen: asText(student.hoTen),
+              lopId: student.lopId ? Number(student.lopId) : null,
+              lopTen,
+              coSoId: student.coSoId ? Number(student.coSoId) : null,
+              coSoTen,
+              soBuoiConLai: Number(student.soBuoiConLai),
+              trangThai: asText(student.trangThai),
+            },
+            tongHop: {
+              tongSoBuoiDaMua,
+              tongSoBuoiDaHoc,
+              soBuoiConLai: Number(student.soBuoiConLai),
+              soBuoiVuotGoi: vuotSoDu,
+              tongTienHocPhi,
+              tongTienSach,
+              tongDaThanhToan: tongDaThanhToanHocPhi,
+              tongConNo: Math.max(0, tongTienHocPhi - tongDaThanhToanHocPhi),
+            },
+            cacKyNop,
+            sachDaPhat: issuedBooks.map((b) => ({
+              id: Number(b.id),
+              tenSach: asText(b.tenSach),
+              ngayPhat: asText(b.ngayPhat),
+              soLuong: Number(b.soLuong),
+              giaBia: Number(b.giaBia),
+              thanhTien: Number(b.soLuong) * Number(b.giaBia),
+              trangThaiThanhToan: asText(b.trangThaiThanhToan),
+            })),
+            danhSachBuoiHoc: attendanceRows.map((a) => ({
+              diemDanhId: Number(a.diemDanhId),
+              buoiHocId: Number(a.buoiHocId),
+              ngay: asText(a.ngay),
+              gioBatDau: asText(a.gioBatDau),
+              gioKetThuc: asText(a.gioKetThuc),
+              lopTen: asText(a.lopTen),
+              trangThai: asText(a.trangThai),
+              daLamBtvn: Boolean(a.daLamBtvn),
+              nhanXet: a.nhanXet ? asText(a.nhanXet) : '',
+              yThucDiem: a.yThucDiem != null ? Number(a.yThucDiem) : null,
+              soBuoiDaTru: Number(a.soBuoiDaTru),
+            })),
           },
         });
       },

@@ -7,6 +7,14 @@ import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
 import { Button } from '#components/ui/button';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#components/ui/table';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -31,6 +39,65 @@ interface Qr {
   soTien: number;
   noiDungCk: string;
   url: string;
+}
+
+interface AuditData {
+  hocVien: {
+    id: number;
+    ma: string;
+    hoTen: string;
+    lopId: number | null;
+    lopTen: string | null;
+    coSoId: number | null;
+    coSoTen: string | null;
+    soBuoiConLai: number;
+    trangThai: string;
+  };
+  tongHop: {
+    tongSoBuoiDaMua: number;
+    tongSoBuoiDaHoc: number;
+    soBuoiConLai: number;
+    soBuoiVuotGoi: number;
+    tongTienHocPhi: number;
+    tongTienSach: number;
+    tongDaThanhToan: number;
+    tongConNo: number;
+  };
+  cacKyNop: {
+    id: number;
+    tenKy: string;
+    ngayMua: string;
+    soBuoi: number;
+    donGia: number;
+    thanhTien: number;
+    daThanhToan: number;
+    conNo: number;
+    daDung: number;
+    conLai: number;
+    trangThai: string;
+  }[];
+  sachDaPhat: {
+    id: number;
+    tenSach: string;
+    ngayPhat: string;
+    soLuong: number;
+    giaBia: number;
+    thanhTien: number;
+    trangThaiThanhToan: string;
+  }[];
+  danhSachBuoiHoc: {
+    diemDanhId: number;
+    buoiHocId: number;
+    ngay: string;
+    gioBatDau: string;
+    gioKetThuc: string;
+    lopTen: string;
+    trangThai: string;
+    daLamBtvn: boolean;
+    nhanXet: string;
+    yThucDiem: number | null;
+    soBuoiDaTru: number;
+  }[];
 }
 
 /**
@@ -68,6 +135,24 @@ export default function HocPhiPage(): ReactElement {
   }>();
   const [qr, setQr] = useState<Qr | 'unset'>();
   const [ledger, setLedger] = useState<{ row: Row; rows: Row[] }>();
+  const [audit, setAudit] = useState<AuditData | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  const openAudit = async (row: Row): Promise<void> => {
+    setAuditLoading(true);
+    try {
+      const response = await api.request<{ data: AuditData }>({
+        path: '/hocVien/doiSoatTongThe',
+        method: 'POST',
+        json: { hocVienId: row.id },
+      });
+      setAudit(response.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
 
   const openPay = async (row: Row): Promise<void> => {
     const response = await api.request<{ data: Row[] }>({
@@ -104,11 +189,35 @@ export default function HocPhiPage(): ReactElement {
     setLedger({ row, rows: response.data });
   };
 
+  const exportTuitionCsv = async (): Promise<void> => {
+    try {
+      const res = await api.request({
+        path: '/hocPhi/xuatCsv',
+        method: 'POST',
+        json: {},
+      });
+      const blob = new Blob([res as unknown as string], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hoc-phi-${todayVn()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <>
       <ListPage
         title={t('edu.hocPhi.title')}
         description={t('edu.hocPhi.description')}
+        actions={
+          <Button variant='outline' size='sm' onClick={() => void exportTuitionCsv()}>
+            📥 Xuất CSV Học phí
+          </Button>
+        }
         emptyTitle={t('edu.hocVien.empty')}
         emptyHint={t('edu.hocVien.emptyHint')}
         loaded={loaded}
@@ -133,17 +242,51 @@ export default function HocPhiPage(): ReactElement {
           {
             key: 'soBuoiConLai',
             label: t('edu.diemDanh.balance'),
-            render: (row) => (
-              <StatusBadge
-                tone={Number(row.soBuoiConLai) <= 2 ? 'warning' : 'success'}
-              >
-                {text(row.soBuoiConLai)}
-              </StatusBadge>
-            ),
+            render: (row) => {
+              const num = Number(row.soBuoiConLai);
+              if (num < 0) {
+                return (
+                  <StatusBadge
+                    tone='neutral'
+                    className='border-destructive/30 bg-destructive/10 text-destructive font-semibold'
+                  >
+                    🔴 Vượt {Math.abs(num)} buổi
+                  </StatusBadge>
+                );
+              }
+              if (num === 0) {
+                return (
+                  <StatusBadge tone='warning'>
+                    🟡 Hết buổi (0)
+                  </StatusBadge>
+                );
+              }
+              if (num <= 2) {
+                return (
+                  <StatusBadge tone='warning'>
+                    🟡 Sắp hết ({num})
+                  </StatusBadge>
+                );
+              }
+              return (
+                <StatusBadge tone='success'>
+                  🟢 Còn {num} buổi
+                </StatusBadge>
+              );
+            },
           },
         ]}
         rowActions={(row) => (
-          <div className='flex flex-wrap gap-2'>
+          <div className='flex flex-wrap items-center gap-2'>
+            <Button
+              size='sm'
+              variant='default'
+              className='bg-primary/90 hover:bg-primary font-medium'
+              disabled={auditLoading}
+              onClick={() => void openAudit(row)}
+            >
+              📋 Đối soát buổi học
+            </Button>
             {canSell ? (
               <Button
                 size='sm'
@@ -295,33 +438,254 @@ export default function HocPhiPage(): ReactElement {
       </Dialog>
 
       <Dialog
-        open={ledger !== undefined}
-        onOpenChange={(open) => (open ? undefined : setLedger(undefined))}
+        open={audit !== null}
+        onOpenChange={(open) => (open ? undefined : setAudit(null))}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('edu.hocPhi.ledger')}</DialogTitle>
-            <DialogDescription>
-              {ledger ? text(ledger.row.hoTen) : ''}
-            </DialogDescription>
-          </DialogHeader>
-          {ledger && ledger.rows.length === 0 ? (
-            <p className='text-sm text-muted-foreground'>
-              {t('edu.hocPhi.ledgerEmpty')}
-            </p>
-          ) : (
-            <ul className='flex max-h-80 flex-col gap-1 overflow-y-auto text-sm'>
-              {ledger?.rows.map((entry) => (
-                <li key={entry.id} className='flex justify-between gap-3'>
-                  <span>{t(`edu.hocPhi.reason.${text(entry.lyDo)}`)}</span>
+        <DialogContent className='max-w-4xl max-h-[90vh] overflow-y-auto'>
+          <DialogHeader className='flex flex-row items-center justify-between border-b pb-4'>
+            <div>
+              <DialogTitle className='text-xl font-bold text-foreground'>
+                📋 Bảng Kê Đối Soát Buổi Học & Kỳ Nộp Học Phí
+              </DialogTitle>
+              <DialogDescription className='mt-1 text-sm text-muted-foreground'>
+                {audit ? (
                   <span>
-                    {Number(entry.thayDoi) > 0 ? '+' : ''}
-                    {text(entry.thayDoi)} → {text(entry.soDuSau)}
+                    Học viên: <strong>{audit.hocVien.hoTen}</strong> ({audit.hocVien.ma})
+                    {audit.hocVien.lopTen ? ` · Lớp: ${audit.hocVien.lopTen}` : ''}
+                    {audit.hocVien.coSoTen ? ` · Cơ sở: ${audit.hocVien.coSoTen}` : ''}
                   </span>
-                </li>
-              ))}
-            </ul>
-          )}
+                ) : null}
+              </DialogDescription>
+            </div>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => window.print()}
+              className='gap-1.5'
+            >
+              🖨️ In phiếu đối soát
+            </Button>
+          </DialogHeader>
+
+          {audit ? (
+            <div className='flex flex-col gap-6 py-4'>
+              {/* Khối KPI tổng hợp */}
+              <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
+                <div className='rounded-lg border bg-card p-3 shadow-sm'>
+                  <p className='text-xs text-muted-foreground'>Tổng buổi đã nộp</p>
+                  <p className='text-xl font-bold text-primary'>
+                    {audit.tongHop.tongSoBuoiDaMua} buổi
+                  </p>
+                </div>
+                <div className='rounded-lg border bg-card p-3 shadow-sm'>
+                  <p className='text-xs text-muted-foreground'>Tổng buổi đã học</p>
+                  <p className='text-xl font-bold text-foreground'>
+                    {audit.tongHop.tongSoBuoiDaHoc} buổi
+                  </p>
+                </div>
+                <div className='rounded-lg border bg-card p-3 shadow-sm'>
+                  <p className='text-xs text-muted-foreground'>Số buổi còn lại</p>
+                  <p className={`text-xl font-bold ${audit.tongHop.soBuoiConLai < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                    {audit.tongHop.soBuoiConLai < 0
+                      ? `🔴 Vượt ${audit.tongHop.soBuoiVuotGoi} buổi`
+                      : `🟢 Còn ${audit.tongHop.soBuoiConLai} buổi`}
+                  </p>
+                  {audit.tongHop.soBuoiConLai < 0 ? (
+                    <span className='text-[11px] text-destructive'>Chưa nộp học phí kỳ mới</span>
+                  ) : null}
+                </div>
+                <div className='rounded-lg border bg-card p-3 shadow-sm'>
+                  <p className='text-xs text-muted-foreground'>Tình trạng học phí</p>
+                  <p className='text-sm font-semibold'>
+                    Đã nộp: {fmt(audit.tongHop.tongDaThanhToan)} đ
+                  </p>
+                  {audit.tongHop.tongConNo > 0 ? (
+                    <p className='text-xs text-destructive font-medium'>
+                      Còn nợ: {fmt(audit.tongHop.tongConNo)} đ
+                    </p>
+                  ) : (
+                    <p className='text-xs text-emerald-600 font-medium'>Đã hoàn thành</p>
+                  )}
+                  {audit.tongHop.tongTienSach > 0 ? (
+                    <p className='text-[11px] text-muted-foreground mt-0.5'>
+                      Tiền sách: {fmt(audit.tongHop.tongTienSach)} đ
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Bảng 1: Danh sách các kỳ nộp học phí */}
+              <div>
+                <h3 className='mb-2 text-sm font-bold uppercase tracking-wide text-foreground/80 flex items-center gap-1.5'>
+                  💳 Danh sách các kỳ nộp học phí ({audit.cacKyNop.length} kỳ)
+                </h3>
+                {audit.cacKyNop.length === 0 ? (
+                  <p className='rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground'>
+                    Chưa có gói/kỳ nộp học phí nào được tạo.
+                  </p>
+                ) : (
+                  <div className='overflow-x-auto rounded-md border'>
+                    <Table>
+                      <TableHeader>
+                        <TableRow className='bg-muted/50 text-xs'>
+                          <TableHead>Tên kỳ / Gói</TableHead>
+                          <TableHead>Ngày mua</TableHead>
+                          <TableHead className='text-center'>Số buổi</TableHead>
+                          <TableHead className='text-right'>Học phí</TableHead>
+                          <TableHead className='text-right'>Đã nộp</TableHead>
+                          <TableHead className='text-right'>Còn thiếu</TableHead>
+                          <TableHead className='text-center'>Đã dùng</TableHead>
+                          <TableHead className='text-center'>Còn lại</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className='text-xs'>
+                        {audit.cacKyNop.map((ky) => (
+                          <TableRow key={ky.id}>
+                            <TableCell className='font-medium'>{ky.tenKy}</TableCell>
+                            <TableCell>{ky.ngayMua}</TableCell>
+                            <TableCell className='text-center font-bold'>{ky.soBuoi}</TableCell>
+                            <TableCell className='text-right'>{fmt(ky.thanhTien)} đ</TableCell>
+                            <TableCell className='text-right text-emerald-600 font-medium'>
+                              {fmt(ky.daThanhToan)} đ
+                            </TableCell>
+                            <TableCell className={`text-right font-medium ${ky.conNo > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                              {ky.conNo > 0 ? `${fmt(ky.conNo)} đ` : '0 đ'}
+                            </TableCell>
+                            <TableCell className='text-center'>{ky.daDung}</TableCell>
+                            <TableCell className='text-center font-bold text-primary'>
+                              {ky.conLai}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+
+              {/* Bảng 2: Sách đã phát */}
+              {audit.sachDaPhat.length > 0 ? (
+                <div>
+                  <h3 className='mb-2 text-sm font-bold uppercase tracking-wide text-foreground/80 flex items-center gap-1.5'>
+                    📚 Sách & Giáo trình đã phát ({audit.sachDaPhat.length} đầu sách)
+                  </h3>
+                  <div className='overflow-x-auto rounded-md border'>
+                    <Table>
+                      <TableHeader>
+                        <TableRow className='bg-muted/50 text-xs'>
+                          <TableHead>Tên sách</TableHead>
+                          <TableHead>Ngày phát</TableHead>
+                          <TableHead className='text-center'>Số lượng</TableHead>
+                          <TableHead className='text-right'>Giá bìa</TableHead>
+                          <TableHead className='text-right'>Thành tiền</TableHead>
+                          <TableHead className='text-center'>Thanh toán</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className='text-xs'>
+                        {audit.sachDaPhat.map((sach) => (
+                          <TableRow key={sach.id}>
+                            <TableCell className='font-medium'>{sach.tenSach}</TableCell>
+                            <TableCell>{sach.ngayPhat}</TableCell>
+                            <TableCell className='text-center'>{sach.soLuong}</TableCell>
+                            <TableCell className='text-right'>{fmt(sach.giaBia)} đ</TableCell>
+                            <TableCell className='text-right font-medium'>{fmt(sach.thanhTien)} đ</TableCell>
+                            <TableCell className='text-center'>
+                              <StatusBadge tone={sach.trangThaiThanhToan === 'da_thanh_toan' ? 'success' : 'warning'}>
+                                {sach.trangThaiThanhToan === 'da_thanh_toan' ? 'Đã thu' : 'Chưa thu'}
+                              </StatusBadge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Bảng 3: Chi tiết từng buổi học (Audit Trail) */}
+              <div>
+                <h3 className='mb-2 text-sm font-bold uppercase tracking-wide text-foreground/80 flex items-center justify-between'>
+                  <span className='flex items-center gap-1.5'>
+                    📅 Lịch sử chi tiết các buổi học ({audit.danhSachBuoiHoc.length} buổi)
+                  </span>
+                  <span className='text-xs normal-case text-muted-foreground'>
+                    Đối soát chính xác từng buổi điểm danh và nhận xét của giáo viên
+                  </span>
+                </h3>
+                {audit.danhSachBuoiHoc.length === 0 ? (
+                  <p className='rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground'>
+                    Chưa có buổi học nào được ghi nhận điểm danh.
+                  </p>
+                ) : (
+                  <div className='max-h-72 overflow-y-auto rounded-md border'>
+                    <Table>
+                      <TableHeader className='sticky top-0 bg-muted/80 backdrop-blur z-10'>
+                        <TableRow className='text-xs'>
+                          <TableHead className='w-10 text-center'>STT</TableHead>
+                          <TableHead>Ngày & Giờ</TableHead>
+                          <TableHead>Lớp</TableHead>
+                          <TableHead className='text-center'>Trạng thái</TableHead>
+                          <TableHead className='text-center'>BTVN</TableHead>
+                          <TableHead className='text-center'>Ý thức</TableHead>
+                          <TableHead>Nhận xét giáo viên</TableHead>
+                          <TableHead className='text-center'>Trừ buổi</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className='text-xs'>
+                        {audit.danhSachBuoiHoc.map((buoi, idx) => (
+                          <TableRow key={buoi.diemDanhId}>
+                            <TableCell className='text-center text-muted-foreground font-mono'>
+                              {idx + 1}
+                            </TableCell>
+                            <TableCell className='whitespace-nowrap font-medium'>
+                              {buoi.ngay} <span className='text-muted-foreground'>({buoi.gioBatDau?.slice(0, 5)})</span>
+                            </TableCell>
+                            <TableCell>{buoi.lopTen}</TableCell>
+                            <TableCell className='text-center'>
+                              <StatusBadge
+                                tone={
+                                  buoi.trangThai === 'co_mat' || buoi.trangThai === 'hoc_bu'
+                                    ? 'success'
+                                    : buoi.trangThai === 'vang_co_phep'
+                                      ? 'warning'
+                                      : 'neutral'
+                                }
+                                className={
+                                  buoi.trangThai === 'vang_khong_phep'
+                                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                                    : undefined
+                                }
+                              >
+                                {buoi.trangThai === 'co_mat'
+                                  ? 'Có mặt'
+                                  : buoi.trangThai === 'hoc_bu'
+                                    ? 'Học bù'
+                                    : buoi.trangThai === 'vang_co_phep'
+                                      ? 'Vắng có phép'
+                                      : 'Vắng không phép'}
+                              </StatusBadge>
+                            </TableCell>
+                            <TableCell className='text-center'>
+                              {buoi.daLamBtvn ? '✅' : '❌'}
+                            </TableCell>
+                            <TableCell className='text-center font-bold'>
+                              {buoi.yThucDiem != null ? `${buoi.yThucDiem}/10` : '—'}
+                            </TableCell>
+                            <TableCell className='max-w-xs truncate' title={buoi.nhanXet}>
+                              {buoi.nhanXet || '—'}
+                            </TableCell>
+                            <TableCell className='text-center font-bold text-destructive'>
+                              {buoi.soBuoiDaTru > 0 ? `-${buoi.soBuoiDaTru}` : '0'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarCheck,
   Contact,
+  Database,
   GraduationCap,
   Home,
   UserPlus,
@@ -183,6 +184,14 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     10,
     () => import('./pages/edu/phat-sach.js'),
   ),
+  {
+    auth: 'required',
+    authz: 'skip',
+    componentLoader: () => import('./pages/edu/sao-luu.js'),
+    name: 'edu-sao-luu',
+    navigation: { title: 'edu.nav.saoLuu', icon: Database, order: 13 },
+    path: '/sao-luu',
+  },
   {
     // Declares no navigation, so the application decides where its entry goes (for example a sidebar item with an
     // unread badge). The plugin's API answers each person's own messages only, so the page needs no authorization of
