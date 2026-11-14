@@ -19,6 +19,7 @@ import { text, todayVn, useRequest, type Row } from './kit.js';
 
 interface SessionView {
   id: number;
+  lopId?: number;
   lop: string;
   ngay: string;
   gioBatDau: string;
@@ -88,22 +89,26 @@ export default function EduHome(): ReactElement {
         </p>
       ) : (
         <div className='grid gap-4 md:grid-cols-2'>
-          <Card>
-            <CardHeader>
-              <CardDescription>{t('edu.home.students')}</CardDescription>
-              <CardTitle className='text-3xl'>
-                {counts.students ?? '–'}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardDescription>{t('edu.home.classes')}</CardDescription>
-              <CardTitle className='text-3xl'>
-                {counts.classes ?? '–'}
-              </CardTitle>
-            </CardHeader>
-          </Card>
+          <Link to='/hoc-vien' className='block no-underline'>
+            <Card className='transition-colors hover:border-primary/50'>
+              <CardHeader>
+                <CardDescription>{t('edu.home.students')}</CardDescription>
+                <CardTitle className='text-3xl text-foreground'>
+                  {counts.students ?? '–'}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          </Link>
+          <Link to='/lop' className='block no-underline'>
+            <Card className='transition-colors hover:border-primary/50'>
+              <CardHeader>
+                <CardDescription>{t('edu.home.classes')}</CardDescription>
+                <CardTitle className='text-3xl text-foreground'>
+                  {counts.classes ?? '–'}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          </Link>
 
           {summary.result.state === 'ready' ? (
             <>
@@ -157,17 +162,28 @@ export default function EduHome(): ReactElement {
                         key={student.id}
                         className='flex items-center justify-between gap-3 text-sm'
                       >
-                        <span>
+                        <Link
+                          to={`/hoc-vien/${student.id}`}
+                          className='font-medium text-foreground hover:underline'
+                        >
                           {student.hoTen}{' '}
                           <span className='text-muted-foreground'>
                             ({student.ma})
                           </span>
-                        </span>
-                        <StatusBadge tone={'warning'}>
-                          {t('edu.home.sessionsLeft', {
-                            count: student.soBuoiConLai,
-                          })}
-                        </StatusBadge>
+                        </Link>
+                        <div className='flex items-center gap-2'>
+                          <StatusBadge tone={'warning'}>
+                            {t('edu.home.sessionsLeft', {
+                              count: student.soBuoiConLai,
+                            })}
+                          </StatusBadge>
+                          <Link
+                            to={`/hoc-phi?search=${encodeURIComponent(student.ma)}`}
+                            className='text-xs text-primary underline'
+                          >
+                            {t('edu.nav.hocPhi')}
+                          </Link>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -282,7 +298,16 @@ function SessionList(props: {
           className='flex items-center justify-between gap-3 text-sm'
         >
           <span>
-            {session.lop}{' '}
+            {session.lopId ? (
+              <Link
+                to={`/lop/${session.lopId}`}
+                className='font-medium text-foreground hover:underline'
+              >
+                {session.lop}
+              </Link>
+            ) : (
+              session.lop
+            )}{' '}
             <span className='text-muted-foreground'>
               {props.showDate ? `${session.ngay} ` : ''}
               {session.gioBatDau}–{session.gioKetThuc}

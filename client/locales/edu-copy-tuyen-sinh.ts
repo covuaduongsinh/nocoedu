@@ -55,4 +55,11 @@ export const EDU_TUYEN_SINH_ROWS: readonly (readonly [
   ['status.dang_cham_soc', 'Đang chăm sóc', 'In progress', '跟进中'],
   ['status.da_chot', 'Đã chốt', 'Enrolled', '已报名'],
   ['status.khong_chot', 'Không chốt', 'Not enrolled', '未报名'],
+  ['tuyenSinh.ghiDanh', 'Ghi danh học viên', 'Enroll student', '登记学员'],
+  [
+    'tuyenSinh.ghiDanhHint',
+    'Chuyển thông tin phụ huynh sang tạo học viên mới.',
+    'Transfer parent info to create a new student.',
+    '转入新增学员流程。',
+  ],
 ];

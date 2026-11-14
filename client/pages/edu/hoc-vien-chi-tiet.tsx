@@ -239,7 +239,7 @@ function StudentFile({
   );
 }
 
-/** The books the student is learning or has finished, imported from the Lark Base. */
+/** The books the student is learning or has finished, imported from the Lark Base, plus their handout history and fund. */
 function Books({ studentId }: { readonly studentId: number }): ReactElement {
   const { t } = useTranslation();
   const links = usePagedRows('sachHoc', {
@@ -251,34 +251,140 @@ function Books({ studentId }: { readonly studentId: number }): ReactElement {
     'sach',
     linkRows.map((row) => Number(row.sachId)),
   );
+  const handouts = usePagedRows('phatSach', {
+    page: 1,
+    where: { hocVienId: studentId },
+    descending: true,
+  });
+  const handoutRows =
+    handouts.loaded.state === 'ready' ? handouts.loaded.rows : [];
+  const handoutBooks = useRowsByIds(
+    'sach',
+    handoutRows.map((row) => Number(row.sachId)),
+  );
+  const fundRequest = useRequest<{
+    rows: {
+      hocVienId: number;
+      daNop: number;
+      daPhat: number;
+      conLai: number;
+    }[];
+  }>('/quySach/xem', {});
+  const myFund =
+    fundRequest.result.state === 'ready'
+      ? fundRequest.result.data.rows.find((r) => r.hocVienId === studentId)
+      : undefined;
+
   return (
-    <RowsTable
-      loaded={links.loaded}
-      onRetry={links.reload}
-      emptyTitle={t('edu.hocVien.noBooks')}
-      emptyHint={t('edu.hocVien.noBooksHint')}
-      columns={[
-        {
-          key: 'kyHieu',
-          label: t('edu.sach.kyHieu'),
-          render: (row) => text(books.get(Number(row.sachId))?.kyHieu),
-        },
-        {
-          key: 'ten',
-          label: t('edu.sach.ten'),
-          render: (row) => text(books.get(Number(row.sachId))?.ten),
-        },
-        {
-          key: 'trangThai',
-          label: t('edu.hocVien.bookState'),
-          render: (row) => (
-            <StatusBadge tone={row.trangThai === 'da_hoc' ? 'success' : 'info'}>
-              {t(`edu.status.${text(row.trangThai)}`)}
-            </StatusBadge>
-          ),
-        },
-      ]}
-    />
+    <div className='flex flex-col gap-6'>
+      {myFund ? (
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-3'>
+          <div className='rounded-lg border p-3'>
+            <dt className='text-xs text-muted-foreground'>
+              {t('edu.quySach.daNop')}
+            </dt>
+            <dd className='text-lg font-semibold'>{fmt(myFund.daNop)}</dd>
+          </div>
+          <div className='rounded-lg border p-3'>
+            <dt className='text-xs text-muted-foreground'>
+              {t('edu.quySach.daPhat')}
+            </dt>
+            <dd className='text-lg font-semibold'>{fmt(myFund.daPhat)}</dd>
+          </div>
+          <div className='rounded-lg border p-3'>
+            <dt className='text-xs text-muted-foreground'>
+              {t('edu.quySach.conLai')}
+            </dt>
+            <dd
+              className={`text-lg font-semibold ${
+                myFund.conLai < 0
+                  ? 'text-destructive'
+                  : 'text-emerald-600 dark:text-emerald-400'
+              }`}
+            >
+              {fmt(myFund.conLai)}
+            </dd>
+          </div>
+        </div>
+      ) : null}
+
+      <div>
+        <h3 className='mb-2 text-sm font-medium'>
+          {t('edu.hocVien.tab.books')}
+        </h3>
+        <RowsTable
+          loaded={links.loaded}
+          onRetry={links.reload}
+          emptyTitle={t('edu.hocVien.noBooks')}
+          emptyHint={t('edu.hocVien.noBooksHint')}
+          columns={[
+            {
+              key: 'kyHieu',
+              label: t('edu.sach.kyHieu'),
+              render: (row) => text(books.get(Number(row.sachId))?.kyHieu),
+            },
+            {
+              key: 'ten',
+              label: t('edu.sach.ten'),
+              render: (row) => text(books.get(Number(row.sachId))?.ten),
+            },
+            {
+              key: 'trangThai',
+              label: t('edu.hocVien.bookState'),
+              render: (row) => (
+                <StatusBadge
+                  tone={row.trangThai === 'da_hoc' ? 'success' : 'info'}
+                >
+                  {t(`edu.status.${text(row.trangThai)}`)}
+                </StatusBadge>
+              ),
+            },
+          ]}
+        />
+      </div>
+
+      <div>
+        <h3 className='mb-2 text-sm font-medium'>
+          {t('edu.phatSach.history')}
+        </h3>
+        <RowsTable
+          loaded={handouts.loaded}
+          onRetry={handouts.reload}
+          emptyTitle={t('edu.phatSach.empty')}
+          emptyHint={t('edu.phatSach.noHistory')}
+          columns={[
+            {
+              key: 'ngay',
+              label: t('edu.phatSach.ngay'),
+              render: (row) => day(row.ngay),
+            },
+            {
+              key: 'sach',
+              label: t('edu.phatSach.sach'),
+              render: (row) => {
+                const b = handoutBooks.get(Number(row.sachId));
+                return b ? `${text(b.kyHieu)} · ${text(b.ten)}` : '';
+              },
+            },
+            {
+              key: 'tienSach',
+              label: t('edu.phatSach.tienSach'),
+              render: (row) => fmt(row.tienSach),
+            },
+            {
+              key: 'uuDai',
+              label: t('edu.phatSach.uuDai'),
+              render: (row) => fmt(row.uuDai),
+            },
+            {
+              key: 'ghiChu',
+              label: t('edu.phatSach.ghiChu'),
+              render: (row) => text(row.ghiChu),
+            },
+          ]}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -359,7 +465,16 @@ function Sessions({ studentId }: { readonly studentId: number }): ReactElement {
         {
           key: 'ngay',
           label: t('edu.hocVien.ngay'),
-          render: (row) => day(sessions.get(Number(row.buoiHocId))?.ngay),
+          render: (row) => {
+            const dateStr = day(sessions.get(Number(row.buoiHocId))?.ngay);
+            return row.buoiHocId ? (
+              <RecordLink to={`/diem-danh?buoi=${text(row.buoiHocId)}`}>
+                {dateStr || t('edu.diemDanh.title')}
+              </RecordLink>
+            ) : (
+              dateStr
+            );
+          },
         },
         {
           key: 'trangThai',
@@ -396,6 +511,7 @@ interface PackageDetail {
   readonly cacBuoi: readonly {
     readonly stt: number;
     readonly diemDanhId: number | null;
+    readonly buoiHocId?: number | null;
     readonly ngay: string | null;
     readonly lopId: number | null;
     readonly trangThai: string | null;
@@ -461,14 +577,24 @@ function PackageSessions(props: {
               </p>
             ) : (
               <ul className='flex flex-col gap-1 text-sm'>
-                {state.detail.cacBuoi.map((entry) => (
-                  <li key={entry.stt}>
-                    {entry.ngay
-                      ? `${entry.ngay} · ${t(`edu.diemDanh.s.${text(entry.trangThai)}`)}`
-                      : t('edu.goiHoc.adjustment')}
-                    {entry.soBuoi > 1 ? ` · ${entry.soBuoi}` : ''}
-                  </li>
-                ))}
+                {state.detail.cacBuoi.map((entry) => {
+                  const label = entry.ngay
+                    ? `${entry.ngay} · ${t(`edu.diemDanh.s.${text(entry.trangThai)}`)}`
+                    : t('edu.goiHoc.adjustment');
+                  const count = entry.soBuoi > 1 ? ` · ${entry.soBuoi}` : '';
+                  return (
+                    <li key={entry.stt}>
+                      {entry.buoiHocId ? (
+                        <RecordLink to={`/diem-danh?buoi=${entry.buoiHocId}`}>
+                          {label}
+                        </RecordLink>
+                      ) : (
+                        label
+                      )}
+                      {count}
+                    </li>
+                  );
+                })}
               </ul>
             )}
             {state.detail.vuotSoDu > 0 ? (

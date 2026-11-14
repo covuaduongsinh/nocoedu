@@ -51,6 +51,8 @@ const ReportInput = z.object({
   denNgay: z.iso.date().optional(),
   tuThang: Month.optional(),
   denThang: Month.optional(),
+  coSoId: z.coerce.number().int().positive().optional(),
+  lopId: z.coerce.number().int().positive().optional(),
 });
 type ReportInputType = z.infer<typeof ReportInput>;
 
@@ -191,6 +193,7 @@ export default [
               f.string('thang').eq(month),
           );
           for (const p of payments) {
+            if (input.coSoId && num(p.coSoId) !== input.coSoId) continue;
             const key = `${month}|${num(p.coSoId)}`;
             totals.set(key, (totals.get(key) ?? 0) + num(p.soTien));
             counts.set(key, (counts.get(key) ?? 0) + 1);
@@ -230,7 +233,15 @@ export default [
       const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view'))
         .eduHocVien;
       if (!studentPolicy) throw denied();
-      const students = await readAll('eduHocVien', studentPolicy);
+      let students = await readAll('eduHocVien', studentPolicy);
+      if (input.coSoId) {
+        students = students.filter((s) => num(s.coSoId) === input.coSoId);
+      }
+      if (input.lopId) {
+        students = students.filter(
+          (s) => s.lopId != null && num(s.lopId) === input.lopId,
+        );
+      }
       const studentIds = students.map((s) => num(s.id));
       const lops = await nameMap(
         'eduLop',
@@ -376,10 +387,22 @@ export default [
           // Only sessions of classes the caller may see: a student who attended another class once (a make-up) must
           // not bring that class into this report.
           const classPolicy = (await policiesOf(c, 'edu.lop', 'view')).eduLop;
+          const classRows = classPolicy
+            ? await readAll('eduLop', classPolicy)
+            : [];
+          let visibleClassRows = classRows;
+          if (input.coSoId) {
+            visibleClassRows = visibleClassRows.filter(
+              (r) => num(r.coSoId) === input.coSoId,
+            );
+          }
+          if (input.lopId) {
+            visibleClassRows = visibleClassRows.filter(
+              (r) => num(r.id) === input.lopId,
+            );
+          }
           const visibleClasses = new Set(
-            classPolicy
-              ? (await readAll('eduLop', classPolicy)).map((r) => num(r.id))
-              : [],
+            visibleClassRows.map((r) => num(r.id)),
           );
           const tally = new Map<
             number,

@@ -3,8 +3,16 @@ import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useState, type ReactElement } from 'react';
 
+import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
 import { Button } from '#components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '#components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -46,9 +54,97 @@ interface PayRow {
 const money = (value: unknown): string =>
   Number(value ?? 0).toLocaleString('vi-VN');
 
+interface CoachSession {
+  readonly id: number;
+  readonly lopId: number;
+  readonly lopTen: string;
+  readonly ngay: string;
+  readonly gioBatDau: string;
+  readonly gioKetThuc: string;
+  readonly trangThai: string;
+}
+
+function CoachSessionsDialog(props: {
+  readonly thang: string;
+  readonly userId: string;
+  readonly coachName: string;
+  readonly onClose: () => void;
+}): ReactElement {
+  const { t } = useTranslation();
+  const { result } = useRequest<{ rows: CoachSession[] }>(
+    '/hoSoGv/chiTietBuoiDay',
+    { thang: props.thang, userId: props.userId },
+  );
+
+  return (
+    <Dialog open onOpenChange={(open) => (open ? undefined : props.onClose())}>
+      <DialogContent className='max-w-2xl'>
+        <DialogHeader>
+          <DialogTitle>
+            {`${props.coachName} · ${t('edu.hoSoGv.chiTietTitle')} (${props.thang})`}
+          </DialogTitle>
+          <DialogDescription>
+            {t('edu.hoSoGv.chiTietHint')}
+          </DialogDescription>
+        </DialogHeader>
+        {result.state === 'loading' ? (
+          <p role='status' className='text-sm text-muted-foreground'>
+            {t('edu.common.loading')}
+          </p>
+        ) : result.state === 'error' ? (
+          <p role='alert' className='text-sm text-destructive'>
+            {t('edu.common.loadError')}
+          </p>
+        ) : result.data.rows.length === 0 ? (
+          <p className='text-sm text-muted-foreground'>
+            {t('edu.hoSoGv.noSessions')}
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('edu.hoSoGv.ngay')}</TableHead>
+                <TableHead>{t('edu.hoSoGv.gio')}</TableHead>
+                <TableHead>{t('edu.hoSoGv.lop')}</TableHead>
+                <TableHead>{t('edu.diemDanh.status')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {result.data.rows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>
+                    <RecordLink to={`/diem-danh?buoi=${row.id}`}>
+                      {row.ngay}
+                    </RecordLink>
+                  </TableCell>
+                  <TableCell>{`${row.gioBatDau} – ${row.gioKetThuc}`}</TableCell>
+                  <TableCell>
+                    <RecordLink to={`/lop/${row.lopId}`}>
+                      {row.lopTen || t('edu.lop.detail')}
+                    </RecordLink>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge tone='success'>
+                      {t('edu.diemDanh.done')}
+                    </StatusBadge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function Pay(): ReactElement {
   const { t } = useTranslation();
   const [month, setMonth] = useState(() => todayVn().slice(0, 7));
+  const [inspecting, setInspecting] = useState<{
+    userId: string;
+    coachName: string;
+  } | null>(null);
   const { result } = useRequest<{ rows: PayRow[]; tong: number }>(
     '/hoSoGv/thuLao',
     { thang: month },
@@ -78,6 +174,7 @@ function Pay(): ReactElement {
               <TableHead>{t('edu.hoSoGv.soBuoi')}</TableHead>
               <TableHead>{t('edu.hoSoGv.thuLaoMotBuoi')}</TableHead>
               <TableHead>{t('edu.hoSoGv.tong')}</TableHead>
+              <TableHead>{t('edu.common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -87,14 +184,33 @@ function Pay(): ReactElement {
                 <TableCell>{row.soBuoi}</TableCell>
                 <TableCell>{money(row.thuLaoMotBuoi)}</TableCell>
                 <TableCell>{money(row.tong)}</TableCell>
+                <TableCell>
+                  <Button
+                    size='sm'
+                    variant='outline'
+                    onClick={() =>
+                      setInspecting({ userId: row.userId, coachName: row.ten })
+                    }
+                  >
+                    {t('edu.hoSoGv.viewSessions')}
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
             <TableRow>
               <TableCell colSpan={3}>{t('edu.hoSoGv.tongCong')}</TableCell>
-              <TableCell>{money(result.data.tong)}</TableCell>
+              <TableCell colSpan={2}>{money(result.data.tong)}</TableCell>
             </TableRow>
           </TableBody>
         </Table>
+      ) : null}
+      {inspecting ? (
+        <CoachSessionsDialog
+          thang={month}
+          userId={inspecting.userId}
+          coachName={inspecting.coachName}
+          onClose={() => setInspecting(null)}
+        />
       ) : null}
     </section>
   );

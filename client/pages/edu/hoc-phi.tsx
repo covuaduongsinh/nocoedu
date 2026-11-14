@@ -3,6 +3,7 @@ import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useState, type ReactElement } from 'react';
 
+import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
 import { Button } from '#components/ui/button';
 import {
@@ -120,7 +121,15 @@ export default function HocPhiPage(): ReactElement {
         }}
         columns={[
           { key: 'ma', label: t('edu.hocVien.ma') },
-          { key: 'hoTen', label: t('edu.hocVien.hoTen') },
+          {
+            key: 'hoTen',
+            label: t('edu.hocVien.hoTen'),
+            render: (row) => (
+              <RecordLink to={`/hoc-vien/${row.id}`}>
+                {text(row.hoTen)}
+              </RecordLink>
+            ),
+          },
           {
             key: 'soBuoiConLai',
             label: t('edu.diemDanh.balance'),

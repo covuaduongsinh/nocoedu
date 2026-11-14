@@ -1,7 +1,8 @@
 import { useApiClient } from '@nocobase/app-client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { useState, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
+import { useSearchParams } from 'react-router';
 
 import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
@@ -35,6 +36,7 @@ const RELATIONS = ['bo', 'me', 'ong', 'ba', 'nguoi_giam_ho', 'khac'] as const;
 
 export default function HocVienPage(): ReactElement {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const api = useApiClient();
   const list = useListState();
   const { loaded, total, reload } = usePagedRows('hocVien', {
@@ -66,8 +68,37 @@ export default function HocVienPage(): ReactElement {
   });
 
   const [student, setStudent] = useState<typeof NEW_STUDENT>();
+  const [pendingParent, setPendingParent] = useState<typeof NEW_PARENT | null>(
+    null,
+  );
   const [levelUp, setLevelUp] = useState<{ row: Row; levelKey: string }>();
   const [parent, setParent] = useState<{ row: Row; form: typeof NEW_PARENT }>();
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'create') {
+      const coSoId = searchParams.get('coSoId') ?? '';
+      const parentName = searchParams.get('parentName');
+      const parentPhone = searchParams.get('parentPhone');
+      setSearchParams({}, { replace: true });
+      queueMicrotask(() => {
+        setStudent({
+          hoTen: '',
+          namSinh: '',
+          coSoId,
+          lopId: '',
+          levelKey: 'tot',
+        });
+        if (parentName || parentPhone) {
+          setPendingParent({
+            hoTen: parentName ?? '',
+            soDienThoai: parentPhone ?? '',
+            zalo: '',
+            quanHe: 'me',
+          });
+        }
+      });
+    }
+  }, [searchParams, setSearchParams]);
 
   const classRows = classes.state === 'ready' ? classes.rows : [];
   const branchRows = branches.state === 'ready' ? branches.rows : [];
@@ -119,12 +150,19 @@ export default function HocVienPage(): ReactElement {
           {
             key: 'levelKey',
             label: t('edu.hocVien.level'),
-            render: (row) => t(`edu.level.${String(row.levelKey)}`),
+            render: (row) => t(`edu.level.${text(row.levelKey)}`),
           },
           {
             key: 'lopId',
             label: t('edu.hocVien.lop'),
-            render: (row) => className(row.lopId),
+            render: (row) =>
+              row.lopId != null ? (
+                <RecordLink to={`/lop/${text(row.lopId)}`}>
+                  {className(row.lopId)}
+                </RecordLink>
+              ) : (
+                className(row.lopId)
+              ),
           },
           {
             key: 'trangThai',
@@ -133,7 +171,7 @@ export default function HocVienPage(): ReactElement {
               <StatusBadge
                 tone={row.trangThai === 'dang_hoc' ? 'success' : 'neutral'}
               >
-                {t(`edu.status.${String(row.trangThai)}`)}
+                {t(`edu.status.${text(row.trangThai)}`)}
               </StatusBadge>
             ),
           },
@@ -176,14 +214,21 @@ export default function HocVienPage(): ReactElement {
           title={t('edu.hocVien.new')}
           onClose={() => setStudent(undefined)}
           onSubmit={async () => {
-            await post(api, 'hocVien/taoMoi', {
+            const res = (await post(api, 'hocVien/taoMoi', {
               hoTen: student.hoTen.trim(),
               namSinh: Number(student.namSinh),
               coSoId: Number(student.coSoId),
               lopId: student.lopId ? Number(student.lopId) : null,
               levelKey: student.levelKey,
-            });
+            })) as { data?: { id?: number } };
             reload();
+            if (pendingParent && res?.data?.id) {
+              setParent({
+                row: { id: res.data.id, hoTen: student.hoTen },
+                form: pendingParent,
+              });
+              setPendingParent(null);
+            }
           }}
         >
           <TextField

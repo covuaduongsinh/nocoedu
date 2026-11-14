@@ -3,6 +3,7 @@ import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useState, type ReactElement } from 'react';
 
+import { RecordLink } from '#components/record-link';
 import { Button } from '#components/ui/button';
 import {
   Table,
@@ -71,7 +72,11 @@ function QuySach(props: { version: number }): ReactElement | null {
         <TableBody>
           {result.data.rows.map((row) => (
             <TableRow key={row.hocVienId}>
-              <TableCell>{`${row.ma} · ${row.hoTen}`}</TableCell>
+              <TableCell>
+                <RecordLink to={`/hoc-vien/${row.hocVienId}`}>
+                  {`${row.ma} · ${row.hoTen}`}
+                </RecordLink>
+              </TableCell>
               <TableCell>{money(row.daNop)}</TableCell>
               <TableCell>{money(row.daPhat)}</TableCell>
               <TableCell>{money(row.conLai)}</TableCell>
@@ -159,9 +164,13 @@ export default function PhatSachPage(): ReactElement {
             label: t('edu.phatSach.hocVien'),
             render: (row) => {
               const student = students.get(Number(row.hocVienId));
-              return student
-                ? `${text(student.ma)} · ${text(student.hoTen)}`
-                : '';
+              return student ? (
+                <RecordLink to={`/hoc-vien/${String(row.hocVienId)}`}>
+                  {`${text(student.ma)} · ${text(student.hoTen)}`}
+                </RecordLink>
+              ) : (
+                ''
+              );
             },
           },
           {

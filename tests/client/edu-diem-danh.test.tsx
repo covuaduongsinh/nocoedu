@@ -161,7 +161,7 @@ describe('attendance and report pages', () => {
 
   it('shows a report with Vietnamese column names', async () => {
     await render(<BaoCaoPage />, '/bao-cao', '/bao-cao');
-    expect(await screen.findByText('Lớp Mẫu 1')).toBeInTheDocument();
+    expect((await screen.findAllByText('Lớp Mẫu 1'))[0]).toBeInTheDocument();
     expect(screen.getByText('Sĩ số')).toBeInTheDocument();
     // Viewing a report does not allow downloading it.
     expect(

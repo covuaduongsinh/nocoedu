@@ -48,4 +48,12 @@ export const EDU_HO_SO_GV_ROWS: readonly (readonly [
   ['hoSoGv.tongCong', 'Tổng cộng', 'Total', '合计'],
   ['status.dang_lam', 'Đang làm', 'Working', '在职'],
   ['status.da_nghi_viec', 'Đã nghỉ', 'Left', '已离职'],
+  ['hoSoGv.chiTietBuoiDay', 'Chi tiết ca dạy', 'Teaching sessions detail', '授课明细'],
+  ['hoSoGv.chiTietTitle', 'Chi tiết ca dạy trong tháng', 'Teaching sessions in month', '当月授课明细'],
+  ['hoSoGv.chiTietHint', 'Danh sách các buổi học giáo viên đã điểm danh trong tháng.', 'List of sessions marked by the coach in this month.', '教练当月已完成点名的课程列表。'],
+  ['hoSoGv.noSessions', 'Không có buổi dạy nào trong tháng này.', 'No sessions taught this month.', '本月无授课记录。'],
+  ['hoSoGv.ngay', 'Ngày học', 'Date', '上课日期'],
+  ['hoSoGv.gio', 'Giờ học', 'Time', '上课时间'],
+  ['hoSoGv.lop', 'Lớp học', 'Class', '班级'],
+  ['hoSoGv.viewSessions', 'Xem ca dạy', 'View sessions', '查看明细'],
 ];

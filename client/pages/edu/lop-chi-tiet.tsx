@@ -88,6 +88,10 @@ function ClassFile({
     branches.state === 'ready'
       ? branches.rows.find((row) => row.id === lop.coSoId)
       : undefined;
+  const students = usePagedRows('hocVien', {
+    page: 1,
+    where: { lopId: lop.id },
+  });
   return (
     <PageContainer className='mx-auto max-w-6xl'>
       <PageHeader
@@ -109,11 +113,14 @@ function ClassFile({
           </TabsTrigger>
         </TabsList>
         <TabsContent value='info' className='pt-4'>
-          <dl className='grid grid-cols-2 gap-4 md:grid-cols-3'>
+          <dl className='grid grid-cols-2 gap-4 md:grid-cols-4'>
             <Detail label={t('edu.lop.ma')}>{text(lop.ma)}</Detail>
             <Detail label={t('edu.lop.coSo')}>{text(branch?.ten)}</Detail>
             <Detail label={t('edu.lop.level')}>
               {t(`edu.level.${text(lop.levelKey)}`)}
+            </Detail>
+            <Detail label={t('edu.baoCao.col.soHocVien')}>
+              {students.total}
             </Detail>
             <Detail label={t('edu.lop.trangThai')}>
               <StatusBadge
@@ -228,7 +235,15 @@ function Sessions({ classId }: { readonly classId: number }): ReactElement {
       emptyHint={t('edu.lop.noSessionsHint')}
       paging={{ page, total: sessions.total, onPage: setPage }}
       columns={[
-        { key: 'ngay', label: t('edu.hocVien.ngay') },
+        {
+          key: 'ngay',
+          label: t('edu.hocVien.ngay'),
+          render: (row) => (
+            <RecordLink to={`/diem-danh?buoi=${row.id}`}>
+              {text(row.ngay)}
+            </RecordLink>
+          ),
+        },
         {
           key: 'gio',
           label: t('edu.lop.gio'),

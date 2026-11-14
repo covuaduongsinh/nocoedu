@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router';
 
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
+import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
 import { Button } from '#components/ui/button';
 import { Checkbox } from '#components/ui/checkbox';
@@ -316,6 +317,14 @@ export default function DiemDanhPage(): ReactElement {
             </p>
           ) : null}
           {session ? (
+            <div className='flex items-center gap-2 text-sm text-muted-foreground'>
+              <span>{t('edu.hocVien.lop')}:</span>
+              <RecordLink to={`/lop/${String(session.lopId)}`}>
+                {className(session.lopId)}
+              </RecordLink>
+            </div>
+          ) : null}
+          {session ? (
             <div className='overflow-x-auto rounded-lg border'>
               <Table>
                 <TableHeader>
@@ -334,7 +343,14 @@ export default function DiemDanhPage(): ReactElement {
                     const result = saved[student.id];
                     return (
                       <TableRow key={student.id}>
-                        <TableCell>{text(student.hoTen)}</TableCell>
+                        <TableCell>
+                          <RecordLink
+                            to={`/hoc-vien/${student.id}`}
+                            target='_blank'
+                          >
+                            {text(student.hoTen)}
+                          </RecordLink>
+                        </TableCell>
                         <TableCell>
                           <select
                             aria-label={t('edu.diemDanh.status')}

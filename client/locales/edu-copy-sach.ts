@@ -91,4 +91,11 @@ export const EDU_SACH_ROWS: readonly (readonly [
     'Press "Hand a book out" to record a book given to a student.',
     '点击“发书”记录发给学员的书。',
   ],
+  ['phatSach.history', 'Lịch sử phát sách', 'Handout history', '发书记录'],
+  [
+    'phatSach.noHistory',
+    'Chưa có lịch sử phát sách cho học viên này.',
+    'No books handed out to this student yet.',
+    '该学员暂无发书记录。',
+  ],
 ];

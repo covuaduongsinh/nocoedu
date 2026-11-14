@@ -583,3 +583,26 @@ test('the missing-consent report lists studying students with no learning consen
   await consent(ids.hocVienA);
   expect((await rows(admin)).map((r) => r.ma)).toEqual(['HS-B']);
 });
+
+test('reports support coSoId and lopId filters', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin, ids } = await setup(testApp, connection);
+  const headcountAll = (await (
+    await report(admin, { loai: 'siSo' })
+  ).json()) as Report;
+  expect(headcountAll.data.rows).toHaveLength(2);
+
+  const headcountBranchA = (await (
+    await report(admin, { loai: 'siSo', coSoId: ids.coSoA })
+  ).json()) as Report;
+  expect(headcountBranchA.data.rows).toHaveLength(1);
+  expect(headcountBranchA.data.rows[0]?.coSo).toBe('Cơ sở Mẫu A');
+
+  const headcountClassB = (await (
+    await report(admin, { loai: 'siSo', lopId: ids.lopB })
+  ).json()) as Report;
+  expect(headcountClassB.data.rows).toHaveLength(1);
+  expect(headcountClassB.data.rows[0]?.lop).toBe('Lớp Mẫu B1');
+});

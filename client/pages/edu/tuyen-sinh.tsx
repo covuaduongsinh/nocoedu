@@ -2,6 +2,7 @@ import { useApiClient } from '@nocobase/app-client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useState, type ReactElement } from 'react';
+import { useNavigate } from 'react-router';
 
 import { StatusBadge } from '#components/status-badge';
 import { Button } from '#components/ui/button';
@@ -39,6 +40,7 @@ interface Form {
  */
 export default function TuyenSinhPage(): ReactElement {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const api = useApiClient();
   const list = useListState();
   const { loaded, total, reload } = usePagedRows('lienHe', {
@@ -100,6 +102,21 @@ export default function TuyenSinhPage(): ReactElement {
           canManage
             ? (row) => (
                 <span className='flex gap-2'>
+                  <Button
+                    size='sm'
+                    variant='outline'
+                    onClick={() => {
+                      const params = new URLSearchParams({
+                        action: 'create',
+                        coSoId: text(row.coSoId),
+                        parentName: text(row.hoTen),
+                        parentPhone: text(row.soDienThoai),
+                      });
+                      void navigate(`/hoc-vien?${params.toString()}`);
+                    }}
+                  >
+                    {t('edu.tuyenSinh.ghiDanh')}
+                  </Button>
                   <Button
                     size='sm'
                     variant='outline'
