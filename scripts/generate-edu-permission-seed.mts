@@ -36,8 +36,12 @@ const withoutLaterActions = (grants: readonly unknown[]): unknown[] =>
 const withoutSach = (grants: readonly unknown[]): unknown[] =>
   grants.filter((grant) => {
     const g = grant as { resource: { type: string; id: string } };
-    return g.resource.id !== 'edu.sach' && g.resource.id !== 'edu.phatSach' &&
-    g.resource.id !== 'edu.tuyenSinh';
+    return (
+      g.resource.id !== 'edu.sach' &&
+      g.resource.id !== 'edu.phatSach' &&
+      g.resource.id !== 'edu.tuyenSinh' &&
+      g.resource.id !== 'edu.hoSoGv'
+    );
   });
 const literal = JSON.stringify(
   EDU_PERMISSION_SETS.map(({ key, title, grants }) => ({

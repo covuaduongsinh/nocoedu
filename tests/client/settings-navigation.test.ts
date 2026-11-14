@@ -245,6 +245,7 @@ describe('System settings navigation', () => {
       'edu-sach',
       'edu-phatSach',
       'edu-tuyenSinh',
+      'edu-hoSoGv',
       'settingsHome',
     ]);
   });

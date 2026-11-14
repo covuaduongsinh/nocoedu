@@ -27,6 +27,7 @@ export const COLLECTIONS = {
   sach: { name: 'eduSach', title: 'Sách' },
   phatSach: { name: 'eduPhatSach', title: 'Phát sách' },
   lienHe: { name: 'eduLienHe', title: 'Liên hệ tuyển sinh' },
+  hoSoGv: { name: 'eduHoSoGv', title: 'Hồ sơ giáo viên' },
 } as const;
 
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -297,6 +298,10 @@ export const FIELDS = {
       'createdAt',
     ],
   },
+  hoSoGv: {
+    read: ['id', 'userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
+    write: ['userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
+  },
   lienHe: {
     read: [
       'id',
@@ -394,6 +399,12 @@ function simple(
 export const coSo = simple('edu.coSo', 'Cơ sở', 'coSo', {
   create: true,
   update: FIELDS.coSo.write,
+});
+// Coach profile and pay per session (DS-61 phase F). Pay is the club's private matter: only the administrator holds
+// this resource; the account itself (`userId`) cannot be changed after the profile is made.
+export const hoSoGv = simple('edu.hoSoGv', 'Hồ sơ giáo viên', 'hoSoGv', {
+  create: true,
+  update: ['tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
 });
 // Admissions (DS-61 phase D): a family that has not enrolled yet. Minimal data by design: the parent's name and phone,
 // the branch, the channel, a status, a reminder day and a short note; no address, no social profile, no child's data.
