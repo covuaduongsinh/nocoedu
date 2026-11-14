@@ -21,6 +21,7 @@ const eduMenu = [
   'edu-hocPhi',
   'edu-nhanXet',
   'edu-baoCao',
+  'edu-sach',
 ];
 
 describe('default Foundation integration', () => {

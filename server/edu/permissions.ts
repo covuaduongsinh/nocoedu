@@ -24,6 +24,7 @@ export const COLLECTIONS = {
   soDuNhatKy: { name: 'eduSoDuNhatKy', title: 'Nhật ký số dư buổi' },
   nhanXetThang: { name: 'eduNhanXetThang', title: 'Nhận xét tháng' },
   xuatDuLieu: { name: 'eduXuatDuLieuNhatKy', title: 'Nhật ký xuất dữ liệu' },
+  sach: { name: 'eduSach', title: 'Sách' },
 } as const;
 
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -265,6 +266,10 @@ export const FIELDS = {
     ],
     write: ['hocVienId', 'lopId', 'hlvId', 'thang', 'noiDung', 'trangThai'],
   },
+  sach: {
+    read: ['id', 'kyHieu', 'ten', 'giaBia', 'giaBan', 'trangThai'],
+    write: ['kyHieu', 'ten', 'giaBia', 'giaBan', 'trangThai'],
+  },
   xuatDuLieu: {
     read: ['id', 'userId', 'loai', 'soDong', 'createdAt'],
     write: [],
@@ -339,6 +344,11 @@ function simple(
 export const coSo = simple('edu.coSo', 'Cơ sở', 'coSo', {
   create: true,
   update: FIELDS.coSo.write,
+});
+// A book is withdrawn by its status (`ngung`), never deleted: what was handed out points to it.
+export const sach = simple('edu.sach', 'Sách', 'sach', {
+  create: true,
+  update: FIELDS.sach.write,
 });
 export const coSoQuanLy = simple(
   'edu.coSoQuanLy',

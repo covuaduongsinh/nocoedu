@@ -232,3 +232,38 @@ describeMigration('202611130001_edu_thanh_toan_external_id', {
     await expectCollection('eduThanhToan').not.toHaveField('externalId');
   },
 });
+
+describeMigration('202611130002_create_edu_sach', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ connection, expectCollection }) => {
+    await expectCollection('eduSach').toHaveField('kyHieu', {
+      nullable: false,
+    });
+    await expectCollection('eduSach').toHaveIndex(['kyHieu'], { unique: true });
+    await expectCollection('eduSach').toHaveIndex(['externalId'], {
+      unique: true,
+    });
+    await connection.query
+      .insertInto('eduSach')
+      .values({ kyHieu: 'MAU1', ten: 'Sách Mẫu 1' })
+      .execute();
+    await expect(
+      connection.query
+        .insertInto('eduSach')
+        .values({ kyHieu: 'MAU1', ten: 'Sách Mẫu khác' })
+        .execute(),
+    ).rejects.toThrow();
+    await connection.query.deleteFrom('eduSach').allowAllRows().execute();
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduSach').not.toExist();
+  },
+});

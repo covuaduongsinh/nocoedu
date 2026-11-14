@@ -16,6 +16,7 @@ import {
   lopLich,
   nhanXet,
   phuHuynh,
+  sach,
   soDu,
   thanhToan,
 } from '../../server/edu/permissions.js';
@@ -36,7 +37,12 @@ const page = (id: string) => ({
 
 const ALL = 'allRecords';
 
-const everyPage = Object.values(PAGES).map(page);
+// The books page was added after the first seed ran: it and its grant are the last ones of every set that has them
+// (`202611130003_edu_sach_grant` appends them in this order).
+const everyPage = Object.entries(PAGES)
+  .filter(([key]) => key !== 'sach')
+  .map(([, id]) => page(id));
+const sachPage = page(PAGES.sach);
 
 export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .title('NocoEdu - Quản trị')
@@ -98,6 +104,8 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
     nhanXet.reference().grant({ view: { data: ALL }, write: { data: ALL } }),
   )
   .grant(baoCao.reference().grant({ export: { data: ALL } }))
+  .grant(sachPage)
+  .grant(sach.reference().grant({ view: { data: ALL }, manage: { data: ALL } }))
   .build();
 
 export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
@@ -179,6 +187,8 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
     }),
   )
   .grant(baoCao.reference().grant({ export: { data: MY_BRANCHES } }))
+  .grant(sachPage)
+  .grant(sach.reference().grant({ view: { data: ALL } }))
   .build();
 
 export const eduHlv = definePermissionSet('edu_hlv')
@@ -217,6 +227,8 @@ export const eduHlv = definePermissionSet('edu_hlv')
       write: { data: MY_CLASSES },
     }),
   )
+  .grant(sachPage)
+  .grant(sach.reference().grant({ view: { data: ALL } }))
   .build();
 
 export const eduKeToan = definePermissionSet('edu_ke_toan')
@@ -245,6 +257,8 @@ export const eduKeToan = definePermissionSet('edu_ke_toan')
   )
   .grant(soDu.reference().grant({ view: { data: ALL } }))
   .grant(baoCao.reference().grant({ export: { data: ALL } }))
+  .grant(sachPage)
+  .grant(sach.reference().grant({ view: { data: ALL } }))
   .build();
 
 export const eduApiDoc = definePermissionSet('edu_api_doc')
