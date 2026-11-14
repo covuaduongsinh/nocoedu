@@ -18,6 +18,7 @@ const TABLES = [
   'eduDiemDanh',
   'eduSoDuNhatKy',
   'eduNhapLarkNhatKy',
+  'eduSachHoc',
   'eduPhatSach',
   'eduNopSach',
 ] as const;

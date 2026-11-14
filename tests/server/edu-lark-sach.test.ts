@@ -187,6 +187,15 @@ const handout = (
 
 const withHandouts = () => {
   const tables = withBooks();
+  // The student's own books: one learning, one finished (also listed as learning: finished wins), one left out.
+  const s1 = tables.hocVien.find((r) => r.recordId === IDS.s1);
+  if (s1) {
+    s1.fields['Sách đang học'] = link('recSachMau1', 'MAU1');
+    s1.fields['Sách đã học'] = [
+      ...link('recSachMau1', 'MAU1'),
+      ...link('recSachMau3', 'mau1'),
+    ];
+  }
   tables.phatSach.push(
     handout('recPhat1', IDS.s1, 'recSachMau1', { 'Ưu đãi': 20000 }),
     handout('recPhat2', IDS.s2, 'recSachMau1'),
@@ -243,6 +252,7 @@ test('the commit writes the handouts once, with the branch of the student and th
         .executeTakeFirstOrThrow()
     ).id,
   );
+  await connection.query.deleteFrom('eduSachHoc').allowAllRows().execute();
   await connection.query.deleteFrom('eduPhatSach').allowAllRows().execute();
   await connection.query.deleteFrom('eduNopSach').allowAllRows().execute();
   await connection.query.deleteFrom('eduSach').allowAllRows().execute();
@@ -259,7 +269,13 @@ test('the commit writes the handouts once, with the branch of the student and th
   const dry = await run(false);
   expect(await count()).toBe(0);
   expect(dry.sach?.phat).toMatchObject({ doc: true, dong: 2 });
-  expect(dry.sach?.ghi).toMatchObject({ phatTao: 2, phatTrung: 0, nopTao: 1 });
+  expect(dry.sach?.ghi).toMatchObject({
+    phatTao: 2,
+    phatTrung: 0,
+    nopTao: 1,
+    hocTao: 1,
+  });
+  expect(dry.sach?.hoc).toEqual({ dong: 1, boQua: 1 });
   expect(dry.sach?.nop.problems.map((g) => g.code).sort()).toEqual([
     'NOP_SACH_HOC_VIEN_BI_BO',
     'NOP_SACH_THIEU_HOC_VIEN',
@@ -288,6 +304,16 @@ test('the commit writes the handouts once, with the branch of the student and th
     nopTao: 0,
     nopTrung: 1,
   });
+  const learned = await connection.query
+    .selectFrom('eduSachHoc')
+    .select(['trangThai', 'externalId'])
+    .execute();
+  expect(learned).toEqual([
+    {
+      trangThai: 'da_hoc',
+      externalId: `lark:sachhoc:${IDS.s1}:recSachMau1`,
+    },
+  ]);
   const paid = await connection.query
     .selectFrom('eduNopSach')
     .select(['soTien', 'externalId'])

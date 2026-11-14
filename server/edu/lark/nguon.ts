@@ -167,7 +167,12 @@ export const REQUIRED_FIELDS: Readonly<
  */
 export const READ_FIELDS: Readonly<Record<LarkTableKey, readonly string[]>> = {
   lopHoc: REQUIRED_FIELDS.lopHoc,
-  hocVien: [...REQUIRED_FIELDS.hocVien, 'Các trình độ đã học tại CLB'],
+  hocVien: [
+    ...REQUIRED_FIELDS.hocVien,
+    'Các trình độ đã học tại CLB',
+    'Sách đã học',
+    'Sách đang học',
+  ],
   level: ['Tên viết tắt level'],
   contact: REQUIRED_FIELDS.contact,
   dealHp: REQUIRED_FIELDS.dealHp,

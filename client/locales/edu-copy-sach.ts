@@ -32,6 +32,16 @@ export const EDU_SACH_ROWS: readonly (readonly [
   ],
   ['status.dang_ban', 'Đang bán', 'On sale', '在售'],
   ['status.ngung', 'Ngừng bán', 'Withdrawn', '停售'],
+  ['hocVien.tab.books', 'Sách', 'Books', '书籍'],
+  ['hocVien.bookState', 'Tình trạng học', 'Learning state', '学习状态'],
+  ['status.da_hoc', 'Đã học xong', 'Finished', '已学完'],
+  ['hocVien.noBooks', 'Chưa có sách nào', 'No books yet', '暂无书籍'],
+  [
+    'hocVien.noBooksHint',
+    'Sách đang học và đã học của học viên được nhập từ Lark.',
+    'The books the student is learning or has finished come from the Lark import.',
+    '学员在学和已学完的书籍来自 Lark 导入。',
+  ],
   ['nav.phatSach', 'Phát sách', 'Books handed out', '发书'],
   ['phatSach.title', 'Phát sách', 'Books handed out', '发书'],
   [

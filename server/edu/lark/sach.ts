@@ -46,6 +46,16 @@ export interface PhatSachRow {
   readonly tienSach: number;
 }
 
+/** A book a student is learning or has finished (`HocVien`.`Sách đang học` / `Sách đã học`). */
+export interface SachHocRow {
+  /** `lark:sachhoc:<student record id>:<book record id>`. */
+  readonly externalId: string;
+  readonly hocVienKey: string;
+  readonly sachKey: string;
+  readonly kyHieu: string;
+  readonly trangThai: 'dang_hoc' | 'da_hoc';
+}
+
 export interface SachPlan {
   /** False when the app cannot see the table `Sách`. */
   readonly doc: boolean;
@@ -59,6 +69,9 @@ export interface SachPlan {
   /** The book money parents paid (`Tiền sách` of `Tổng Deal`), one row per payment with a student and a day. */
   readonly nop: readonly NopSachRow[];
   readonly nopProblems: readonly SachProblem[];
+  /** The books of each student; `hocBoQua` counts the links to a student or a book the import does not hold. */
+  readonly hoc: readonly SachHocRow[];
+  readonly hocBoQua: number;
 }
 
 /** Book money paid by a parent (`Tổng Deal`.`Tiền sách`): it feeds the book fund of the student. */
@@ -81,6 +94,8 @@ export const EMPTY_SACH: SachPlan = {
   phatProblems: [],
   nop: [],
   nopProblems: [],
+  hoc: [],
+  hocBoQua: 0,
 };
 
 const SYMBOL_MAX = 32;
@@ -95,7 +110,13 @@ const price = (cell: unknown): number | null => {
 export function lapSach(
   data: Pick<
     LarkData,
-    'sach' | 'sachDoc' | 'phatSach' | 'phatSachDoc' | 'tongDeal' | 'tongDealDoc'
+    | 'sach'
+    | 'sachDoc'
+    | 'phatSach'
+    | 'phatSachDoc'
+    | 'tongDeal'
+    | 'tongDealDoc'
+    | 'hocVien'
   >,
   students: ReadonlySet<string> = new Set(),
 ): SachPlan {
@@ -158,7 +179,49 @@ export function lapSach(
     phatDoc: data.phatSachDoc,
     ...phat,
     ...lapNopSach(data, students),
+    ...lapSachHoc(data, rows, students),
   };
+}
+
+/**
+ * The books of every student: `Sách đã học` (finished) and `Sách đang học` (learning); a book in both counts as
+ * finished. A link to a student or a book the import leaves out is counted, never guessed.
+ */
+function lapSachHoc(
+  data: Pick<LarkData, 'hocVien'>,
+  books: readonly SachRow[],
+  students: ReadonlySet<string>,
+): { hoc: SachHocRow[]; hocBoQua: number } {
+  const byRecord = new Map(
+    books.map((row) => [row.externalId.slice('lark:sach:'.length), row]),
+  );
+  const hoc: SachHocRow[] = [];
+  let hocBoQua = 0;
+  for (const student of [...data.hocVien].sort((a, b) =>
+    a.recordId.localeCompare(b.recordId),
+  )) {
+    if (!students.has(student.recordId)) continue;
+    const state = new Map<string, 'dang_hoc' | 'da_hoc'>();
+    for (const id of linkIds(student.fields['Sách đang học']))
+      state.set(id, 'dang_hoc');
+    for (const id of linkIds(student.fields['Sách đã học']))
+      state.set(id, 'da_hoc');
+    for (const [sachKey, trangThai] of state) {
+      const book = byRecord.get(sachKey);
+      if (!book) {
+        hocBoQua += 1;
+        continue;
+      }
+      hoc.push({
+        externalId: `lark:sachhoc:${student.recordId}:${sachKey}`,
+        hocVienKey: student.recordId,
+        sachKey,
+        kyHieu: book.kyHieu,
+        trangThai,
+      });
+    }
+  }
+  return { hoc, hocBoQua };
 }
 
 /**
@@ -294,6 +357,10 @@ export interface SachKetQua {
   readonly nopTao: number;
   readonly nopTrung: number;
   readonly nopKhongCo: number;
+  /** The books of the students written, already there, and for a student or book NocoEdu does not hold. */
+  readonly hocTao: number;
+  readonly hocTrung: number;
+  readonly hocKhongCo: number;
 }
 
 export const KHONG_GHI_SACH: SachKetQua = {
@@ -306,11 +373,19 @@ export const KHONG_GHI_SACH: SachKetQua = {
   nopTao: 0,
   nopTrung: 0,
   nopKhongCo: 0,
+  hocTao: 0,
+  hocTrung: 0,
+  hocKhongCo: 0,
 };
 
 /** Writes the books inside the transaction of the import. Books already written, or whose symbol is taken, are skipped. */
 export async function ghiSach(q: Query, plan: SachPlan): Promise<SachKetQua> {
-  if (plan.rows.length === 0 && plan.phat.length === 0 && plan.nop.length === 0)
+  if (
+    plan.rows.length === 0 &&
+    plan.phat.length === 0 &&
+    plan.nop.length === 0 &&
+    plan.hoc.length === 0
+  )
     return KHONG_GHI_SACH;
   const existing = await q
     .selectFrom('eduSach')
@@ -352,13 +427,96 @@ export async function ghiSach(q: Query, plan: SachPlan): Promise<SachKetQua> {
       .execute();
   const phatKet = await ghiPhatSach(q, plan.phat);
   const nopKet = await ghiNopSach(q, plan.nop);
+  const hocKet = await ghiSachHoc(q, plan.hoc);
   return {
     tao: values.length,
     trung,
     daCoKyHieu: daCo,
     ...phatKet,
     ...nopKet,
+    ...hocKet,
   };
+}
+
+/** Writes the books of the students; one already there (by its key) is skipped, never edited. */
+async function ghiSachHoc(
+  q: Query,
+  hoc: readonly SachHocRow[],
+): Promise<Pick<SachKetQua, 'hocTao' | 'hocTrung' | 'hocKhongCo'>> {
+  if (hoc.length === 0) return { hocTao: 0, hocTrung: 0, hocKhongCo: 0 };
+  const done = new Set(
+    (
+      await q
+        .selectFrom('eduSachHoc')
+        .select('externalId')
+        .where('externalId', 'is not', null)
+        .execute()
+    ).map((row) => asText(row.externalId)),
+  );
+  const students = new Map<string, number>();
+  for (const row of await q
+    .selectFrom('eduHocVien')
+    .select(['id', 'externalId'])
+    .where('externalId', 'is not', null)
+    .execute())
+    students.set(asText(row.externalId), Number(row.id));
+  const byRecord = new Map<string, number>();
+  const bySymbol = new Map<string, number>();
+  for (const row of await q
+    .selectFrom('eduSach')
+    .select(['id', 'kyHieu', 'externalId'])
+    .execute()) {
+    bySymbol.set(asText(row.kyHieu).toLowerCase(), Number(row.id));
+    if (row.externalId !== null)
+      byRecord.set(asText(row.externalId), Number(row.id));
+  }
+  let hocTrung = 0;
+  let hocKhongCo = 0;
+  const values: Record<string, unknown>[] = [];
+  const pairs = new Set<string>();
+  for (const row of hoc) {
+    if (done.has(row.externalId)) {
+      hocTrung += 1;
+      continue;
+    }
+    const hocVienId = students.get(row.hocVienKey);
+    const sachId =
+      byRecord.get(`lark:sach:${row.sachKey}`) ??
+      bySymbol.get(row.kyHieu.toLowerCase());
+    if (hocVienId === undefined || sachId === undefined) {
+      hocKhongCo += 1;
+      continue;
+    }
+    // One row per student and book (the unique index): a pair already written by hand or twice in the plan is skipped.
+    const pair = `${hocVienId}|${sachId}`;
+    if (pairs.has(pair)) {
+      hocTrung += 1;
+      continue;
+    }
+    pairs.add(pair);
+    values.push({
+      hocVienId,
+      sachId,
+      trangThai: row.trangThai,
+      externalId: row.externalId,
+    });
+  }
+  const existing = new Set(
+    (
+      await q.selectFrom('eduSachHoc').select(['hocVienId', 'sachId']).execute()
+    ).map((row) => `${Number(row.hocVienId)}|${Number(row.sachId)}`),
+  );
+  const fresh = values.filter(
+    (value) =>
+      !existing.has(`${String(value.hocVienId)}|${String(value.sachId)}`),
+  );
+  hocTrung += values.length - fresh.length;
+  for (let i = 0; i < fresh.length; i += 50)
+    await q
+      .insertInto('eduSachHoc')
+      .values(fresh.slice(i, i + 50))
+      .execute();
+  return { hocTao: fresh.length, hocTrung, hocKhongCo };
 }
 
 /** Writes the book money paid; one already written (by its key) is skipped, never edited. */

@@ -386,3 +386,26 @@ describeMigration('202611140006_edu_thanh_toan_goi_hoc_nullable', {
     });
   },
 });
+
+describeMigration('202611140007_create_edu_sach_hoc', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduSachHoc').toHaveField('trangThai', {
+      nullable: false,
+    });
+    await expectCollection('eduSachHoc').toHaveIndex(['hocVienId', 'sachId'], {
+      unique: true,
+    });
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduSachHoc').not.toExist();
+  },
+});

@@ -32,6 +32,7 @@ const SCOPED_COLLECTIONS = [
   'eduThanhToan',
   'eduPhatSach',
   'eduLienHe',
+  'eduSachHoc',
   'eduSoDuNhatKy',
   'eduNhanXetThang',
   'eduCoSoQuanLy',
@@ -157,6 +158,7 @@ export function registerEduRecordAccess(
       }
       case 'eduThanhToan':
       case 'eduPhatSach':
+      case 'eduSachHoc':
       case 'eduGoiHoc':
       case 'eduSoDuNhatKy':
       case 'eduDiemDanh':

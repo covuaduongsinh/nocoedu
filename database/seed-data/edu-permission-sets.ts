@@ -22,6 +22,7 @@ import {
   thanhToan,
   tuyenSinh,
   hoSoGv,
+  sachHoc,
 } from '../../server/edu/permissions.js';
 import { MY_BRANCHES, MY_CLASSES } from '../../server/edu/record-access.js';
 
@@ -133,6 +134,7 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .grant(
     hoSoGv.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
   )
+  .grant(sachHoc.reference().grant({ view: { data: ALL } }))
   .build();
 
 export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
@@ -230,6 +232,7 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
       manage: { data: MY_BRANCHES },
     }),
   )
+  .grant(sachHoc.reference().grant({ view: { data: MY_BRANCHES } }))
   .build();
 
 export const eduHlv = definePermissionSet('edu_hlv')
@@ -270,6 +273,7 @@ export const eduHlv = definePermissionSet('edu_hlv')
   )
   .grant(sachPage)
   .grant(sach.reference().grant({ view: { data: ALL } }))
+  .grant(sachHoc.reference().grant({ view: { data: MY_CLASSES } }))
   .build();
 
 export const eduKeToan = definePermissionSet('edu_ke_toan')
@@ -302,6 +306,7 @@ export const eduKeToan = definePermissionSet('edu_ke_toan')
   .grant(sach.reference().grant({ view: { data: ALL } }))
   .grant(phatSachPage)
   .grant(phatSach.reference().grant({ view: { data: ALL } }))
+  .grant(sachHoc.reference().grant({ view: { data: ALL } }))
   .build();
 
 export const eduApiDoc = definePermissionSet('edu_api_doc')
