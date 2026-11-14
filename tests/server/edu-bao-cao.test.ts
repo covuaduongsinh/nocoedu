@@ -177,11 +177,29 @@ test('reports show only the scope of the role, and a coach cannot read revenue',
     ((await (await report(s, { loai: 'doanhThu' })).json()) as Report).data
       .rows;
   expect(await revenue(keToan.session)).toEqual([
-    { thang: month, coSo: 'Cơ sở Mẫu A', doanhThu: 600000 },
-    { thang: month, coSo: 'Cơ sở Mẫu B', doanhThu: 400000 },
+    {
+      thang: month,
+      coSo: 'Cơ sở Mẫu A',
+      doanhThu: 600000,
+      soKhoan: 1,
+      trungBinh: 600000,
+    },
+    {
+      thang: month,
+      coSo: 'Cơ sở Mẫu B',
+      doanhThu: 400000,
+      soKhoan: 1,
+      trungBinh: 400000,
+    },
   ]);
   expect(await revenue(managerA.session)).toEqual([
-    { thang: month, coSo: 'Cơ sở Mẫu A', doanhThu: 600000 },
+    {
+      thang: month,
+      coSo: 'Cơ sở Mẫu A',
+      doanhThu: 600000,
+      soKhoan: 1,
+      trungBinh: 600000,
+    },
   ]);
 });
 
