@@ -31,6 +31,7 @@ const SCOPED_COLLECTIONS = [
   'eduGoiHoc',
   'eduThanhToan',
   'eduPhatSach',
+  'eduLienHe',
   'eduSoDuNhatKy',
   'eduNhanXetThang',
   'eduCoSoQuanLy',
@@ -121,6 +122,11 @@ export function registerEduRecordAccess(
         return scope.coSoIds.length ? anyOf('id', scope.coSoIds) : false;
       case 'eduCoSoQuanLy':
         // Only a branch manager scope can see who manages the branch; a coach has no business there.
+        return mode === 'branches' && scope.coSoIds.length
+          ? anyOf('coSoId', scope.coSoIds)
+          : false;
+      case 'eduLienHe':
+        // Admissions belong to a branch; a coach (class scope) has no business with a family that has not enrolled.
         return mode === 'branches' && scope.coSoIds.length
           ? anyOf('coSoId', scope.coSoIds)
           : false;

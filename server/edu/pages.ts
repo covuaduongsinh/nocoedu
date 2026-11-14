@@ -12,4 +12,6 @@ export const PAGES = {
   sach: 'edu.sach',
   // Granted by `202611140002_edu_phat_sach_grant`.
   phatSach: 'edu.phatSach',
+  // Granted by `202611140004_edu_tuyen_sinh_grant`.
+  tuyenSinh: 'edu.tuyenSinh',
 } as const;

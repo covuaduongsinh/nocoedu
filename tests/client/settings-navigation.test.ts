@@ -244,6 +244,7 @@ describe('System settings navigation', () => {
       'edu-baoCao',
       'edu-sach',
       'edu-phatSach',
+      'edu-tuyenSinh',
       'settingsHome',
     ]);
   });

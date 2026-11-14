@@ -10,6 +10,7 @@ import {
   Contact,
   GraduationCap,
   Home,
+  UserPlus,
   MessageSquareText,
   Users,
   Wallet,
@@ -37,7 +38,8 @@ function eduPage(
     | 'nhanXet'
     | 'baoCao'
     | 'sach'
-    | 'phatSach',
+    | 'phatSach'
+    | 'tuyenSinh',
   path: string,
   icon: typeof Home,
   order: number,
@@ -158,6 +160,13 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     () => import('./pages/edu/bao-cao.js'),
   ),
   ...eduPage('sach', '/sach', BookOpen, 9, () => import('./pages/edu/sach.js')),
+  ...eduPage(
+    'tuyenSinh',
+    '/tuyen-sinh',
+    UserPlus,
+    11,
+    () => import('./pages/edu/tuyen-sinh.js'),
+  ),
   ...eduPage(
     'phatSach',
     '/phat-sach',

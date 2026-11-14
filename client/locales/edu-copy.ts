@@ -9,6 +9,7 @@ import { EDU_EXPORT_ROWS } from './edu-copy-export.js';
 import { EDU_IMPORT_ROWS } from './edu-copy-import.js';
 import { EDU_MORE_ROWS } from './edu-copy-more.js';
 import { EDU_SACH_ROWS } from './edu-copy-sach.js';
+import { EDU_TUYEN_SINH_ROWS } from './edu-copy-tuyen-sinh.js';
 import { EDU_NOI_DUNG_ROWS } from './edu-copy-noi-dung.js';
 
 type Row = readonly [key: string, vi: string, en: string, zh: string];
@@ -315,6 +316,7 @@ function build(index: 1 | 2 | 3): Tree {
     ...EDU_IMPORT_ROWS,
     ...EDU_EXPORT_ROWS,
     ...EDU_SACH_ROWS,
+    ...EDU_TUYEN_SINH_ROWS,
     ...EDU_NOI_DUNG_ROWS,
   ]) {
     const parts = row[0].split('.');
