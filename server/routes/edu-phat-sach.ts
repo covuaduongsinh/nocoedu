@@ -39,6 +39,12 @@ const HandoutInput = z.object({
   ghiChu: z.string().trim().max(500).nullish(),
 });
 
+const PaymentInput = z.object({
+  hocVienId: Id,
+  soTien: z.number().int().min(1).max(1_000_000_000),
+  ngay: z.iso.date().optional(),
+});
+
 export default [
   defineApiRoutes<AppPluginApplication>((app) => {
     const auth = app.container.resolve(authenticationToken);
@@ -46,7 +52,7 @@ export default [
     const database = app.container.resolve(databaseManagerToken);
     const router = new Hono<EduEnv>();
 
-    for (const path of ['/phatSach/ghi', '/quySach/xem']) {
+    for (const path of ['/phatSach/ghi', '/quySach/xem', '/nopSach/ghi']) {
       router.use(
         path,
         auth.required(),
@@ -54,6 +60,55 @@ export default [
         bodyLimit({ maxSize: 16 * 1024 }),
       );
     }
+
+    // Book money a parent paid (the other side of the book fund). The caller must hold `edu.phatSach.manage` and see
+    // the student; the branch comes from the student.
+    router.post(
+      '/nopSach/ghi',
+      describeRoute({
+        tags: ['NocoEdu'],
+        summary: 'Record book money a parent paid for a student',
+        operationId: 'recordBookPayment',
+        responses: {
+          '200': dataResponse(z.object({}).passthrough()),
+          ...apiErrorResponses,
+        },
+      }),
+      needs('edu.phatSach', 'manage'),
+      apiValidator('json', PaymentInput),
+      async (c) => {
+        const input = c.req.valid('json');
+        const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view'))
+          .eduHocVien;
+        const student = studentPolicy
+          ? await database
+              .repository('eduHocVien')
+              .withPolicy(studentPolicy)
+              .findOne({ filter: { id: input.hocVienId } })
+          : null;
+        if (!student) {
+          throw eduError(
+            'NOT_FOUND',
+            'EDU_STUDENT_NOT_FOUND',
+            'Student not found.',
+          );
+        }
+        const created = await database
+          .connection()
+          .query.insertInto('eduNopSach')
+          .values({
+            hocVienId: input.hocVienId,
+            coSoId: Number(student.coSoId),
+            ngay: input.ngay ?? todayVn(),
+            soTien: input.soTien,
+            nguoiTaoId: currentUserId(c),
+            createdAt: new Date(),
+          })
+          .execute();
+        void created;
+        return c.json({ data: { ok: true } }, 201);
+      },
+    );
 
     // The book fund: what a parent paid for books minus what was handed out, per student the caller sees. Only the
     // students of the caller's scope are summed (the sums read the two tables by those ids).

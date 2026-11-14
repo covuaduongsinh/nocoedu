@@ -57,6 +57,13 @@ export const EDU_SACH_ROWS: readonly (readonly [
     'What the parent paid for books minus the books handed out, per student. A negative number means the parent still owes.',
     '家长已缴书款减去已发书款，按学员计算。负数表示家长尚欠。',
   ],
+  [
+    'quySach.pay',
+    'Ghi tiền sách đã nộp',
+    'Record book money paid',
+    '记录已缴书款',
+  ],
+  ['quySach.soTien', 'Số tiền (đồng)', 'Amount (VND)', '金额（越南盾）'],
   ['quySach.daNop', 'Đã nộp (đồng)', 'Paid (VND)', '已缴（越南盾）'],
   ['quySach.daPhat', 'Đã phát (đồng)', 'Handed out (VND)', '已发（越南盾）'],
   ['quySach.conLai', 'Còn lại (đồng)', 'Left (VND)', '余额（越南盾）'],

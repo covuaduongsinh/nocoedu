@@ -109,6 +109,12 @@ export default function PhatSachPage(): ReactElement {
     rows.map((row) => Number(row.sachId)),
   );
   const [form, setForm] = useState<Form>();
+  const [paying, setPaying] = useState<{
+    hocVienId: string;
+    soTien: string;
+    ngay: string;
+  }>();
+  const [fundVersion, setFundVersion] = useState(0);
   const studentChoices = useRows('hocVien');
   const bookChoices = useRows('sach');
 
@@ -133,7 +139,17 @@ export default function PhatSachPage(): ReactElement {
         paging={{ page: list.page, total, onPage: list.setPage }}
         actions={
           canManage ? (
-            <Button onClick={open}>{t('edu.phatSach.new')}</Button>
+            <span className='flex gap-2'>
+              <Button
+                variant='outline'
+                onClick={() =>
+                  setPaying({ hocVienId: '', soTien: '', ngay: todayVn() })
+                }
+              >
+                {t('edu.quySach.pay')}
+              </Button>
+              <Button onClick={open}>{t('edu.phatSach.new')}</Button>
+            </span>
           ) : null
         }
         columns={[
@@ -169,7 +185,53 @@ export default function PhatSachPage(): ReactElement {
           { key: 'ghiChu', label: t('edu.phatSach.ghiChu') },
         ]}
       />
-      <QuySach version={total} />
+      <QuySach version={total + fundVersion} />
+      {paying ? (
+        <FormDialog
+          open
+          title={t('edu.quySach.pay')}
+          onClose={() => setPaying(undefined)}
+          onSubmit={async () => {
+            await post(api, '/nopSach/ghi', {
+              hocVienId: Number(paying.hocVienId),
+              soTien: Number(paying.soTien.replace(/\D/gu, '')),
+              ngay: paying.ngay,
+            });
+            setFundVersion((value) => value + 1);
+          }}
+        >
+          <SelectField
+            id='nop-sach-hoc-vien'
+            label={t('edu.phatSach.hocVien')}
+            value={paying.hocVienId}
+            required
+            onChange={(hocVienId) => setPaying({ ...paying, hocVienId })}
+            options={(studentChoices.loaded.state === 'ready'
+              ? studentChoices.loaded.rows
+              : []
+            ).map((row) => ({
+              value: String(row.id),
+              label: `${text(row.ma)} · ${text(row.hoTen)}`,
+            }))}
+          />
+          <TextField
+            id='nop-sach-so-tien'
+            label={t('edu.quySach.soTien')}
+            type='number'
+            value={paying.soTien}
+            required
+            onChange={(soTien) => setPaying({ ...paying, soTien })}
+          />
+          <TextField
+            id='nop-sach-ngay'
+            label={t('edu.phatSach.ngay')}
+            type='date'
+            value={paying.ngay}
+            required
+            onChange={(ngay) => setPaying({ ...paying, ngay })}
+          />
+        </FormDialog>
+      ) : null}
       {form ? (
         <FormDialog
           open

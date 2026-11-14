@@ -141,6 +141,36 @@ test('a handout takes its price and branch from the book and the student, and is
     { hocVienId: ids.hocVienA, daNop: 100000, daPhat: 75000, conLai: 25000 },
   ]);
   expect((await post(hlvA.session, '/quySach/xem', {})).status).toBe(403);
+  // Recording book money paid: the manager of A for a student of A only; a coach, never.
+  const paid = await post(managerA.session, '/nopSach/ghi', {
+    hocVienId: ids.hocVienA,
+    soTien: 50000,
+    ngay: '2026-05-12',
+  });
+  expect(paid.status).toBe(201);
+  expect(
+    (
+      await post(managerA.session, '/nopSach/ghi', {
+        hocVienId: ids.hocVienB,
+        soTien: 1000,
+      })
+    ).status,
+  ).toBe(404);
+  expect(
+    (
+      await post(hlvA.session, '/nopSach/ghi', {
+        hocVienId: ids.hocVienA,
+        soTien: 1000,
+      })
+    ).status,
+  ).toBe(403);
+  expect(
+    (await post(admin, '/nopSach/ghi', { hocVienId: ids.hocVienA, soTien: 0 }))
+      .status,
+  ).toBe(400);
+  expect(await fund(managerA.session)).toMatchObject([
+    { hocVienId: ids.hocVienA, daNop: 150000, daPhat: 75000, conLai: 75000 },
+  ]);
   // A handout is never edited or deleted through the record API.
   const edit = await post(admin, '/phatSach/updateOne', {
     filter: { id: Number(stored.id) },
