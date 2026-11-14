@@ -1,8 +1,10 @@
 import {
   LARK_TABLES,
+  LARK_TONG_DEAL,
   NHAN_XET_BAT_BUOC,
   NHAN_XET_FIELDS,
   REQUIRED_FIELDS,
+  TONG_DEAL_REQUIRED_FIELDS,
   type LarkData,
   type LarkRecord,
   type LarkSource,
@@ -87,6 +89,7 @@ export type FixtureTables = Record<
   | 'hocVien'
   | 'contact'
   | 'dealHp'
+  | 'tongDeal'
   | 'nhanXet2024'
   | 'nhanXet2025'
   | 'nhanXet2026',
@@ -206,6 +209,7 @@ export function buildFixture(): FixtureTables {
       }),
     ],
     dealHp: [],
+    tongDeal: [],
     nhanXet2024: [
       attendance('recNhanXet2024a', IDS.s1, IDS.lopA, '2024-12-02', '1'),
     ],
@@ -252,6 +256,8 @@ export function fixtureData(tables: FixtureTables = buildFixture()): LarkData {
     level: tables.level,
     contact: tables.contact,
     dealHp: tables.dealHp,
+    tongDeal: tables.tongDeal,
+    tongDealDoc: true,
     nhanXet: [
       ...tables.nhanXet2024,
       ...tables.nhanXet2025,
@@ -282,6 +288,12 @@ export function fixtureTableList(): {
         fields: REQUIRED_FIELDS[key],
       }),
     ),
+    {
+      key: 'tongDeal',
+      id: LARK_TONG_DEAL.id,
+      name: LARK_TONG_DEAL.title,
+      fields: TONG_DEAL_REQUIRED_FIELDS,
+    },
     ...(Object.keys(YEARLY) as (keyof typeof YEARLY)[]).map((key) => ({
       key,
       id: NHAN_XET_BAT_BUOC[YEARLY[key]] as string,
