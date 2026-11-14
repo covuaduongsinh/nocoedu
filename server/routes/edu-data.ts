@@ -30,6 +30,7 @@ import {
   phuHuynh,
   sach,
   soDu,
+  tuyenSinh,
   thanhToan,
 } from '../edu/permissions.js';
 import { checkUpdate } from '../edu/sua-ban-ghi.js';
@@ -110,6 +111,15 @@ const EXPOSURES: readonly Exposure[] = [
   { name: 'soDuNhatKy', key: 'soDuNhatKy', resource: soDu },
   // Books handed out: created by `/phatSach/ghi` (it takes the price and the branch from the book and the student).
   { name: 'phatSach', key: 'phatSach', resource: phatSach },
+  // Admissions: a family that has not enrolled; created, edited and deleted through the record API.
+  {
+    name: 'lienHe',
+    key: 'lienHe',
+    resource: tuyenSinh,
+    create: true,
+    update: FIELDS.lienHe.write,
+    remove: true,
+  },
   // The books catalogue: a book is withdrawn by its status, never deleted.
   {
     name: 'sach',
@@ -128,7 +138,10 @@ const EXPOSURES: readonly Exposure[] = [
 const PARENT_OF_CREATE = {
   lop: { field: 'coSoId', resource: 'edu.coSo', collection: 'eduCoSo' },
   lopLich: { field: 'lopId', resource: 'edu.lop', collection: 'eduLop' },
+  lienHe: { field: 'coSoId', resource: 'edu.coSo', collection: 'eduCoSo' },
 } as const;
+
+const LIEN_HE_STATUSES = ['moi', 'dang_cham_soc', 'da_chot', 'khong_chot'];
 
 const repositoryRoutes = defineRepositoryApiRoutes({
   repositories: EXPOSURES.map((e) => ({
@@ -254,6 +267,36 @@ export default [
             problem.field,
           );
         }
+        await next();
+      });
+    }
+    // What an admissions record holds: a known status, a phone with digits only, a reminder day that is a date.
+    for (const method of ['createOne', 'updateOne']) {
+      router.use(`/lienHe/${method}`, authz.middleware(), async (c, next) => {
+        const body = (await c.req.raw
+          .clone()
+          .json()
+          .catch(() => null)) as { values?: Record<string, unknown> } | null;
+        const values = body?.values ?? {};
+        const bad = (field: string, reason: string) =>
+          eduError('INVALID_ARGUMENT', reason, 'The value is not valid.', field);
+        if (
+          values.trangThai !== undefined &&
+          !LIEN_HE_STATUSES.includes(values.trangThai as never)
+        )
+          throw bad('trangThai', 'EDU_INVALID_STATUS');
+        if (
+          typeof values.soDienThoai === 'string' &&
+          values.soDienThoai !== '' &&
+          !/^[0-9+ ().-]{6,20}$/u.test(values.soDienThoai)
+        )
+          throw bad('soDienThoai', 'EDU_INVALID_PHONE');
+        if (
+          typeof values.ngayNhac === 'string' &&
+          values.ngayNhac !== '' &&
+          !/^\d{4}-\d{2}-\d{2}$/u.test(values.ngayNhac)
+        )
+          throw bad('ngayNhac', 'EDU_INVALID_VALUE');
         await next();
       });
     }

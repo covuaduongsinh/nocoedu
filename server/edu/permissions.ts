@@ -26,6 +26,7 @@ export const COLLECTIONS = {
   xuatDuLieu: { name: 'eduXuatDuLieuNhatKy', title: 'Nhật ký xuất dữ liệu' },
   sach: { name: 'eduSach', title: 'Sách' },
   phatSach: { name: 'eduPhatSach', title: 'Phát sách' },
+  lienHe: { name: 'eduLienHe', title: 'Liên hệ tuyển sinh' },
 } as const;
 
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -296,6 +297,29 @@ export const FIELDS = {
       'createdAt',
     ],
   },
+  lienHe: {
+    read: [
+      'id',
+      'hoTen',
+      'soDienThoai',
+      'coSoId',
+      'kenh',
+      'trangThai',
+      'ngayNhac',
+      'ghiChu',
+      'ngayTao',
+    ],
+    write: [
+      'hoTen',
+      'soDienThoai',
+      'coSoId',
+      'kenh',
+      'trangThai',
+      'ngayNhac',
+      'ghiChu',
+      'ngayTao',
+    ],
+  },
   xuatDuLieu: {
     read: ['id', 'userId', 'loai', 'soDong', 'createdAt'],
     write: [],
@@ -370,6 +394,14 @@ function simple(
 export const coSo = simple('edu.coSo', 'Cơ sở', 'coSo', {
   create: true,
   update: FIELDS.coSo.write,
+});
+// Admissions (DS-61 phase D): a family that has not enrolled yet. Minimal data by design: the parent's name and phone,
+// the branch, the channel, a status, a reminder day and a short note; no address, no social profile, no child's data.
+// A contact is deleted when the club no longer needs it (the retention rule is in `.agents/rules/edu.md`).
+export const tuyenSinh = simple('edu.tuyenSinh', 'Tuyển sinh', 'lienHe', {
+  create: true,
+  update: FIELDS.lienHe.write,
+  remove: true,
 });
 // A book is withdrawn by its status (`ngung`), never deleted: what was handed out points to it.
 export const sach = simple('edu.sach', 'Sách', 'sach', {

@@ -23,6 +23,7 @@ const eduMenu = [
   'edu-baoCao',
   'edu-sach',
   'edu-phatSach',
+  'edu-tuyenSinh',
 ];
 
 describe('default Foundation integration', () => {
