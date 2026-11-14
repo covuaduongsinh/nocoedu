@@ -144,3 +144,19 @@ export const DEAL_RULES = {
   onlyPaidDeals: true,
   skipParentWithoutPhone: true,
 } as const;
+
+/**
+ * DEFAULT (Cần Thầy Tường xác nhận), DS-61 phase B — the rules for the money of `Tổng Deal (HP + book)`
+ * (`thanh-toan.ts`). `Deal HP` holds no amount; this table does.
+ * - Only the tuition (`Học phí`) is imported, as `eduThanhToan` with `hinhThuc = khong_ro`: Lark does not say cash or
+ *   transfer. Books (`Tiền sách`) and `Mua khác` wait for the book fund (phase E).
+ * - A payment belongs to the student of `Tên HS link`; a row without one is reported with its amount and not guessed.
+ * - A payment points to a package: the `Deal HP` row of its link, else the one of the same student, day and number of
+ *   sessions, else the opening package, else the nearest package of the student. It only links; revenue adds `soTien`.
+ * - The branch of a payment is the branch of the student, not the `Cơ sở` of the row.
+ * - The same student, day, sessions and amount twice is imported twice and reported (`TONG_DEAL_TRUNG_LAP`).
+ */
+export const TONG_DEAL_RULES = {
+  importTuitionOnly: true,
+  branchOfStudent: true,
+} as const;

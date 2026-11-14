@@ -186,3 +186,14 @@ Rollback bằng cách khôi phục bản `pg_dump` ở bước 2.
 Lệnh `--undo <lần chạy>`; đồng bộ định kỳ hoặc hai chiều; sách, giải đấu, đánh giá định kỳ; lịch sử thanh toán bằng tiền (Lark không có số tiền); quy trình xoá hoặc ẩn danh học viên (khi làm phải xử lý cả `ngaySinh`, `externalCode` và `email` phụ huynh); migration mới chỉ được kiểm trên SQLite, chưa kiểm trên PostgreSQL; hình dạng giá trị ô (liên kết, tra cứu, người) được dựng theo tài liệu `bitable/v1`, chưa kiểm bằng lần đọc Lark thật — xem điều kiện dừng ở bước 4.
 
 **Số dư Lark:** cột "Số buổi còn lại" của các bảng Nhận xét mỗi buổi trống ở mọi dòng (2025 là Text, 2026 là Attachment), nên lệnh không đọc nó; cột "trên Lark" của bảng so sánh lấy từ `số buổi tồn update` của HocVien (`?` khi học viên không có). Điểm danh được nhập đến hết ngày cuối cùng có trong bảng (15/10/2026), không lọc theo ngày.
+
+## Tiền học phí từ `Tổng Deal (HP + book)` (DS-61)
+
+Từ bản này `import-lark` đọc thêm bảng `Tổng Deal (HP + book)` (`tblGDWScLLqgOR1W`) và ghi **học phí** thành các dòng `eduThanhToan` (`externalId = lark:tongdeal:<rec>`, `hinhThuc = khong_ro`). Chạy lại không ghi trùng.
+
+- **Cần làm trước khi chạy `--commit` lần đầu:** migration `202611130001_edu_thanh_toan_external_id` (thêm cột `externalId`) phải chạy trên production, tức là deploy bản này rồi để ứng dụng khởi động xong.
+- **Quyền đọc bảng:** nếu app Lark không thấy bảng này thì lệnh vẫn chạy như cũ và in "app KHÔNG đọc được bảng này, không nhập khoản nào"; khi đó mở quyền cho app rồi chạy lại.
+- **Luôn chạy `--dry-run` trước** (mục "Tiền học phí (Tổng Deal)" trong báo cáo): số khoản, tổng tiền, các khoản bị bỏ kèm số tiền (`TONG_DEAL_THIEU_HOC_VIEN`, `TONG_DEAL_HOC_VIEN_BI_BO`, `TONG_DEAL_THIEU_NGAY`), cảnh báo `TONG_DEAL_TRUNG_LAP`, và "không có gói để gắn". Số này là kết quả ghi thử đã hoàn tác, chính là số `--commit` sẽ ghi.
+- **Số kỳ vọng (đọc từ file `.base` ngày 13/11/2026):** 270 khoản có học phí, tổng 511.134.000 đ; 225 khoản có học viên (445.870.000 đ), 45 khoản (65.264.000 đ, toàn bộ năm 2024) chưa gắn học viên trên Lark nên sẽ bị bỏ cho tới khi điền cột `Tên HS link`. Tiền sách và `Mua khác` chưa nhập (giai đoạn sách).
+- **Đối chiếu sau khi ghi:** báo cáo doanh thu theo tháng phải cộng đúng tổng đã nhập (`SELECT sum(so_tien) FROM edu_thanh_toan`).
+- **Hoàn tác:** `DELETE FROM edu_thanh_toan WHERE external_id LIKE 'lark:tongdeal:%'` (không động tới gói hay số dư; thanh toán không đổi số dư buổi).
