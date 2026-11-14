@@ -51,6 +51,12 @@ Các bước dành cho người có quyền vào server (Dokploy). Không đưa 
 
 1. **Triển khai bản đã merge** và áp migration (có thể tự chạy khi khởi động): `node dist/cli/index.js db apply`. Hai migration của việc này: `202611100001_edu_lark_mapping`, `202611100002_edu_nhap_lark`.
 2. **Cài `lark-cli`** vào một thư mục tạm trong container (không thêm vào `dependencies` của ứng dụng): `mkdir -p /tmp/lark && cd /tmp/lark && npm install @larksuite/cli`, rồi đặt `LARK_CLI=/tmp/lark/node_modules/.bin/lark-cli`.
+
+   Image `node:24-bookworm-slim` **không có `curl` và không có bộ chứng chỉ gốc (CA)**, nên (đã gặp ngày 12/11/2026):
+   - `npm install @larksuite/cli` trong container lỗi `spawnSync curl ENOENT`. Cách làm: cài trên **host** (có `curl`) vào thư mục tạm, rồi `docker cp <thư-mục> <container>:/tmp/lark` và `docker exec -u root <container> chown -R node:node /tmp/lark`.
+   - `lark-cli` (binary Go) báo `x509: certificate signed by unknown authority`. Cách làm: `docker cp /etc/ssl/certs/ca-certificates.crt <container>:/tmp/ca.crt` rồi chạy lệnh với `SSL_CERT_FILE=/tmp/ca.crt` (biến này được truyền xuống `lark-cli`). Gọi thẳng API Lark bằng Node vẫn chạy được, nên lỗi này dễ bị nhầm với lỗi quyền hoặc lỗi secret.
+   - `/tmp/lark` và `/tmp/ca.crt` mất khi container bị tạo lại (redeploy): làm lại hai việc trên sau lần redeploy cuối.
+
 3. **Biến môi trường** (đặt trong Dokploy, tab Environment; không gõ secret trên dòng lệnh):
 
    | Biến                                            | Ý nghĩa                                                                                   |
@@ -68,7 +74,7 @@ Các bước dành cho người có quyền vào server (Dokploy). Không đưa 
      **Dừng nếu hình dạng ô Lark lệch.** Thấy nhiều dòng `*_KHONG_RO` hoặc `THIEU_*` (ví dụ gần như mọi học viên báo `CAP_KHONG_RO`, `THIEU_NAM_SINH` hoặc `SDT_SAI`; hoặc gần như mọi dòng điểm danh báo `HOC_VIEN_KHONG_RO`, `LOP_KHONG_RO`, `NGAY_KHONG_RO`) thì **không chạy `--commit`**: cách đọc ô liên kết, tra cứu, người hoặc ngày trong mã được dựng theo tài liệu `bitable/v1` và chưa đối chiếu với một lần đọc Lark thật. Gửi lại tổng kết của `--dry-run` (chỉ có số đếm và mã, không có dữ liệu cá nhân) để chỉnh mã trước.
 5. **Sao lưu ngay trước khi ghi thật.** Chạy `pg_dump` ở **container PostgreSQL** (image của ứng dụng không có `pg_dump`), ví dụ `docker exec <container-postgres> pg_dump -U <user> -Fc <tên-db> > /đường/dẫn/an/toàn/nocoedu-truoc-nhap-lark.dump`, hoặc dùng chức năng sao lưu của Dokploy cho dịch vụ database. Kiểm file không rỗng (`ls -l`) trước khi sang bước 6. Dump chứa dữ liệu trẻ em: để ngoài repo, ngoài thư mục chia sẻ.
 6. **Ghi thật:** `node dist/cli/index.js app edu import-lark --commit --user <id người chạy>`. `--user` phải là id có trong bảng người dùng (xem trong Quản lý người dùng); id này ghi làm người tạo gói buổi và người điểm danh, và vào nhật ký. Nên chạy ngoài giờ học, vì lúc ghi có thể trùng với việc HLV lưu điểm danh (lệnh dừng và hoàn tác nếu số dư thay đổi giữa chừng).
-7. **Kiểm tra:** bảng `eduNhapLarkNhatKy` có thêm một dòng `thanh_cong` (tổng kết theo bảng, chỉ mã). Chạy lại `--dry-run`: mọi dòng phải là "trùng", số "tạo" bằng 0.
+7. **Kiểm tra:** bảng `edu_nhap_lark_nhat_ky` có thêm một dòng `thanh_cong` (tổng kết theo bảng, chỉ mã). Chạy lại `--dry-run`: mọi dòng phải là "trùng", số "tạo" bằng 0.
 
 `--commit` ghi trong **một transaction**: có lỗi giữa chừng thì không có gì được ghi, một dòng `that_bai` (chỉ mã lỗi) được ghi vào nhật ký, và lệnh thoát khác 0. Nếu dữ liệu đã ghi nhưng việc ghi dòng nhật ký lỗi (`LARK_DA_GHI_LOI_NHAT_KY`) thì **không** khôi phục: dữ liệu đã nằm trong NocoEdu, chạy `--dry-run` sẽ thấy mọi dòng là "trùng". Khi ghi thất bại, thông báo nêu tên bảng hoặc ràng buộc từ chối (không có giá trị). Mã thoát 2 là dùng sai (hai cờ cùng lúc, thiếu `--user`, thiếu biến `LARK_*`, `--user` không có trong hệ thống).
 
@@ -84,38 +90,38 @@ Nếu production đã chạy `--commit` bằng bản trước, trong CSDL có ph
 - **Chuyển nhóm học viên giữ số dư cũ sang số dư tính lại từ Deal (làm tay, chỉ khi Thầy Tường đồng ý).** Chưa có lệnh tự động; không làm khi chưa có bản sao lưu. Chỉ xoá những gì lệnh nhập đã ghi; mọi gói, điểm danh và dòng sổ do người dùng nhập tay được giữ, và số dư được **trừ đi đúng phần đã xoá**, không đặt về 0.
   1. Chạy `--dry-run --json` và lưu danh sách mã học viên cũ (`HV-…`) bị `GOI_CU_LARK_SODU`/`DIEM_DANH_CU_KHONG_TRU`; đổi sang `id` của `eduHocVien` qua cột `externalCode`.
   2. **Sao lưu** bằng `pg_dump` ở container PostgreSQL như bước 5 ở trên (ứng dụng đã dừng ở bước 0).
-  3. **Kiểm trước khi xoá** (chỉ đọc; tên bảng và cột như trong migration, trên PostgreSQL phải đặt trong dấu nháy kép). Các dòng sổ sẽ bị xoá là dòng `chuyen_tu_lark` hoặc dòng gắn với điểm danh nhập từ Lark (`eduDiemDanh.externalId` không rỗng); `se_xoa` là tổng `thayDoi` của chúng:
+  3. **Kiểm trước khi xoá** (chỉ đọc; tên bảng và cột là snake_case thật trên PostgreSQL, đã đối chiếu với production ngày 12/11/2026). Các dòng sổ sẽ bị xoá là dòng `chuyen_tu_lark` hoặc dòng gắn với điểm danh nhập từ Lark (`edu_diem_danh.external_id` không rỗng); `se_xoa` là tổng `thay_doi` của chúng:
 
      ```sql
-     SELECT l."hocVienId", COUNT(*) AS so_dong, SUM(l."thayDoi") AS se_xoa
-     FROM "eduSoDuNhatKy" l
-     LEFT JOIN "eduDiemDanh" d ON d."id" = l."diemDanhId"
-     WHERE l."hocVienId" IN (/* id học viên */)
-       AND (l."lyDo" = 'chuyen_tu_lark' OR d."externalId" IS NOT NULL)
-     GROUP BY l."hocVienId";
+     SELECT l.hoc_vien_id, COUNT(*) AS so_dong, SUM(l.thay_doi) AS se_xoa
+     FROM edu_so_du_nhat_ky l
+     LEFT JOIN edu_diem_danh d ON d.id = l.diem_danh_id
+     WHERE l.hoc_vien_id IN (/* id học viên */)
+       AND (l.ly_do = 'chuyen_tu_lark' OR d.external_id IS NOT NULL)
+     GROUP BY l.hoc_vien_id;
      ```
 
-     Đối chiếu từng học viên với số dư hiện có: `soBuoiConLai − se_xoa` là số dư còn lại sau khi xoá (chính là phần do người dùng nhập tay). Lệch với kỳ vọng thì dừng.
+     Đối chiếu từng học viên với số dư hiện có: `so_buoi_con_lai − se_xoa` là số dư còn lại sau khi xoá (chính là phần do người dùng nhập tay). Lệch với kỳ vọng thì dừng.
 
   4. **Xoá và chỉnh số dư trong một transaction**, theo thứ tự này (dòng sổ trước vì nó tham chiếu điểm danh và gói):
 
      ```sql
      BEGIN;
-     UPDATE "eduHocVien" h SET "soBuoiConLai" = h."soBuoiConLai" - COALESCE((
-       SELECT SUM(l."thayDoi") FROM "eduSoDuNhatKy" l
-       LEFT JOIN "eduDiemDanh" d ON d."id" = l."diemDanhId"
-       WHERE l."hocVienId" = h."id" AND (l."lyDo" = 'chuyen_tu_lark' OR d."externalId" IS NOT NULL)), 0)
-     WHERE h."id" IN (/* id học viên */);
-     DELETE FROM "eduSoDuNhatKy" l USING "eduHocVien" h
-       WHERE l."hocVienId" = h."id" AND h."id" IN (/* id học viên */)
-       AND (l."lyDo" = 'chuyen_tu_lark'
-            OR l."diemDanhId" IN (SELECT "id" FROM "eduDiemDanh" WHERE "externalId" IS NOT NULL));
-     DELETE FROM "eduDiemDanh" WHERE "externalId" IS NOT NULL AND "hocVienId" IN (/* id học viên */);
-     DELETE FROM "eduGoiHoc" WHERE "externalId" LIKE 'lark:sodu:%' AND "hocVienId" IN (/* id học viên */);
+     UPDATE edu_hoc_vien h SET so_buoi_con_lai = h.so_buoi_con_lai - COALESCE((
+       SELECT SUM(l.thay_doi) FROM edu_so_du_nhat_ky l
+       LEFT JOIN edu_diem_danh d ON d.id = l.diem_danh_id
+       WHERE l.hoc_vien_id = h.id AND (l.ly_do = 'chuyen_tu_lark' OR d.external_id IS NOT NULL)), 0)
+     WHERE h.id IN (/* id học viên */);
+     DELETE FROM edu_so_du_nhat_ky l USING edu_hoc_vien h
+       WHERE l.hoc_vien_id = h.id AND h.id IN (/* id học viên */)
+       AND (l.ly_do = 'chuyen_tu_lark'
+            OR l.diem_danh_id IN (SELECT id FROM edu_diem_danh WHERE external_id IS NOT NULL));
+     DELETE FROM edu_diem_danh WHERE external_id IS NOT NULL AND hoc_vien_id IN (/* id học viên */);
+     DELETE FROM edu_goi_hoc WHERE external_id LIKE 'lark:sodu:%' AND hoc_vien_id IN (/* id học viên */);
      -- kiểm lại câu truy vấn ở bước 3: không còn dòng nào; rồi COMMIT; (hoặc ROLLBACK;)
      ```
 
-     Buổi học `eduBuoiHoc` được giữ nguyên (nhập lại sẽ thấy "trùng"). Điểm danh và gói do HLV hoặc kế toán nhập tay (không có `externalId`) không bị đụng tới.
+     Buổi học `edu_buoi_hoc` được giữ nguyên (nhập lại sẽ thấy "trùng"). Điểm danh và gói do HLV hoặc kế toán nhập tay (không có `externalId`) không bị đụng tới.
 
   5. Chạy `--dry-run`: các học viên đó không còn cảnh báo, có gói `lark:deal:*` ở cột "tạo" và điểm danh của họ ở cột "tạo"; rồi `--commit --user <id>`; rồi mở lại ứng dụng.
   6. **Rollback:** khôi phục bản `pg_dump` ở bước 2 (khi ứng dụng còn dừng). Không có cách hoàn tác từng phần sau khi đã mở lại ứng dụng và có người ghi dữ liệu mới.
@@ -129,7 +135,7 @@ Với học viên được ghép (`ghep`) với học viên đã có gói hoặc
 
 ### Chạy thử có mô phỏng và bảng so sánh số dư
 
-Sau mỗi lần Lark hoặc dữ liệu đã nhập thay đổi lại có thêm một trường hợp khiến số dư tính trên giấy khác số dư thật. Vì vậy `--dry-run` không tự tính số dư "sau nhập" nữa: nó **chạy đúng phần ghi của `--commit` trong một transaction, đọc lại `soBuoiConLai` của từng học viên từ CSDL, rồi hoàn tác**. Không dòng nào ở lại (kể cả nhật ký `eduNhapLarkNhatKy`). Nếu việc ghi thử lỗi (ràng buộc, xung đột số dư) thì bản chạy thử in "MÔ PHỎNG GHI LỖI" kèm tên ràng buộc, và `--commit` cũng sẽ lỗi như vậy.
+Sau mỗi lần Lark hoặc dữ liệu đã nhập thay đổi lại có thêm một trường hợp khiến số dư tính trên giấy khác số dư thật. Vì vậy `--dry-run` không tự tính số dư "sau nhập" nữa: nó **chạy đúng phần ghi của `--commit` trong một transaction, đọc lại `soBuoiConLai` của từng học viên từ CSDL, rồi hoàn tác**. Không dòng nào ở lại (kể cả nhật ký `edu_nhap_lark_nhat_ky`). Nếu việc ghi thử lỗi (ràng buộc, xung đột số dư) thì bản chạy thử in "MÔ PHỎNG GHI LỖI" kèm tên ràng buộc, và `--commit` cũng sẽ lỗi như vậy.
 
 Hai điều cần biết:
 
@@ -180,3 +186,36 @@ Rollback bằng cách khôi phục bản `pg_dump` ở bước 2.
 Lệnh `--undo <lần chạy>`; đồng bộ định kỳ hoặc hai chiều; sách, giải đấu, đánh giá định kỳ; lịch sử thanh toán bằng tiền (Lark không có số tiền); quy trình xoá hoặc ẩn danh học viên (khi làm phải xử lý cả `ngaySinh`, `externalCode` và `email` phụ huynh); migration mới chỉ được kiểm trên SQLite, chưa kiểm trên PostgreSQL; hình dạng giá trị ô (liên kết, tra cứu, người) được dựng theo tài liệu `bitable/v1`, chưa kiểm bằng lần đọc Lark thật — xem điều kiện dừng ở bước 4.
 
 **Số dư Lark:** cột "Số buổi còn lại" của các bảng Nhận xét mỗi buổi trống ở mọi dòng (2025 là Text, 2026 là Attachment), nên lệnh không đọc nó; cột "trên Lark" của bảng so sánh lấy từ `số buổi tồn update` của HocVien (`?` khi học viên không có). Điểm danh được nhập đến hết ngày cuối cùng có trong bảng (15/10/2026), không lọc theo ngày.
+
+## Tiền học phí từ `Tổng Deal (HP + book)` (DS-61)
+
+Từ bản này `import-lark` đọc thêm bảng `Tổng Deal (HP + book)` (`tblGDWScLLqgOR1W`) và ghi **học phí** thành các dòng `eduThanhToan` (`externalId = lark:tongdeal:<rec>`, `hinhThuc = khong_ro`). Chạy lại không ghi trùng.
+
+- **Cần làm trước khi chạy `--commit` lần đầu:** migration `202611130001_edu_thanh_toan_external_id` (thêm cột `externalId`) phải chạy trên production, tức là deploy bản này rồi để ứng dụng khởi động xong.
+- **Quyền đọc bảng:** nếu app Lark không thấy bảng này thì lệnh vẫn chạy như cũ và in "app KHÔNG đọc được bảng này, không nhập khoản nào"; khi đó mở quyền cho app rồi chạy lại.
+- **Luôn chạy `--dry-run` trước** (mục "Tiền học phí (Tổng Deal)" trong báo cáo): số khoản, tổng tiền, các khoản bị bỏ kèm số tiền (`TONG_DEAL_THIEU_HOC_VIEN`, `TONG_DEAL_HOC_VIEN_BI_BO`, `TONG_DEAL_THIEU_NGAY`), cảnh báo `TONG_DEAL_TRUNG_LAP`, và "không có gói để gắn". Số này là kết quả ghi thử đã hoàn tác, chính là số `--commit` sẽ ghi.
+- **Số kỳ vọng (đọc từ file `.base` ngày 13/11/2026):** 270 khoản có học phí, tổng 511.134.000 đ; 225 khoản có học viên (445.870.000 đ), 45 khoản (65.264.000 đ, toàn bộ năm 2024) chưa gắn học viên trên Lark nên sẽ bị bỏ cho tới khi điền cột `Tên HS link`. Tiền sách và `Mua khác` chưa nhập (giai đoạn sách).
+- **Đối chiếu sau khi ghi:** báo cáo doanh thu theo tháng phải cộng đúng tổng đã nhập (`SELECT sum(so_tien) FROM edu_thanh_toan`).
+- **Hoàn tác:** `DELETE FROM edu_thanh_toan WHERE external_id LIKE 'lark:tongdeal:%'` (không động tới gói hay số dư; thanh toán không đổi số dư buổi).
+
+## Sách từ bảng `Sách` (DS-61 phase E)
+
+`import-lark` đọc thêm bảng `Sách` (`tbl324dOlvbf3BUu`, 37 cuốn) và ghi vào danh mục `eduSach` (`externalId = lark:sach:<rec>`): ký hiệu, tên, giá bìa, giá bán cho phụ huynh. Cần migration `202611130002_create_edu_sach` đã chạy (deploy bản có PR danh mục sách trước).
+
+- Bảng này là tùy chọn: app không thấy thì lệnh vẫn chạy như cũ và in "app KHÔNG đọc được bảng Sách".
+- `--dry-run` in mục "Sách": số cuốn hợp lệ, các dòng bị bỏ theo mã (`SACH_THIEU_KY_HIEU`, `SACH_TRUNG_KY_HIEU`, `SACH_QUA_DAI`), cảnh báo (`SACH_THIEU_TEN`, `SACH_THIEU_GIA`) và số cuốn sẽ tạo. Số kỳ vọng từ file `.base`: 37 cuốn, không trùng ký hiệu; 1 cuốn thiếu giá bán và 1 cuốn thiếu tên (cảnh báo, vẫn nhập, giá 0, tên lấy theo ký hiệu).
+- Sách đã ghi không bao giờ bị sửa lại; ký hiệu đã có trong NocoEdu (nhập tay) được giữ nguyên và báo `daCoKyHieu`.
+- Hoàn tác: `DELETE FROM edu_sach WHERE external_id LIKE 'lark:sach:%'` (chỉ sau khi đã xoá các lần phát sách bên dưới).
+
+### Lần phát sách từ bảng `Từng lần phát sách`
+
+Cùng lệnh, cần migration `202611140001_create_edu_phat_sach` (deploy bản có PR phát sách trước). Bảng `tblU8nwesckl40Ff` (338 lượt) ghi vào `eduPhatSach` (`externalId = lark:phatsach:<rec>`) sau khi ghi sách, trong cùng giao dịch; chỉ đọc học viên, ngày, sách và ưu đãi (không đọc ghi chú).
+
+- Mỗi lượt phải có đúng một học viên và đúng một sách. Tiền sách = giá bán của đúng cuốn sách đó − ưu đãi (Lark tra giá theo "chứa" nên `CT1` có thể khớp nhầm `CT10`; ở đây khớp chính xác theo liên kết).
+- `--dry-run` in mục "Phát sách": số lượt hợp lệ và các dòng bị bỏ theo mã `PHAT_SACH_THIEU_HOC_VIEN`, `PHAT_SACH_NHIEU_HOC_VIEN`, `PHAT_SACH_THIEU_SACH`, `PHAT_SACH_NHIEU_SACH`, `PHAT_SACH_HOC_VIEN_BI_BO` (học viên không được nhập), `PHAT_SACH_SACH_BI_BO` (sách bị bỏ), `PHAT_SACH_THIEU_NGAY`, `PHAT_SACH_UU_DAI_SAI` (không phải số nguyên đồng, âm hoặc lớn hơn giá); và số sẽ tạo. Số kỳ vọng: 338 lượt; số lượt bị bỏ chỉ biết sau lần chạy thử đầu tiên.
+- Lượt đã ghi không bao giờ bị sửa; chạy lại không trùng.
+- Hoàn tác: `DELETE FROM edu_phat_sach WHERE external_id LIKE 'lark:phatsach:%'`.
+
+### Tiền sách đã nộp (quỹ tiền sách, DS-61 E3)
+
+Cần migration `202611140003_create_edu_nop_sach`. Cột `Tiền sách` của `Tổng Deal` (khoảng 31.240.000 đ) ghi vào `eduNopSach` (`externalId = lark:tongdeal-sach:<rec>`), cùng giao dịch với sách. Quỹ của một học viên = tiền sách đã nộp − tiền sách đã phát, hiện ở cuối trang "Phát sách" (số âm: phụ huynh còn thiếu). Mã bỏ: `NOP_SACH_SO_TIEN_SAI`, `NOP_SACH_THIEU_HOC_VIEN`, `NOP_SACH_HOC_VIEN_BI_BO`, `NOP_SACH_THIEU_NGAY`. Cột `Mua khác` không phải tiền sách và chưa nhập. Hoàn tác: `DELETE FROM edu_nop_sach WHERE external_id LIKE 'lark:tongdeal-sach:%'`. Công thức "thừa thiếu" và "chuyển sang đợt sau" của `Deal book` Lark (10 dòng) không nhập: quỹ được tính thẳng từ hai sổ.

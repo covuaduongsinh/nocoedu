@@ -19,6 +19,13 @@ import {
   type TableTotals,
 } from './ke-hoach.js';
 import { LarkImportError, readLarkData, type LarkSource } from './nguon.js';
+import { lapSach, type SachKetQua, type SachPlan } from './sach.js';
+import {
+  lapThanhToan,
+  type ThanhToanKetQua,
+  type ThanhToanPlan,
+  type ThanhToanProblem,
+} from './thanh-toan.js';
 
 /** Tables the command could not read and skips. None now: `Contact` and `Deal HP` are read since DS-60 phase 3. */
 export const SKIPPED_TABLES: readonly string[] = [];
@@ -76,9 +83,179 @@ export function parseImportOptions(flags: {
  * the names of what refused the write. `null`: no simulation (a commit report, or a plan with structural errors).
  */
 export type Simulation =
-  | { readonly ok: true; readonly soDu: ReadonlyMap<string, number> }
+  | {
+      readonly ok: true;
+      readonly soDu: ReadonlyMap<string, number>;
+      readonly thanhToan?: ThanhToanKetQua;
+      readonly sach?: SachKetQua;
+    }
   | { readonly ok: false; readonly hint: string }
   | null;
+
+/** The books of `Sách` in the report: counts, Lark ids and reason codes. */
+export interface SachBaoCao {
+  readonly doc: boolean;
+  readonly dong: number;
+  readonly problems: readonly {
+    code: string;
+    count: number;
+    ids: readonly string[];
+  }[];
+  readonly warnings: readonly {
+    code: string;
+    count: number;
+    ids: readonly string[];
+  }[];
+  readonly ghi?: {
+    readonly tao: number;
+    readonly trung: number;
+    readonly daCoKyHieu: number;
+    readonly phatTao: number;
+    readonly phatTrung: number;
+    readonly phatKhongCo: number;
+    readonly nopTao: number;
+    readonly nopTrung: number;
+    readonly nopKhongCo: number;
+  };
+  /** The book money of `Tổng Deal`. */
+  readonly nop: {
+    readonly dong: number;
+    readonly problems: readonly {
+      code: string;
+      count: number;
+      ids: readonly string[];
+    }[];
+  };
+  /** The handouts of `Từng lần phát sách`. */
+  readonly phat: {
+    readonly doc: boolean;
+    readonly dong: number;
+    readonly problems: readonly {
+      code: string;
+      count: number;
+      ids: readonly string[];
+    }[];
+  };
+}
+
+function nhomSach(items: readonly { id: string; code: string }[]) {
+  const groups = new Map<string, string[]>();
+  for (const item of items)
+    groups.set(item.code, [...(groups.get(item.code) ?? []), item.id]);
+  return [...groups]
+    .map(([code, ids]) => ({ code, count: ids.length, ids: ids.slice(0, 20) }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+}
+
+export function baoCaoSach(plan: SachPlan, ketQua?: SachKetQua): SachBaoCao {
+  return {
+    doc: plan.doc,
+    dong: plan.rows.length,
+    problems: nhomSach(plan.problems),
+    warnings: nhomSach(plan.warnings),
+    nop: {
+      dong: plan.nop.length,
+      problems: nhomSach(plan.nopProblems),
+    },
+    phat: {
+      doc: plan.phatDoc,
+      dong: plan.phat.length,
+      problems: nhomSach(plan.phatProblems),
+    },
+    ...(ketQua
+      ? {
+          ghi: {
+            tao: ketQua.tao,
+            trung: ketQua.trung,
+            daCoKyHieu: ketQua.daCoKyHieu.length,
+            phatTao: ketQua.phatTao,
+            phatTrung: ketQua.phatTrung,
+            phatKhongCo: ketQua.phatKhongCo,
+            nopTao: ketQua.nopTao,
+            nopTrung: ketQua.nopTrung,
+            nopKhongCo: ketQua.nopKhongCo,
+          },
+        }
+      : {}),
+  };
+}
+
+/** The tuition payments of `Tổng Deal` in the report: counts, Lark ids, reason codes and sums in dong. */
+export interface ThanhToanBaoCao {
+  /** False: the app cannot read `Tổng Deal`, so no payment is imported. */
+  readonly doc: boolean;
+  readonly dong: number;
+  readonly tongTien: number;
+  readonly khongHocPhi: number;
+  readonly problems: readonly NhomThanhToan[];
+  readonly warnings: readonly NhomThanhToan[];
+  /** What the write did (a commit) or would do (a dry run's simulation); absent when there was none. */
+  readonly ghi?: {
+    readonly tao: number;
+    readonly trung: number;
+    readonly khongCoGoi: number;
+    readonly tienKhongCoGoi: number;
+    readonly tongTien: number;
+  };
+}
+export interface NhomThanhToan {
+  readonly code: string;
+  readonly count: number;
+  readonly tongTien: number;
+  readonly ids: readonly string[];
+}
+
+function nhomThanhToan(
+  items: readonly ThanhToanProblem[],
+): readonly NhomThanhToan[] {
+  const groups = new Map<
+    string,
+    { count: number; sum: number; ids: string[] }
+  >();
+  for (const item of items) {
+    const group = groups.get(item.code) ?? { count: 0, sum: 0, ids: [] };
+    group.count += 1;
+    group.sum += item.soTien;
+    if (group.ids.length < 20) group.ids.push(item.id);
+    groups.set(item.code, group);
+  }
+  return [...groups]
+    .map(([code, g]) => ({
+      code,
+      count: g.count,
+      tongTien: g.sum,
+      ids: g.ids,
+    }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+}
+
+export function baoCaoThanhToan(
+  plan: ThanhToanPlan,
+  ketQua?: ThanhToanKetQua,
+): ThanhToanBaoCao {
+  return {
+    doc: plan.doc,
+    dong: plan.rows.length,
+    tongTien: plan.rows.reduce((sum, row) => sum + row.soTien, 0),
+    khongHocPhi: plan.khongHocPhi,
+    problems: nhomThanhToan(plan.problems),
+    warnings: nhomThanhToan(plan.warnings),
+    ...(ketQua
+      ? {
+          ghi: {
+            tao: ketQua.tao,
+            trung: ketQua.trung,
+            khongCoGoi: ketQua.khongCoGoi.length,
+            tienKhongCoGoi: ketQua.khongCoGoi.reduce(
+              (sum, item) => sum + item.soTien,
+              0,
+            ),
+            tongTien: ketQua.tongTien,
+          },
+        }
+      : {}),
+  };
+}
 
 export interface ImportReport {
   readonly mode: 'dry-run' | 'commit';
@@ -99,6 +276,10 @@ export interface ImportReport {
     readonly rows: readonly BalanceRow[];
   };
   readonly skippedTables: readonly string[];
+  /** The tuition of `Tổng Deal` (money); absent in a report built without it. */
+  readonly thanhToan?: ThanhToanBaoCao;
+  /** The books of `Sách`; absent in a report built without it. */
+  readonly sach?: SachBaoCao;
   readonly written?: Readonly<Record<PlanTable, number>>;
   readonly ledgerRows?: number;
   readonly boSung?: number;
@@ -108,6 +289,8 @@ export function taoBaoCao(
   plan: Plan,
   mode: 'dry-run' | 'commit',
   simulation: Simulation = null,
+  thanhToan?: ThanhToanPlan,
+  sach?: SachPlan,
 ): ImportReport {
   // "Tính lại từ Lark" is what Lark alone gives; "số dư sau nhập" is what the database holds after the write, read after
   // a simulated write that was rolled back (mode dry-run) — the two differ when earlier data was changed since.
@@ -147,6 +330,22 @@ export function taoBaoCao(
       rows,
     },
     skippedTables: SKIPPED_TABLES,
+    ...(sach
+      ? {
+          sach: baoCaoSach(
+            sach,
+            simulation?.ok === true ? simulation.sach : undefined,
+          ),
+        }
+      : {}),
+    ...(thanhToan
+      ? {
+          thanhToan: baoCaoThanhToan(
+            thanhToan,
+            simulation?.ok === true ? simulation.thanhToan : undefined,
+          ),
+        }
+      : {}),
   };
 }
 
@@ -234,10 +433,84 @@ export function inBaoCao(report: ImportReport, maxBalanceRows = 200): string[] {
         `  … còn ${differing.length - maxBalanceRows} dòng (dùng --json)`,
       );
   }
+  if (report.sach) lines.push(...inSach(report.sach));
+  if (report.thanhToan) lines.push(...inThanhToan(report.thanhToan));
   if (report.written)
     lines.push(
       '',
       `Đã ghi: ${PLAN_TABLES.map((t) => `${t} ${report.written?.[t] ?? 0}`).join(', ')}; sổ số dư ${report.ledgerRows ?? 0} dòng; liên kết phụ huynh bổ sung ${report.boSung ?? 0}.`,
+    );
+  return lines;
+}
+
+/** The books part of the report as lines: counts, Lark ids and codes, never a title. */
+function inSach(report: SachBaoCao): string[] {
+  if (!report.doc)
+    return ['', 'Sách: app KHÔNG đọc được bảng Sách, không nhập cuốn nào.'];
+  const lines = ['', `Sách: ${report.dong} cuốn hợp lệ.`];
+  for (const group of report.problems)
+    lines.push(
+      `  BỎ ${group.code}: ${group.count} dòng, ví dụ ${group.ids.slice(0, 5).join(', ')}`,
+    );
+  for (const group of report.warnings)
+    lines.push(
+      `  Cảnh báo ${group.code}: ${group.count} dòng, ví dụ ${group.ids.slice(0, 5).join(', ')}`,
+    );
+  if (report.ghi)
+    lines.push(
+      `  Ghi (hoặc ghi thử): tạo ${report.ghi.tao}, đã có sẵn ${report.ghi.trung}, ký hiệu đã có sẵn trong NocoEdu ${report.ghi.daCoKyHieu}.`,
+    );
+  if (!report.phat.doc)
+    lines.push('Phát sách: app KHÔNG đọc được bảng Từng lần phát sách.');
+  else {
+    lines.push(
+      `Tiền sách đã nộp (Tổng Deal): ${report.nop.dong} khoản hợp lệ.`,
+    );
+    for (const group of report.nop.problems)
+      lines.push(
+        `  BỎ ${group.code}: ${group.count} dòng, ví dụ ${group.ids.slice(0, 5).join(', ')}`,
+      );
+    if (report.ghi)
+      lines.push(
+        `  Ghi (hoặc ghi thử): tạo ${report.ghi.nopTao}, đã có sẵn ${report.ghi.nopTrung}, không tìm thấy học viên ${report.ghi.nopKhongCo}.`,
+      );
+    lines.push(`Phát sách: ${report.phat.dong} lượt hợp lệ.`);
+    for (const group of report.phat.problems)
+      lines.push(
+        `  BỎ ${group.code}: ${group.count} dòng, ví dụ ${group.ids.slice(0, 5).join(', ')}`,
+      );
+    if (report.ghi)
+      lines.push(
+        `  Ghi (hoặc ghi thử): tạo ${report.ghi.phatTao}, đã có sẵn ${report.ghi.phatTrung}, không tìm thấy học viên hoặc sách ${report.ghi.phatKhongCo}.`,
+      );
+  }
+  return lines;
+}
+
+const dong = (value: number): string => `${value.toLocaleString('vi-VN')} đ`;
+
+/** The money part of the report as lines: counts, codes and sums, never a name. */
+function inThanhToan(report: ThanhToanBaoCao): string[] {
+  if (!report.doc)
+    return [
+      '',
+      'Tiền học phí (Tổng Deal): app KHÔNG đọc được bảng này, không nhập khoản nào.',
+    ];
+  const lines = [
+    '',
+    `Tiền học phí (Tổng Deal): ${report.dong} khoản hợp lệ, tổng ${dong(report.tongTien)} (${report.khongHocPhi} dòng không có học phí, bỏ qua).`,
+  ];
+  for (const group of report.problems)
+    lines.push(
+      `  BỎ ${group.code}: ${group.count} khoản, ${dong(group.tongTien)}, ví dụ ${group.ids.slice(0, 5).join(', ')}`,
+    );
+  for (const group of report.warnings)
+    lines.push(
+      `  Cảnh báo ${group.code}: ${group.count} khoản, ${dong(group.tongTien)}, ví dụ ${group.ids.slice(0, 5).join(', ')}`,
+    );
+  if (report.ghi)
+    lines.push(
+      `  Ghi (hoặc ghi thử): tạo ${report.ghi.tao} (${dong(report.ghi.tongTien)}), đã có sẵn ${report.ghi.trung}, không có gói để gắn ${report.ghi.khongCoGoi} (${dong(report.ghi.tienKhongCoGoi)}).`,
     );
   return lines;
 }
@@ -263,6 +536,10 @@ export async function chayNhap(
   const plan = lapKeHoach(data, existing, {
     unexcusedAbsenceDeducts: unexcusedAbsenceDeducts(process.env),
   });
+  // The students the plan holds, new or already in NocoEdu: a payment or a book of anybody else cannot be placed.
+  const students = new Set(plan.hocVien.map((row) => row.externalId));
+  const sach = lapSach(data, students);
+  const thanhToan = lapThanhToan(data, students);
   if (!options.commit) {
     // The dry run runs the write of `--commit` inside a transaction and rolls it back, so "số dư sau nhập" is the
     // balance the commit leaves. Nothing stays, not even the log row. A plan with structural errors is not written.
@@ -271,15 +548,22 @@ export async function chayNhap(
       try {
         const result = await moPhongGhi(database, plan, {
           userId: 'dry-run',
+          thanhToan,
+          sach,
         });
-        simulation = { ok: true, soDu: result.soDu };
+        simulation = {
+          ok: true,
+          soDu: result.soDu,
+          thanhToan: result.totals.thanhToan,
+          sach: result.totals.sach,
+        };
       } catch (error) {
         simulation = { ok: false, hint: identifiersOf(error) };
       }
     }
-    return taoBaoCao(plan, 'dry-run', simulation);
+    return taoBaoCao(plan, 'dry-run', simulation, thanhToan, sach);
   }
-  const report = taoBaoCao(plan, 'commit');
+  const report = taoBaoCao(plan, 'commit', null, thanhToan, sach);
   if (plan.structural.length > 0)
     throw new LarkImportError(
       'LARK_KE_HOACH_LOI_CAU_TRUC',
@@ -290,7 +574,7 @@ export async function chayNhap(
   const userId = options.userId as string;
   let result: Awaited<ReturnType<typeof ghiKeHoach>>;
   try {
-    result = await ghiKeHoach(database, plan, { userId });
+    result = await ghiKeHoach(database, plan, { userId, thanhToan, sach });
   } catch (error) {
     // The transaction rolled back. The failure is kept in its own row as codes and identifiers only (no message that
     // could hold a value), and the command names the table or constraint that refused the write.
@@ -323,6 +607,8 @@ export async function chayNhap(
   // must not add a "failed" row: running the command again shows every row as a duplicate.
   const done = {
     ...report,
+    thanhToan: baoCaoThanhToan(thanhToan, result.thanhToan),
+    sach: baoCaoSach(sach, result.sach),
     written: result.written,
     ledgerRows: result.ledgerRows,
     boSung: result.boSung,

@@ -3,11 +3,15 @@ import { readAppClientRuntimeConfig } from '@nocobase/app-client/runtime';
 import { includeNotificationTemplateRoutes } from './pages/settings/notification-routes.js';
 import {
   BarChart3,
+  BookMarked,
+  BookOpen,
   Building2,
   CalendarCheck,
   Contact,
   GraduationCap,
   Home,
+  UserPlus,
+  UserCog,
   MessageSquareText,
   Users,
   Wallet,
@@ -33,7 +37,11 @@ function eduPage(
     | 'diemDanh'
     | 'hocPhi'
     | 'nhanXet'
-    | 'baoCao',
+    | 'baoCao'
+    | 'sach'
+    | 'phatSach'
+    | 'tuyenSinh'
+    | 'hoSoGv',
   path: string,
   icon: typeof Home,
   order: number,
@@ -152,6 +160,28 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     BarChart3,
     8,
     () => import('./pages/edu/bao-cao.js'),
+  ),
+  ...eduPage('sach', '/sach', BookOpen, 9, () => import('./pages/edu/sach.js')),
+  ...eduPage(
+    'hoSoGv',
+    '/giao-vien',
+    UserCog,
+    12,
+    () => import('./pages/edu/ho-so-gv.js'),
+  ),
+  ...eduPage(
+    'tuyenSinh',
+    '/tuyen-sinh',
+    UserPlus,
+    11,
+    () => import('./pages/edu/tuyen-sinh.js'),
+  ),
+  ...eduPage(
+    'phatSach',
+    '/phat-sach',
+    BookMarked,
+    10,
+    () => import('./pages/edu/phat-sach.js'),
   ),
   {
     // Declares no navigation, so the application decides where its entry goes (for example a sidebar item with an

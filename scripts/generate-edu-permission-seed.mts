@@ -32,11 +32,22 @@ const withoutLaterActions = (grants: readonly unknown[]): unknown[] =>
         }
       : g;
   });
+// The books page and the `edu.sach` grant were added later still: `202611130003_edu_sach_grant`.
+const withoutSach = (grants: readonly unknown[]): unknown[] =>
+  grants.filter((grant) => {
+    const g = grant as { resource: { type: string; id: string } };
+    return (
+      g.resource.id !== 'edu.sach' &&
+      g.resource.id !== 'edu.phatSach' &&
+      g.resource.id !== 'edu.tuyenSinh' &&
+      g.resource.id !== 'edu.hoSoGv'
+    );
+  });
 const literal = JSON.stringify(
   EDU_PERMISSION_SETS.map(({ key, title, grants }) => ({
     key,
     title,
-    grants: withoutLaterActions(grants),
+    grants: withoutSach(withoutLaterActions(grants)),
   })),
   null,
   2,

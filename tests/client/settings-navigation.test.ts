@@ -242,6 +242,10 @@ describe('System settings navigation', () => {
       'edu-hocPhi',
       'edu-nhanXet',
       'edu-baoCao',
+      'edu-sach',
+      'edu-phatSach',
+      'edu-tuyenSinh',
+      'edu-hoSoGv',
       'settingsHome',
     ]);
   });

@@ -383,6 +383,57 @@ test('a coach writes monthly comments for their own class only, and exports them
   expect(other.data.soDong).toBe(0);
 });
 
+test('a periodic review and a year-end summary are comments of their own, apart from the month', async ({
+  testApp,
+  connection,
+}) => {
+  const { hlvA, ids } = await setup(testApp, connection);
+  for (const [thang, noiDung] of [
+    ['2026-K3', 'Ý thức: tốt.'],
+    ['2026-CN', 'Ưu điểm: bền bỉ.'],
+    ['2026-10', 'Nhận xét tháng.'],
+  ] as const)
+    expect(
+      (
+        await post(hlvA.session, '/nhanXet/luu', {
+          hocVienId: ids.hocVienA,
+          thang,
+          noiDung,
+        })
+      ).status,
+    ).toBe(201);
+  // Three comments, no replacement: each key is its own comment.
+  expect(
+    (
+      await connection.query
+        .selectFrom('eduNhanXetThang')
+        .select('id')
+        .execute()
+    ).length,
+  ).toBe(3);
+  const text = async (thang: string) =>
+    (
+      (await (
+        await post(hlvA.session, '/nhanXet/xuatVanBan', { thang })
+      ).json()) as { data: { danhSach: { vanBan: string }[] } }
+    ).data.danhSach.map((x) => x.vanBan);
+  expect((await text('2026-K3'))[0]).toContain(
+    'Nhận xét định kỳ lần 3 năm 2026',
+  );
+  expect((await text('2026-CN'))[0]).toContain('Tổng kết cuối năm 2026');
+  // Keys that are neither a month nor a review are refused.
+  for (const thang of ['2026-13', '2026-K0', '2026-K10', '2026-XX'])
+    expect(
+      (
+        await post(hlvA.session, '/nhanXet/luu', {
+          hocVienId: ids.hocVienA,
+          thang,
+          noiDung: 'x',
+        })
+      ).status,
+    ).toBe(400);
+});
+
 test('the home summary lists today sessions and unmarked ones for the coach only', async ({
   testApp,
   connection,
@@ -431,4 +482,104 @@ test('the class form lists coaches by name, for those who manage classes', async
   expect(listed).not.toContain(keToan.id);
   expect((await post(keToan.session, '/hlv/danhSach', {})).status).toBe(403);
   expect((await post(hlvA.session, '/hlv/danhSach', {})).status).toBe(403);
+});
+
+test('the negative-balance report lists only studying students who owe sessions, inside the caller scope', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin, hlvA, managerA, keToan, ids } = await setup(
+    testApp,
+    connection,
+  );
+  const q = connection.query;
+  await q
+    .updateTable('eduHocVien')
+    .set({ soBuoiConLai: -3 })
+    .where('id', '=', ids.hocVienA)
+    .execute();
+  await q
+    .updateTable('eduHocVien')
+    .set({ soBuoiConLai: -1 })
+    .where('id', '=', ids.hocVienB)
+    .execute();
+
+  const rows = async (s: any) =>
+    ((await (await report(s, { loai: 'soDuAm' })).json()) as Report).data.rows;
+  // The coach sees their class, the manager their branch, the administrator both (worst balance first).
+  expect((await rows(hlvA.session)).map((r) => r.ma)).toEqual(['HS-A']);
+  expect(await rows(hlvA.session)).toMatchObject([
+    { soBuoiConLai: -3, buoiNo: 3 },
+  ]);
+  expect((await rows(managerA.session)).map((r) => r.ma)).toEqual(['HS-A']);
+  expect((await rows(admin)).map((r) => r.ma)).toEqual(['HS-A', 'HS-B']);
+  // The accountant sees every branch, like the other balance reports.
+  expect((await rows(keToan.session)).length).toBe(2);
+
+  // A student who left, or whose balance is zero or positive, is not listed.
+  await q
+    .updateTable('eduHocVien')
+    .set({ trangThai: 'da_nghi' })
+    .where('id', '=', ids.hocVienA)
+    .execute();
+  await q
+    .updateTable('eduHocVien')
+    .set({ soBuoiConLai: 0 })
+    .where('id', '=', ids.hocVienB)
+    .execute();
+  expect(await rows(admin)).toEqual([]);
+
+  // It exports like the other reports, and the export is logged without names.
+  const exported = await post(admin, '/baoCao/xuatCsv', { loai: 'soDuAm' });
+  expect(exported.status).toBe(200);
+});
+
+test('the missing-consent report lists studying students with no learning consent in force', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin, hlvA, ids } = await setup(testApp, connection);
+  const q = connection.query;
+  await q
+    .insertInto('eduPhuHuynh')
+    .values({ ma: 'PH-MAU', hoTen: 'Phụ huynh Mẫu', soDienThoai: '0900000001' })
+    .execute();
+  const parent = await q
+    .selectFrom('eduPhuHuynh')
+    .select('id')
+    .where('ma', '=', 'PH-MAU')
+    .executeTakeFirstOrThrow();
+  const consent = (
+    hocVienId: number,
+    over: Record<string, unknown> = {},
+  ): Promise<unknown> =>
+    q
+      .insertInto('eduDongY')
+      .values({
+        hocVienId,
+        phuHuynhId: Number(parent.id),
+        mucDich: 'hoc_tap',
+        dongY: true,
+        phienBanDieuKhoan: 'v1',
+        thoiDiem: new Date(),
+        kenh: 'giay',
+        nguoiGhiNhanId: 'x',
+        ...over,
+      })
+      .execute();
+  const rows = async (s: any) =>
+    ((await (await report(s, { loai: 'thieuDongY' })).json()) as Report).data
+      .rows;
+
+  // Nobody consented yet: both students, the coach only their own.
+  expect((await rows(admin)).map((r) => r.ma)).toEqual(['HS-A', 'HS-B']);
+  expect((await rows(hlvA.session)).map((r) => r.ma)).toEqual(['HS-A']);
+
+  // A consent for another purpose, a refusal and a withdrawn consent do not count; a valid one does.
+  await consent(ids.hocVienA, { mucDich: 'anh_video' });
+  await consent(ids.hocVienA, { dongY: false });
+  await consent(ids.hocVienA, { rutLaiLuc: new Date() });
+  expect((await rows(admin)).map((r) => r.ma)).toEqual(['HS-A', 'HS-B']);
+  await consent(ids.hocVienA);
+  expect((await rows(admin)).map((r) => r.ma)).toEqual(['HS-B']);
 });

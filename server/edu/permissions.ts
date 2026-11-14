@@ -24,6 +24,10 @@ export const COLLECTIONS = {
   soDuNhatKy: { name: 'eduSoDuNhatKy', title: 'Nhật ký số dư buổi' },
   nhanXetThang: { name: 'eduNhanXetThang', title: 'Nhận xét tháng' },
   xuatDuLieu: { name: 'eduXuatDuLieuNhatKy', title: 'Nhật ký xuất dữ liệu' },
+  sach: { name: 'eduSach', title: 'Sách' },
+  phatSach: { name: 'eduPhatSach', title: 'Phát sách' },
+  lienHe: { name: 'eduLienHe', title: 'Liên hệ tuyển sinh' },
+  hoSoGv: { name: 'eduHoSoGv', title: 'Hồ sơ giáo viên' },
 } as const;
 
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -265,6 +269,62 @@ export const FIELDS = {
     ],
     write: ['hocVienId', 'lopId', 'hlvId', 'thang', 'noiDung', 'trangThai'],
   },
+  sach: {
+    read: ['id', 'kyHieu', 'ten', 'giaBia', 'giaBan', 'trangThai'],
+    write: ['kyHieu', 'ten', 'giaBia', 'giaBan', 'trangThai'],
+  },
+  phatSach: {
+    read: [
+      'id',
+      'hocVienId',
+      'sachId',
+      'coSoId',
+      'ngay',
+      'uuDai',
+      'tienSach',
+      'ghiChu',
+      'nguoiTaoId',
+      'createdAt',
+    ],
+    write: [
+      'hocVienId',
+      'sachId',
+      'coSoId',
+      'ngay',
+      'uuDai',
+      'tienSach',
+      'ghiChu',
+      'nguoiTaoId',
+      'createdAt',
+    ],
+  },
+  hoSoGv: {
+    read: ['id', 'userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
+    write: ['userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
+  },
+  lienHe: {
+    read: [
+      'id',
+      'hoTen',
+      'soDienThoai',
+      'coSoId',
+      'kenh',
+      'trangThai',
+      'ngayNhac',
+      'ghiChu',
+      'ngayTao',
+    ],
+    write: [
+      'hoTen',
+      'soDienThoai',
+      'coSoId',
+      'kenh',
+      'trangThai',
+      'ngayNhac',
+      'ghiChu',
+      'ngayTao',
+    ],
+  },
   xuatDuLieu: {
     read: ['id', 'userId', 'loai', 'soDong', 'createdAt'],
     write: [],
@@ -339,6 +399,25 @@ function simple(
 export const coSo = simple('edu.coSo', 'Cơ sở', 'coSo', {
   create: true,
   update: FIELDS.coSo.write,
+});
+// Coach profile and pay per session (DS-61 phase F). Pay is the club's private matter: only the administrator holds
+// this resource; the account itself (`userId`) cannot be changed after the profile is made.
+export const hoSoGv = simple('edu.hoSoGv', 'Hồ sơ giáo viên', 'hoSoGv', {
+  create: true,
+  update: ['tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
+});
+// Admissions (DS-61 phase D): a family that has not enrolled yet. Minimal data by design: the parent's name and phone,
+// the branch, the channel, a status, a reminder day and a short note; no address, no social profile, no child's data.
+// A contact is deleted when the club no longer needs it (the retention rule is in `.agents/rules/edu.md`).
+export const tuyenSinh = simple('edu.tuyenSinh', 'Tuyển sinh', 'lienHe', {
+  create: true,
+  update: FIELDS.lienHe.write,
+  remove: true,
+});
+// A book is withdrawn by its status (`ngung`), never deleted: what was handed out points to it.
+export const sach = simple('edu.sach', 'Sách', 'sach', {
+  create: true,
+  update: FIELDS.sach.write,
 });
 export const coSoQuanLy = simple(
   'edu.coSoQuanLy',
@@ -526,6 +605,20 @@ export const thanhToan = defineCompositeResource('edu.thanhToan', (r) =>
       a
         .title('Ghi nhận thanh toán')
         .grant('data', thanhToanRead.create([...FIELDS.thanhToan.write])),
+    ),
+);
+
+const phatSachRead = perm('phatSach', FIELDS.phatSach);
+
+/** Books handed out: view, and manage (hand a book out; a handout is never edited or deleted here). */
+export const phatSach = defineCompositeResource('edu.phatSach', (r) =>
+  r
+    .title('Phát sách')
+    .action('view', (a) => a.title('Xem').grant('data', phatSachRead))
+    .action('manage', (a) =>
+      a
+        .title('Phát sách cho học viên')
+        .grant('data', phatSachRead.create([...FIELDS.phatSach.write])),
     ),
 );
 

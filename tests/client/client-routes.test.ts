@@ -197,6 +197,10 @@ describe('app client routes', () => {
       { name: 'edu-hocPhi', authorizedAs: 'edu.hocPhi' },
       { name: 'edu-nhanXet', authorizedAs: 'edu.nhanXet' },
       { name: 'edu-baoCao', authorizedAs: 'edu.baoCao' },
+      { name: 'edu-sach', authorizedAs: 'edu.sach' },
+      { name: 'edu-phatSach', authorizedAs: 'edu.phatSach' },
+      { name: 'edu-tuyenSinh', authorizedAs: 'edu.tuyenSinh' },
+      { name: 'edu-hoSoGv', authorizedAs: 'edu.hoSoGv' },
       { name: 'settingsHome', authorizedAs: null },
       ...managementPages,
     ]);

@@ -10,6 +10,7 @@ import { StatusBadge } from '#components/status-badge';
 import { Button } from '#components/ui/button';
 import { Checkbox } from '#components/ui/checkbox';
 import { Input } from '#components/ui/input';
+import { Textarea } from '#components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -19,7 +20,7 @@ import {
   TableRow,
 } from '#components/ui/table';
 
-import { FormDialog, SelectField, TextField } from './form-parts.js';
+import { Field, FormDialog, SelectField, TextField } from './form-parts.js';
 import {
   post,
   text,
@@ -46,6 +47,21 @@ interface Saved {
   soBuoiConLai: number;
   canhBao: boolean;
 }
+
+/** What was taught (DS-61): kept per session, written through `/buoiHoc/noiDung/luu`, never through the balance path. */
+const CONTENT_FIELDS = [
+  'keHoachDay',
+  'kienThucMoi',
+  'giaoBtvn',
+  'keHoachBuoiSau',
+] as const;
+type Content = Record<(typeof CONTENT_FIELDS)[number], string>;
+const EMPTY_CONTENT: Content = {
+  keHoachDay: '',
+  kienThucMoi: '',
+  giaoBtvn: '',
+  keHoachBuoiSau: '',
+};
 
 /**
  * Sessions and attendance. A coach picks a session of their class and marks each student present, excused, absent
@@ -74,6 +90,14 @@ export default function DiemDanhPage(): ReactElement {
   const [saved, setSaved] = useState<Record<number, Saved>>({});
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [content, setContent] = useState<Content>(EMPTY_CONTENT);
+  const [scores, setScores] = useState<Record<number, string>>({});
+  // Students that already have an attendance row in the chosen session: only they can be given a score.
+  const [registered, setRegistered] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
+  const [contentBusy, setContentBusy] = useState(false);
+  const [contentSaved, setContentSaved] = useState(false);
   const [generate, setGenerate] = useState<{
     lopId: string;
     tuNgay: string;
@@ -122,14 +146,78 @@ export default function DiemDanhPage(): ReactElement {
           };
         }
         setMarks(next);
+        setRegistered(new Set(Object.keys(next).map(Number)));
       })
       .catch(() => {
-        if (live) setMarks({});
+        if (!live) return;
+        setMarks({});
+        setRegistered(new Set());
       });
     return () => {
       live = false;
     };
   }, [api, selectedId]);
+
+  // The content of the session and the awareness scores already saved.
+  useEffect(() => {
+    if (!selectedId) return;
+    let live = true;
+    api
+      .request<{
+        data: {
+          noiDung: Partial<Content>;
+          yThuc: { hocVienId: number; diem: number }[];
+        };
+      }>({
+        path: '/buoiHoc/noiDung/xem',
+        method: 'POST',
+        json: { buoiHocId: selectedId },
+      })
+      .then((response) => {
+        if (!live) return;
+        setContent({ ...EMPTY_CONTENT, ...response.data.noiDung });
+        setScores(
+          Object.fromEntries(
+            response.data.yThuc.map((s) => [s.hocVienId, String(s.diem)]),
+          ),
+        );
+      })
+      .catch(() => {
+        if (!live) return;
+        setContent(EMPTY_CONTENT);
+        setScores({});
+      });
+    return () => {
+      live = false;
+    };
+  }, [api, selectedId]);
+
+  const saveContent = async (): Promise<void> => {
+    if (!session || contentBusy) return;
+    setContentBusy(true);
+    setContentSaved(false);
+    setError(undefined);
+    try {
+      await post(api, '/buoiHoc/noiDung/luu', {
+        buoiHocId: session.id,
+        noiDung: content,
+        yThuc: roster
+          .filter((student) => registered.has(student.id))
+          .map((student) => {
+            const raw = (scores[student.id] ?? '').trim();
+            return {
+              hocVienId: student.id,
+              diem: raw === '' ? null : Number(raw),
+            };
+          }),
+      });
+      setContentSaved(true);
+    } catch (cause) {
+      setError(message(cause));
+    } finally {
+      setContentBusy(false);
+    }
+  };
 
   const markOf = (id: number): Mark =>
     marks[id] ?? { trangThai: 'co_mat', daLamBtvn: false, nhanXet: '' };
@@ -156,6 +244,8 @@ export default function DiemDanhPage(): ReactElement {
       setSaved(
         Object.fromEntries(response.data.danhSach.map((s) => [s.hocVienId, s])),
       );
+      // The register now has a row for every student listed, so each can be scored.
+      setRegistered(new Set(roster.map((student) => student.id)));
       sessions.reload();
     } catch (cause) {
       setError(message(cause));
@@ -207,6 +297,7 @@ export default function DiemDanhPage(): ReactElement {
             value={selectedId ? String(selectedId) : ''}
             onChange={(value) => {
               setSaved({});
+              setContentSaved(false);
               setError(undefined);
               setParams(value ? { buoi: value } : {});
             }}
@@ -233,6 +324,7 @@ export default function DiemDanhPage(): ReactElement {
                     <TableHead>{t('edu.diemDanh.status')}</TableHead>
                     <TableHead>{t('edu.diemDanh.homework')}</TableHead>
                     <TableHead>{t('edu.diemDanh.comment')}</TableHead>
+                    <TableHead>{t('edu.diemDanh.awareness')}</TableHead>
                     <TableHead>{t('edu.diemDanh.balance')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -288,6 +380,25 @@ export default function DiemDanhPage(): ReactElement {
                           />
                         </TableCell>
                         <TableCell>
+                          <Input
+                            aria-label={t('edu.diemDanh.awareness')}
+                            title={t('edu.diemDanh.awarenessHint')}
+                            type='number'
+                            min={0}
+                            max={10}
+                            step={1}
+                            className='w-20'
+                            value={scores[student.id] ?? ''}
+                            disabled={!canRecord || !registered.has(student.id)}
+                            onChange={(event) =>
+                              setScores((current) => ({
+                                ...current,
+                                [student.id]: event.target.value,
+                              }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
                           {result ? (
                             <StatusBadge
                               tone={result.canhBao ? 'warning' : 'success'}
@@ -327,6 +438,56 @@ export default function DiemDanhPage(): ReactElement {
                 {busy ? t('edu.common.saving') : t('edu.diemDanh.save')}
               </Button>
             </div>
+          ) : null}
+          {session ? (
+            <section
+              aria-label={t('edu.diemDanh.content.title')}
+              className='flex flex-col gap-3 rounded-lg border p-4'
+            >
+              <h2 className='text-base font-medium'>
+                {t('edu.diemDanh.content.title')}
+              </h2>
+              <div className='grid gap-3 sm:grid-cols-2'>
+                {CONTENT_FIELDS.map((field) => (
+                  <Field
+                    key={field}
+                    id={`dd-nd-${field}`}
+                    label={t(`edu.diemDanh.content.${field}`)}
+                  >
+                    <Textarea
+                      id={`dd-nd-${field}`}
+                      value={content[field]}
+                      maxLength={2000}
+                      disabled={!canRecord}
+                      onChange={(event) =>
+                        setContent((current) => ({
+                          ...current,
+                          [field]: event.target.value,
+                        }))
+                      }
+                    />
+                  </Field>
+                ))}
+              </div>
+              {canRecord ? (
+                <div className='flex items-center gap-3'>
+                  <Button
+                    variant='outline'
+                    onClick={() => void saveContent()}
+                    disabled={contentBusy}
+                  >
+                    {contentBusy
+                      ? t('edu.common.saving')
+                      : t('edu.diemDanh.content.save')}
+                  </Button>
+                  {contentSaved ? (
+                    <p role='status' className='text-sm text-muted-foreground'>
+                      {t('edu.diemDanh.content.saved')}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
           ) : null}
         </div>
       )}

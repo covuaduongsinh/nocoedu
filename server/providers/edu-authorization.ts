@@ -21,7 +21,11 @@ import {
   lop,
   lopLich,
   nhanXet,
+  phatSach,
   phuHuynh,
+  sach,
+  hoSoGv,
+  tuyenSinh,
   soDu,
   thanhToan,
 } from '../edu/permissions.js';
@@ -68,6 +72,10 @@ export default class EduAuthorizationProvider extends ServiceProvider<AppPluginA
     authz.ui.place(authz.compositeResources.define(soDu), section);
     authz.ui.place(authz.compositeResources.define(nhanXet), section);
     authz.ui.place(authz.compositeResources.define(baoCao), section);
+    authz.ui.place(authz.compositeResources.define(sach), section);
+    authz.ui.place(authz.compositeResources.define(phatSach), section);
+    authz.ui.place(authz.compositeResources.define(tuyenSinh), section);
+    authz.ui.place(authz.compositeResources.define(hoSoGv), section);
     authz.ui.place(authz.compositeResources.define(ext), section);
     return Promise.resolve();
   }

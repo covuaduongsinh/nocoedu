@@ -14,7 +14,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
 import { asText, shortName } from '../edu/names.js';
-import { eduMessage } from '../edu/nhan-xet.js';
+import { eduMessage, PERIOD_PATTERN } from '../edu/nhan-xet.js';
 import {
   currentUserId,
   eduError,
@@ -30,7 +30,7 @@ import {
  * `edu.myClasses` scope, and the student must be one the caller sees, so a coach cannot comment on another class.
  */
 const Id = z.coerce.number().int().positive();
-const Month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/u);
+const Month = z.string().regex(PERIOD_PATTERN);
 
 const SaveInput = z.object({
   hocVienId: Id,

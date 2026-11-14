@@ -208,3 +208,159 @@ describeMigration('202611100002_edu_nhap_lark', {
     await expectCollection('eduBuoiHoc').toHaveField('truVangCoPhep');
   },
 });
+
+describeMigration('202611130001_edu_thanh_toan_external_id', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduThanhToan').toHaveField('externalId', {
+      nullable: true,
+    });
+    await expectCollection('eduThanhToan').toHaveIndex(['externalId'], {
+      unique: true,
+    });
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduThanhToan').toExist();
+    await expectCollection('eduThanhToan').not.toHaveField('externalId');
+  },
+});
+
+describeMigration('202611130002_create_edu_sach', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ connection, expectCollection }) => {
+    await expectCollection('eduSach').toHaveField('kyHieu', {
+      nullable: false,
+    });
+    await expectCollection('eduSach').toHaveIndex(['kyHieu'], { unique: true });
+    await expectCollection('eduSach').toHaveIndex(['externalId'], {
+      unique: true,
+    });
+    await connection.query
+      .insertInto('eduSach')
+      .values({ kyHieu: 'MAU1', ten: 'Sách Mẫu 1' })
+      .execute();
+    await expect(
+      connection.query
+        .insertInto('eduSach')
+        .values({ kyHieu: 'MAU1', ten: 'Sách Mẫu khác' })
+        .execute(),
+    ).rejects.toThrow();
+    await connection.query.deleteFrom('eduSach').allowAllRows().execute();
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduSach').not.toExist();
+  },
+});
+
+describeMigration('202611140001_create_edu_phat_sach', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduPhatSach').toHaveField('hocVienId', {
+      nullable: false,
+    });
+    await expectCollection('eduPhatSach').toHaveField('tienSach', {
+      nullable: false,
+    });
+    await expectCollection('eduPhatSach').toHaveIndex(['externalId'], {
+      unique: true,
+    });
+    await expectCollection('eduPhatSach').toHaveIndex(['hocVienId', 'ngay']);
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduPhatSach').not.toExist();
+  },
+});
+
+describeMigration('202611140003_create_edu_nop_sach', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduNopSach').toHaveField('soTien', {
+      nullable: false,
+    });
+    await expectCollection('eduNopSach').toHaveIndex(['externalId'], {
+      unique: true,
+    });
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduNopSach').not.toExist();
+  },
+});
+
+describeMigration('202611140004_create_edu_lien_he', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduLienHe').toHaveField('hoTen', {
+      nullable: false,
+    });
+    await expectCollection('eduLienHe').toHaveField('coSoId', {
+      nullable: false,
+    });
+    await expectCollection('eduLienHe').toHaveIndex(['coSoId', 'trangThai']);
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduLienHe').not.toExist();
+  },
+});
+
+describeMigration('202611140005_create_edu_ho_so_gv', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduHoSoGv').toHaveField('thuLaoMotBuoi', {
+      nullable: false,
+    });
+    await expectCollection('eduHoSoGv').toHaveIndex(['userId'], {
+      unique: true,
+    });
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduHoSoGv').not.toExist();
+  },
+});

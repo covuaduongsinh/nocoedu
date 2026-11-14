@@ -1,0 +1,77 @@
+/**
+ * NocoEdu wording for the books catalogue (DS-61 phase E). Same shape as the rows in `./edu-copy.ts`:
+ * `[key, Tiếng Việt, English, 中文]`.
+ */
+export const EDU_SACH_ROWS: readonly (readonly [
+  string,
+  string,
+  string,
+  string,
+])[] = [
+  ['nav.sach', 'Sách', 'Books', '书籍'],
+  ['sach.title', 'Sách', 'Books', '书籍'],
+  [
+    'sach.description',
+    'Danh mục sách CLB bán cho học viên: ký hiệu, tên và giá.',
+    'The books the club sells to students: symbol, title and price.',
+    '俱乐部向学员销售的书籍：代号、书名和价格。',
+  ],
+  ['sach.new', 'Thêm sách', 'Add a book', '新增书籍'],
+  ['sach.edit', 'Sửa sách', 'Edit the book', '编辑书籍'],
+  ['sach.kyHieu', 'Ký hiệu', 'Symbol', '代号'],
+  ['sach.ten', 'Tên sách', 'Title', '书名'],
+  ['sach.giaBia', 'Giá bìa (đồng)', 'Cover price (VND)', '定价（越南盾）'],
+  ['sach.giaBan', 'Giá bán (đồng)', 'Selling price (VND)', '售价（越南盾）'],
+  ['sach.trangThai', 'Trạng thái', 'Status', '状态'],
+  ['sach.empty', 'Chưa có sách nào', 'No books yet', '暂无书籍'],
+  [
+    'sach.emptyHint',
+    'Thêm cuốn sách đầu tiên để dùng khi phát sách cho học viên.',
+    'Add the first book to use when handing books out to students.',
+    '添加第一本书，以便向学员发书时使用。',
+  ],
+  ['status.dang_ban', 'Đang bán', 'On sale', '在售'],
+  ['status.ngung', 'Ngừng bán', 'Withdrawn', '停售'],
+  ['nav.phatSach', 'Phát sách', 'Books handed out', '发书'],
+  ['phatSach.title', 'Phát sách', 'Books handed out', '发书'],
+  [
+    'phatSach.description',
+    'Sách đã phát cho học viên: ngày, sách, ưu đãi và tiền sách phụ huynh phải trả.',
+    'Books given to students: the day, the book, the discount and the amount the parent pays.',
+    '已发给学员的书：日期、书名、优惠和家长应付金额。',
+  ],
+  ['quySach.title', 'Quỹ tiền sách', 'Book fund', '书款余额'],
+  [
+    'quySach.description',
+    'Tiền phụ huynh đã nộp cho sách trừ tiền sách đã phát, theo từng học viên. Số âm là phụ huynh còn thiếu.',
+    'What the parent paid for books minus the books handed out, per student. A negative number means the parent still owes.',
+    '家长已缴书款减去已发书款，按学员计算。负数表示家长尚欠。',
+  ],
+  ['quySach.daNop', 'Đã nộp (đồng)', 'Paid (VND)', '已缴（越南盾）'],
+  ['quySach.daPhat', 'Đã phát (đồng)', 'Handed out (VND)', '已发（越南盾）'],
+  ['quySach.conLai', 'Còn lại (đồng)', 'Left (VND)', '余额（越南盾）'],
+  ['phatSach.new', 'Phát sách', 'Hand a book out', '发书'],
+  ['phatSach.hocVien', 'Học viên', 'Student', '学员'],
+  ['phatSach.sach', 'Sách', 'Book', '书籍'],
+  ['phatSach.ngay', 'Ngày phát', 'Day', '发书日期'],
+  ['phatSach.uuDai', 'Ưu đãi (đồng)', 'Discount (VND)', '优惠（越南盾）'],
+  [
+    'phatSach.tienSach',
+    'Tiền sách (đồng)',
+    'Book money (VND)',
+    '书款（越南盾）',
+  ],
+  ['phatSach.ghiChu', 'Ghi chú', 'Note', '备注'],
+  [
+    'phatSach.empty',
+    'Chưa phát cuốn sách nào',
+    'No book handed out yet',
+    '尚未发书',
+  ],
+  [
+    'phatSach.emptyHint',
+    'Bấm "Phát sách" để ghi một cuốn sách đã phát cho học viên.',
+    'Press "Hand a book out" to record a book given to a student.',
+    '点击“发书”记录发给学员的书。',
+  ],
+];

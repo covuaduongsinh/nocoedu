@@ -36,6 +36,65 @@ export const LARK_TABLES = {
 
 export type LarkTableKey = keyof typeof LARK_TABLES;
 
+/**
+ * `Tổng Deal (HP + book)`: the only table of the Base that holds money (tuition, books, other), one row per payment of a
+ * parent. It is read apart from `LARK_TABLES` because an import that cannot see it still works (as before: no prices);
+ * `readLarkData` then answers `tongDealDoc = false` and the plan says so. Only the fields below are read: not the bill
+ * photo, the parent's name or the note.
+ */
+export const LARK_TONG_DEAL = {
+  id: 'tblGDWScLLqgOR1W',
+  title: 'Tổng Deal (HP + book)',
+} as const;
+
+/**
+ * `Sách` (37 rows): the books the club sells. Optional like `Tổng Deal`: an app that cannot see it imports as before
+ * (`sachDoc = false`). Only symbol, title and the two prices are read; the summary of the content is not.
+ */
+export const LARK_SACH = { id: 'tbl324dOlvbf3BUu', title: 'Sách' } as const;
+export const SACH_REQUIRED_FIELDS: readonly string[] = [
+  'Ký hiệu sách',
+  'Tên sách',
+  'Giá bìa',
+  'Giá bán cho PH',
+];
+
+/**
+ * `Từng lần phát sách` (338 rows): a book handed to a student. Optional like `Sách`. Only the student, the day, the book
+ * and the discount are read; the looked-up price and the amount are recomputed from the catalogue, and the note is not
+ * read.
+ */
+export const LARK_PHAT_SACH = {
+  id: 'tblU8nwesckl40Ff',
+  title: 'Từng lần phát sách',
+} as const;
+export const PHAT_SACH_REQUIRED_FIELDS: readonly string[] = [
+  'Tên học sinh',
+  'Ngày dùng',
+  'Sách dùng',
+  'Ưu đãi',
+];
+
+/** The fields of `Tổng Deal` the plan needs; one missing or renamed stops the import (`LARK_CAU_TRUC_DOI`). */
+export const TONG_DEAL_REQUIRED_FIELDS: readonly string[] = [
+  'Tên HS link',
+  'Ngày nộp',
+  'Số buổi nộp',
+  'Học phí',
+  'Tiền sách',
+  'Mua khác',
+  'Link với Lần nộp HP',
+];
+
+/** Read from `Tổng Deal`: the required ones plus what only refines a match (the unit price, the branch, the second date). */
+export const TONG_DEAL_READ_FIELDS: readonly string[] = [
+  ...TONG_DEAL_REQUIRED_FIELDS,
+  'Ngày',
+  'HP 1 buổi',
+  'Cơ sở',
+  'Đã nộp',
+];
+
 /** The name of a yearly attendance table: `2026 Nhận xét mỗi buổi`. Compared after `normalize('NFC').trim()`. */
 export const NHAN_XET_TEN = /^(\d{4}) Nhận xét mỗi buổi$/u;
 
@@ -153,6 +212,16 @@ export interface LarkData {
   readonly level: readonly LarkRecord[];
   readonly contact: readonly LarkRecord[];
   readonly dealHp: readonly LarkRecord[];
+  /** The payments of `Tổng Deal (HP + book)`; empty when the app cannot see that table (`tongDealDoc`). */
+  readonly tongDeal: readonly LarkRecord[];
+  /** False when `Tổng Deal` is not in the list of tables the app can read. */
+  readonly tongDealDoc: boolean;
+  /** The books of `Sách`; empty when the app cannot see that table (`sachDoc`). */
+  readonly sach: readonly LarkRecord[];
+  readonly sachDoc: boolean;
+  /** The handouts of `Từng lần phát sách`; empty when the app cannot see that table (`phatSachDoc`). */
+  readonly phatSach: readonly LarkRecord[];
+  readonly phatSachDoc: boolean;
   /** The rows of every yearly attendance table, oldest year first. */
   readonly nhanXet: readonly LarkRecord[];
 }
@@ -266,10 +335,69 @@ export async function readLarkData(
     LARK_TABLES.dealHp.id,
     READ_FIELDS.dealHp,
   );
+  const tongDealDoc = listedIds.has(LARK_TONG_DEAL.id);
+  let tongDeal: readonly LarkRecord[] = [];
+  if (tongDealDoc) {
+    const names = new Set(await source.fieldNames(LARK_TONG_DEAL.id));
+    const lost = TONG_DEAL_REQUIRED_FIELDS.filter((f) => !names.has(f));
+    if (lost.length > 0)
+      throw new LarkImportError(
+        'LARK_CAU_TRUC_DOI',
+        `The Lark structure changed; missing or renamed fields: ${lost.map((f) => `tongDeal: ${f}`).join('; ')}`,
+      );
+    tongDeal = await read('tongDeal', LARK_TONG_DEAL.id, TONG_DEAL_READ_FIELDS);
+  } else {
+    log('tongDeal: not in the list of tables the app can read');
+  }
+  const sachDoc = listedIds.has(LARK_SACH.id);
+  let sach: readonly LarkRecord[] = [];
+  if (sachDoc) {
+    const names = new Set(await source.fieldNames(LARK_SACH.id));
+    const lost = SACH_REQUIRED_FIELDS.filter((f) => !names.has(f));
+    if (lost.length > 0)
+      throw new LarkImportError(
+        'LARK_CAU_TRUC_DOI',
+        `The Lark structure changed; missing or renamed fields: ${lost.map((f) => `sach: ${f}`).join('; ')}`,
+      );
+    sach = await read('sach', LARK_SACH.id, SACH_REQUIRED_FIELDS);
+  } else {
+    log('sach: not in the list of tables the app can read');
+  }
+  const phatSachDoc = listedIds.has(LARK_PHAT_SACH.id);
+  let phatSach: readonly LarkRecord[] = [];
+  if (phatSachDoc) {
+    const names = new Set(await source.fieldNames(LARK_PHAT_SACH.id));
+    const lost = PHAT_SACH_REQUIRED_FIELDS.filter((f) => !names.has(f));
+    if (lost.length > 0)
+      throw new LarkImportError(
+        'LARK_CAU_TRUC_DOI',
+        `The Lark structure changed; missing or renamed fields: ${lost.map((f) => `phatSach: ${f}`).join('; ')}`,
+      );
+    phatSach = await read(
+      'phatSach',
+      LARK_PHAT_SACH.id,
+      PHAT_SACH_REQUIRED_FIELDS,
+    );
+  } else {
+    log('phatSach: not in the list of tables the app can read');
+  }
   const nhanXet: LarkRecord[] = [];
   for (const { year, id } of yearly)
     nhanXet.push(...(await read(`nhanXet${year}`, id, NHAN_XET_READ_FIELDS)));
-  return { lopHoc, hocVien, level, contact, dealHp, nhanXet };
+  return {
+    lopHoc,
+    hocVien,
+    level,
+    contact,
+    dealHp,
+    tongDeal,
+    tongDealDoc,
+    sach,
+    sachDoc,
+    phatSach,
+    phatSachDoc,
+    nhanXet,
+  };
 }
 
 export interface LarkCliOptions {

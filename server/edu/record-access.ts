@@ -30,6 +30,8 @@ const SCOPED_COLLECTIONS = [
   'eduDiemDanh',
   'eduGoiHoc',
   'eduThanhToan',
+  'eduPhatSach',
+  'eduLienHe',
   'eduSoDuNhatKy',
   'eduNhanXetThang',
   'eduCoSoQuanLy',
@@ -123,6 +125,11 @@ export function registerEduRecordAccess(
         return mode === 'branches' && scope.coSoIds.length
           ? anyOf('coSoId', scope.coSoIds)
           : false;
+      case 'eduLienHe':
+        // Admissions belong to a branch; a coach (class scope) has no business with a family that has not enrolled.
+        return mode === 'branches' && scope.coSoIds.length
+          ? anyOf('coSoId', scope.coSoIds)
+          : false;
       case 'eduLop':
         // Structural filters (a column of the row itself) so a row created in this request is already in scope.
         return mode === 'branches'
@@ -149,6 +156,7 @@ export function registerEduRecordAccess(
         return parents.length ? anyOf('id', parents) : false;
       }
       case 'eduThanhToan':
+      case 'eduPhatSach':
       case 'eduGoiHoc':
       case 'eduSoDuNhatKy':
       case 'eduDiemDanh':
