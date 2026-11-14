@@ -120,6 +120,27 @@ test('a handout takes its price and branch from the book and the student, and is
   expect(await seen(managerA.session)).toBe(1);
   expect(await seen(keToan.session)).toBe(1);
   expect((await post(hlvA.session, '/phatSach/findMany', {})).status).toBe(403);
+  // The book fund: paid minus handed out, per student of the caller's scope.
+  await connection.query
+    .insertInto('eduNopSach')
+    .values({
+      hocVienId: ids.hocVienA,
+      coSoId: ids.coSoA,
+      ngay: '2026-05-09',
+      soTien: 100000,
+      createdAt: new Date(),
+    })
+    .execute();
+  const fund = async (session: typeof admin) =>
+    (
+      (await (await post(session, '/quySach/xem', {})).json()) as {
+        data: { rows: { hocVienId: number; conLai: number }[] };
+      }
+    ).data.rows;
+  expect(await fund(managerA.session)).toMatchObject([
+    { hocVienId: ids.hocVienA, daNop: 100000, daPhat: 75000, conLai: 25000 },
+  ]);
+  expect((await post(hlvA.session, '/quySach/xem', {})).status).toBe(403);
   // A handout is never edited or deleted through the record API.
   const edit = await post(admin, '/phatSach/updateOne', {
     filter: { id: Number(stored.id) },

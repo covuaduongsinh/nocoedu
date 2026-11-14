@@ -56,6 +56,19 @@ export interface SachPlan {
   readonly phatDoc: boolean;
   readonly phat: readonly PhatSachRow[];
   readonly phatProblems: readonly SachProblem[];
+  /** The book money parents paid (`Tiền sách` of `Tổng Deal`), one row per payment with a student and a day. */
+  readonly nop: readonly NopSachRow[];
+  readonly nopProblems: readonly SachProblem[];
+}
+
+/** Book money paid by a parent (`Tổng Deal`.`Tiền sách`): it feeds the book fund of the student. */
+export interface NopSachRow {
+  /** `lark:tongdeal-sach:<record id>`. */
+  readonly externalId: string;
+  readonly hocVienKey: string;
+  /** `YYYY-MM-DD`. */
+  readonly ngay: string;
+  readonly soTien: number;
 }
 
 export const EMPTY_SACH: SachPlan = {
@@ -66,6 +79,8 @@ export const EMPTY_SACH: SachPlan = {
   phatDoc: false,
   phat: [],
   phatProblems: [],
+  nop: [],
+  nopProblems: [],
 };
 
 const SYMBOL_MAX = 32;
@@ -78,7 +93,10 @@ const price = (cell: unknown): number | null => {
 };
 
 export function lapSach(
-  data: Pick<LarkData, 'sach' | 'sachDoc' | 'phatSach' | 'phatSachDoc'>,
+  data: Pick<
+    LarkData,
+    'sach' | 'sachDoc' | 'phatSach' | 'phatSachDoc' | 'tongDeal' | 'tongDealDoc'
+  >,
   students: ReadonlySet<string> = new Set(),
 ): SachPlan {
   if (!data.sachDoc) return EMPTY_SACH;
@@ -139,7 +157,55 @@ export function lapSach(
     warnings,
     phatDoc: data.phatSachDoc,
     ...phat,
+    ...lapNopSach(data, students),
   };
+}
+
+/**
+ * The book money of `Tổng Deal`: `Tiền sách` of a row with one student and a day. A row without a student, a student
+ * left out or a day is reported (with its Lark id), never guessed. `Mua khác` is not book money and is not read here.
+ */
+function lapNopSach(
+  data: Pick<LarkData, 'tongDeal' | 'tongDealDoc'>,
+  students: ReadonlySet<string>,
+): { nop: NopSachRow[]; nopProblems: SachProblem[] } {
+  const nop: NopSachRow[] = [];
+  const nopProblems: SachProblem[] = [];
+  if (!data.tongDealDoc) return { nop, nopProblems };
+  for (const record of [...data.tongDeal].sort((a, b) =>
+    a.recordId.localeCompare(b.recordId),
+  )) {
+    const f = record.fields;
+    const amount = numberOf(f['Tiền sách']) ?? 0;
+    if (amount <= 0) continue;
+    const problem = (code: string) =>
+      nopProblems.push({ id: record.recordId, code });
+    if (!Number.isInteger(amount)) {
+      problem('NOP_SACH_SO_TIEN_SAI');
+      continue;
+    }
+    const links = linkIds(f['Tên HS link']);
+    if (links.length !== 1) {
+      problem('NOP_SACH_THIEU_HOC_VIEN');
+      continue;
+    }
+    if (!students.has(links[0])) {
+      problem('NOP_SACH_HOC_VIEN_BI_BO');
+      continue;
+    }
+    const ngay = dateVn(f['Ngày nộp']) ?? dateVn(f['Ngày']);
+    if (!ngay) {
+      problem('NOP_SACH_THIEU_NGAY');
+      continue;
+    }
+    nop.push({
+      externalId: `lark:tongdeal-sach:${record.recordId}`,
+      hocVienKey: links[0],
+      ngay,
+      soTien: amount,
+    });
+  }
+  return { nop, nopProblems };
 }
 
 /**
@@ -224,6 +290,10 @@ export interface SachKetQua {
   readonly phatTao: number;
   readonly phatTrung: number;
   readonly phatKhongCo: number;
+  /** The book money written, already there, and for a student NocoEdu does not hold. */
+  readonly nopTao: number;
+  readonly nopTrung: number;
+  readonly nopKhongCo: number;
 }
 
 export const KHONG_GHI_SACH: SachKetQua = {
@@ -233,11 +303,15 @@ export const KHONG_GHI_SACH: SachKetQua = {
   phatTao: 0,
   phatTrung: 0,
   phatKhongCo: 0,
+  nopTao: 0,
+  nopTrung: 0,
+  nopKhongCo: 0,
 };
 
 /** Writes the books inside the transaction of the import. Books already written, or whose symbol is taken, are skipped. */
 export async function ghiSach(q: Query, plan: SachPlan): Promise<SachKetQua> {
-  if (plan.rows.length === 0 && plan.phat.length === 0) return KHONG_GHI_SACH;
+  if (plan.rows.length === 0 && plan.phat.length === 0 && plan.nop.length === 0)
+    return KHONG_GHI_SACH;
   const existing = await q
     .selectFrom('eduSach')
     .select(['kyHieu', 'externalId'])
@@ -277,7 +351,71 @@ export async function ghiSach(q: Query, plan: SachPlan): Promise<SachKetQua> {
       .values(values.slice(i, i + 50))
       .execute();
   const phatKet = await ghiPhatSach(q, plan.phat);
-  return { tao: values.length, trung, daCoKyHieu: daCo, ...phatKet };
+  const nopKet = await ghiNopSach(q, plan.nop);
+  return {
+    tao: values.length,
+    trung,
+    daCoKyHieu: daCo,
+    ...phatKet,
+    ...nopKet,
+  };
+}
+
+/** Writes the book money paid; one already written (by its key) is skipped, never edited. */
+async function ghiNopSach(
+  q: Query,
+  nop: readonly NopSachRow[],
+): Promise<Pick<SachKetQua, 'nopTao' | 'nopTrung' | 'nopKhongCo'>> {
+  if (nop.length === 0) return { nopTao: 0, nopTrung: 0, nopKhongCo: 0 };
+  const done = new Set(
+    (
+      await q
+        .selectFrom('eduNopSach')
+        .select('externalId')
+        .where('externalId', 'is not', null)
+        .execute()
+    ).map((row) => asText(row.externalId)),
+  );
+  const students = new Map<string, { id: number; coSoId: number }>();
+  for (const row of await q
+    .selectFrom('eduHocVien')
+    .select(['id', 'externalId', 'coSoId'])
+    .where('externalId', 'is not', null)
+    .execute())
+    students.set(asText(row.externalId), {
+      id: Number(row.id),
+      coSoId: Number(row.coSoId),
+    });
+  let nopTrung = 0;
+  let nopKhongCo = 0;
+  const now = new Date();
+  const values: Record<string, unknown>[] = [];
+  for (const row of nop) {
+    if (done.has(row.externalId)) {
+      nopTrung += 1;
+      continue;
+    }
+    const student = students.get(row.hocVienKey);
+    if (!student) {
+      nopKhongCo += 1;
+      continue;
+    }
+    values.push({
+      hocVienId: student.id,
+      coSoId: student.coSoId,
+      ngay: row.ngay,
+      soTien: row.soTien,
+      nguoiTaoId: null,
+      externalId: row.externalId,
+      createdAt: now,
+    });
+  }
+  for (let i = 0; i < values.length; i += 50)
+    await q
+      .insertInto('eduNopSach')
+      .values(values.slice(i, i + 50))
+      .execute();
+  return { nopTao: values.length, nopTrung, nopKhongCo };
 }
 
 /** Writes the handouts after the books: a handout already written (by its key) is skipped, never edited. */
