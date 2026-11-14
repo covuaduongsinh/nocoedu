@@ -21,6 +21,7 @@ import {
   soDu,
   thanhToan,
   tuyenSinh,
+  hoSoGv,
 } from '../../server/edu/permissions.js';
 import { MY_BRANCHES, MY_CLASSES } from '../../server/edu/record-access.js';
 
@@ -42,13 +43,21 @@ const ALL = 'allRecords';
 // The books page was added after the first seed ran: it and its grant are the last ones of every set that has them
 // (`202611130003_edu_sach_grant` appends them in this order).
 const everyPage = Object.entries(PAGES)
-  .filter(([key]) => key !== 'sach' && key !== 'phatSach' && key !== 'tuyenSinh')
+  .filter(
+    ([key]) =>
+      key !== 'sach' &&
+      key !== 'phatSach' &&
+      key !== 'tuyenSinh' &&
+      key !== 'hoSoGv',
+  )
   .map(([, id]) => page(id));
 const sachPage = page(PAGES.sach);
 // The handouts page came after the books page: `202611140002_edu_phat_sach_grant` appends it after the books grants.
 const phatSachPage = page(PAGES.phatSach);
 // The admissions page came last: `202611140004_edu_tuyen_sinh_grant`.
 const tuyenSinhPage = page(PAGES.tuyenSinh);
+// The coach profile page is the last: `202611140005_edu_ho_so_gv_grant` (administrator only).
+const hoSoGvPage = page(PAGES.hoSoGv);
 
 export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .title('NocoEdu - Quản trị')
@@ -119,6 +128,10 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .grant(tuyenSinhPage)
   .grant(
     tuyenSinh.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
+  )
+  .grant(hoSoGvPage)
+  .grant(
+    hoSoGv.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
   )
   .build();
 

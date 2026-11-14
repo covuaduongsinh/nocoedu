@@ -5,6 +5,7 @@ import eduActions from './edu-actions.js';
 import eduBaoCao from './edu-bao-cao.js';
 import eduData from './edu-data.js';
 import eduExt from './edu-ext.js';
+import eduHoSoGv from './edu-ho-so-gv.js';
 import eduHocPhi from './edu-hoc-phi.js';
 import eduNhapCsv from './edu-nhap-csv.js';
 import eduPhatSach from './edu-phat-sach.js';
@@ -18,6 +19,7 @@ const routes: readonly AppRouteContribution<Application>[] = [
   ...eduActions,
   ...eduHocPhi,
   ...eduNhanXet,
+  ...eduHoSoGv,
   ...eduPhatSach,
   ...eduNoiDungBuoi,
   ...eduNhapCsv,

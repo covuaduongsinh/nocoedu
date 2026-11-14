@@ -29,6 +29,7 @@ import {
   phatSach,
   phuHuynh,
   sach,
+  hoSoGv,
   soDu,
   tuyenSinh,
   thanhToan,
@@ -111,6 +112,14 @@ const EXPOSURES: readonly Exposure[] = [
   { name: 'soDuNhatKy', key: 'soDuNhatKy', resource: soDu },
   // Books handed out: created by `/phatSach/ghi` (it takes the price and the branch from the book and the student).
   { name: 'phatSach', key: 'phatSach', resource: phatSach },
+  // Coach profile and pay: the administrator only; the account of a profile never changes.
+  {
+    name: 'hoSoGv',
+    key: 'hoSoGv',
+    resource: hoSoGv,
+    create: true,
+    update: ['tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
+  },
   // Admissions: a family that has not enrolled; created, edited and deleted through the record API.
   {
     name: 'lienHe',
@@ -279,7 +288,12 @@ export default [
           .catch(() => null)) as { values?: Record<string, unknown> } | null;
         const values = body?.values ?? {};
         const bad = (field: string, reason: string) =>
-          eduError('INVALID_ARGUMENT', reason, 'The value is not valid.', field);
+          eduError(
+            'INVALID_ARGUMENT',
+            reason,
+            'The value is not valid.',
+            field,
+          );
         if (
           values.trangThai !== undefined &&
           !LIEN_HE_STATUSES.includes(values.trangThai as never)
