@@ -815,14 +815,21 @@ export default [
           .innerJoin('eduSach', 'eduSach.id', 'eduPhatSach.sachId')
           .select([
             'eduPhatSach.id',
-            'eduPhatSach.ngayPhat',
-            'eduPhatSach.soLuong',
-            'eduPhatSach.trangThaiThanhToan',
+            'eduPhatSach.ngay',
+            'eduPhatSach.uuDai',
+            'eduPhatSach.tienSach',
             'eduSach.ten as tenSach',
             'eduSach.giaBia',
           ])
           .where('eduPhatSach.hocVienId', '=', hocVienId)
-          .orderBy('eduPhatSach.ngayPhat', 'desc')
+          .orderBy('eduPhatSach.ngay', 'desc')
+          .execute();
+
+        const paidBookRows = await connection.query
+          .selectFrom('eduNopSach')
+          .selectAll()
+          .where('hocVienId', '=', hocVienId)
+          .orderBy('ngay', 'desc')
           .execute();
 
         const ledger = await readAll(async (limit, offset) =>
@@ -922,10 +929,15 @@ export default [
           };
         });
 
-        const tongTienSach = issuedBooks.reduce(
-          (sum, b) => sum + Number(b.soLuong) * Number(b.giaBia),
+        const tongTienSachDaPhat = issuedBooks.reduce(
+          (sum, b) => sum + Number(b.tienSach),
           0,
         );
+        const tongTienSachDaNop = paidBookRows.reduce(
+          (sum, b) => sum + Number(b.soTien),
+          0,
+        );
+        const tienSachTon = tongTienSachDaNop - tongTienSachDaPhat;
         const tongSoBuoiDaMua = packages.reduce((sum, p) => sum + Number(p.soBuoi), 0);
         const tongSoBuoiDaHoc = attendanceRows.reduce(
           (sum, a) => sum + Number(a.soBuoiDaTru),
@@ -952,7 +964,9 @@ export default [
               soBuoiConLai: Number(student.soBuoiConLai),
               soBuoiVuotGoi: vuotSoDu,
               tongTienHocPhi,
-              tongTienSach,
+              tongTienSach: tongTienSachDaPhat,
+              tongTienSachDaNop,
+              tienSachTon,
               tongDaThanhToan: tongDaThanhToanHocPhi,
               tongConNo: Math.max(0, tongTienHocPhi - tongDaThanhToanHocPhi),
             },
@@ -960,11 +974,11 @@ export default [
             sachDaPhat: issuedBooks.map((b) => ({
               id: Number(b.id),
               tenSach: asText(b.tenSach),
-              ngayPhat: asText(b.ngayPhat),
-              soLuong: Number(b.soLuong),
+              ngayPhat: asText(b.ngay),
+              soLuong: 1,
               giaBia: Number(b.giaBia),
-              thanhTien: Number(b.soLuong) * Number(b.giaBia),
-              trangThaiThanhToan: asText(b.trangThaiThanhToan),
+              thanhTien: Number(b.tienSach),
+              trangThaiThanhToan: tienSachTon >= 0 ? 'da_thanh_toan' : 'chua_thanh_toan',
             })),
             danhSachBuoiHoc: attendanceRows.map((a) => ({
               diemDanhId: Number(a.diemDanhId),

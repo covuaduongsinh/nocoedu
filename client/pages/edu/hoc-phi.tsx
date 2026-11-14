@@ -60,6 +60,8 @@ interface AuditData {
     soBuoiVuotGoi: number;
     tongTienHocPhi: number;
     tongTienSach: number;
+    tongTienSachDaNop?: number;
+    tienSachTon?: number;
     tongDaThanhToan: number;
     tongConNo: number;
   };
@@ -136,10 +138,10 @@ export default function HocPhiPage(): ReactElement {
   const [qr, setQr] = useState<Qr | 'unset'>();
   const [ledger, setLedger] = useState<{ row: Row; rows: Row[] }>();
   const [audit, setAudit] = useState<AuditData | null>(null);
-  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditRowId, setAuditRowId] = useState<number | null>(null);
 
   const openAudit = async (row: Row): Promise<void> => {
-    setAuditLoading(true);
+    setAuditRowId(Number(row.id));
     try {
       const response = await api.request<{ data: AuditData }>({
         path: '/hocVien/doiSoatTongThe',
@@ -149,8 +151,10 @@ export default function HocPhiPage(): ReactElement {
       setAudit(response.data);
     } catch (err) {
       console.error(err);
+      const msg = err instanceof Error ? err.message : 'Lỗi không xác định khi tải dữ liệu đối soát.';
+      alert(`Không thể tải đối soát học viên: ${msg}`);
     } finally {
-      setAuditLoading(false);
+      setAuditRowId(null);
     }
   };
 
@@ -282,10 +286,10 @@ export default function HocPhiPage(): ReactElement {
               size='sm'
               variant='default'
               className='bg-primary/90 hover:bg-primary font-medium'
-              disabled={auditLoading}
+              disabled={auditRowId === Number(row.id)}
               onClick={() => void openAudit(row)}
             >
-              📋 Đối soát buổi học
+              {auditRowId === Number(row.id) ? '⏳ Đang tải...' : '📋 Đối soát buổi học'}
             </Button>
             {canSell ? (
               <Button
@@ -506,10 +510,16 @@ export default function HocPhiPage(): ReactElement {
                   ) : (
                     <p className='text-xs text-emerald-600 font-medium'>Đã hoàn thành</p>
                   )}
-                  {audit.tongHop.tongTienSach > 0 ? (
-                    <p className='text-[11px] text-muted-foreground mt-0.5'>
-                      Tiền sách: {fmt(audit.tongHop.tongTienSach)} đ
-                    </p>
+                  {audit.tongHop.tongTienSach > 0 || (audit.tongHop.tongTienSachDaNop ?? 0) > 0 ? (
+                    <div className='mt-1 border-t pt-1 text-[11px] text-muted-foreground'>
+                      <p>Sách đã nhận: {fmt(audit.tongHop.tongTienSach)} đ</p>
+                      <p>Tiền sách đã nộp: {fmt(audit.tongHop.tongTienSachDaNop ?? 0)} đ</p>
+                      <p className={`font-semibold ${(audit.tongHop.tienSachTon ?? 0) < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                        {(audit.tongHop.tienSachTon ?? 0) < 0
+                          ? `Còn nợ sách: ${fmt(Math.abs(audit.tongHop.tienSachTon ?? 0))} đ`
+                          : `Tồn quỹ sách: ${fmt(audit.tongHop.tienSachTon ?? 0)} đ`}
+                      </p>
+                    </div>
                   ) : null}
                 </div>
               </div>
