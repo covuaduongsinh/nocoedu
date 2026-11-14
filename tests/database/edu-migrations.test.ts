@@ -364,3 +364,25 @@ describeMigration('202611140005_create_edu_ho_so_gv', {
     await expectCollection('eduHoSoGv').not.toExist();
   },
 });
+
+describeMigration('202611140006_edu_thanh_toan_goi_hoc_nullable', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduThanhToan').toHaveField('goiHocId', {
+      nullable: true,
+    });
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduThanhToan').toHaveField('goiHocId', {
+      nullable: false,
+    });
+  },
+});
