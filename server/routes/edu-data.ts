@@ -29,6 +29,7 @@ import {
   phatSach,
   phuHuynh,
   sach,
+  sachHoc,
   hoSoGv,
   soDu,
   tuyenSinh,
@@ -112,6 +113,8 @@ const EXPOSURES: readonly Exposure[] = [
   { name: 'soDuNhatKy', key: 'soDuNhatKy', resource: soDu },
   // Books handed out: created by `/phatSach/ghi` (it takes the price and the branch from the book and the student).
   { name: 'phatSach', key: 'phatSach', resource: phatSach },
+  // The books a student learns or has learned: read only (the Lark import writes it).
+  { name: 'sachHoc', key: 'sachHoc', resource: sachHoc },
   // Coach profile and pay: the administrator only; the account of a profile never changes.
   {
     name: 'hoSoGv',

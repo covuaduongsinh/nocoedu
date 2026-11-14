@@ -24,6 +24,7 @@ import {
   phatSach,
   phuHuynh,
   sach,
+  sachHoc,
   hoSoGv,
   tuyenSinh,
   soDu,
@@ -76,6 +77,7 @@ export default class EduAuthorizationProvider extends ServiceProvider<AppPluginA
     authz.ui.place(authz.compositeResources.define(phatSach), section);
     authz.ui.place(authz.compositeResources.define(tuyenSinh), section);
     authz.ui.place(authz.compositeResources.define(hoSoGv), section);
+    authz.ui.place(authz.compositeResources.define(sachHoc), section);
     authz.ui.place(authz.compositeResources.define(ext), section);
     return Promise.resolve();
   }

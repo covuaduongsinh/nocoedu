@@ -119,6 +119,7 @@ function StudentFile({
   const canSessions = useCanView('edu.diemDanh');
   const canPackages = useCanView('edu.goiHoc');
   const canLedger = useCanView('edu.soDu');
+  const canBooks = useCanView('edu.sachHoc');
   const classes = useRows('lop').loaded;
   const branches = useRows('coSo').loaded;
   const classRow =
@@ -157,6 +158,11 @@ function StudentFile({
           {canPackages ? (
             <TabsTrigger value='packages'>
               {t('edu.hocVien.tab.packages')}
+            </TabsTrigger>
+          ) : null}
+          {canBooks ? (
+            <TabsTrigger value='books'>
+              {t('edu.hocVien.tab.books')}
             </TabsTrigger>
           ) : null}
           {canLedger ? (
@@ -218,6 +224,11 @@ function StudentFile({
             <Packages studentId={student.id} />
           </TabsContent>
         ) : null}
+        {canBooks ? (
+          <TabsContent value='books' className='pt-4'>
+            <Books studentId={student.id} />
+          </TabsContent>
+        ) : null}
         {canLedger ? (
           <TabsContent value='ledger' className='pt-4'>
             <Ledger studentId={student.id} />
@@ -225,6 +236,49 @@ function StudentFile({
         ) : null}
       </Tabs>
     </PageContainer>
+  );
+}
+
+/** The books the student is learning or has finished, imported from the Lark Base. */
+function Books({ studentId }: { readonly studentId: number }): ReactElement {
+  const { t } = useTranslation();
+  const links = usePagedRows('sachHoc', {
+    page: 1,
+    where: { hocVienId: studentId },
+  });
+  const linkRows = links.loaded.state === 'ready' ? links.loaded.rows : [];
+  const books = useRowsByIds(
+    'sach',
+    linkRows.map((row) => Number(row.sachId)),
+  );
+  return (
+    <RowsTable
+      loaded={links.loaded}
+      onRetry={links.reload}
+      emptyTitle={t('edu.hocVien.noBooks')}
+      emptyHint={t('edu.hocVien.noBooksHint')}
+      columns={[
+        {
+          key: 'kyHieu',
+          label: t('edu.sach.kyHieu'),
+          render: (row) => text(books.get(Number(row.sachId))?.kyHieu),
+        },
+        {
+          key: 'ten',
+          label: t('edu.sach.ten'),
+          render: (row) => text(books.get(Number(row.sachId))?.ten),
+        },
+        {
+          key: 'trangThai',
+          label: t('edu.hocVien.bookState'),
+          render: (row) => (
+            <StatusBadge tone={row.trangThai === 'da_hoc' ? 'success' : 'info'}>
+              {t(`edu.status.${text(row.trangThai)}`)}
+            </StatusBadge>
+          ),
+        },
+      ]}
+    />
   );
 }
 

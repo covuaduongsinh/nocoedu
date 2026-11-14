@@ -237,8 +237,9 @@ test('--commit writes the packages without a price or a payment, recomputes the 
 }) => {
   for (const table of [
     'eduNhapLarkNhatKy',
-  'eduPhatSach',
-  'eduNopSach',
+    'eduSachHoc',
+    'eduPhatSach',
+    'eduNopSach',
     'eduSoDuNhatKy',
     'eduThanhToan',
     'eduGoiHoc',

@@ -216,6 +216,10 @@ Cùng lệnh, cần migration `202611140001_create_edu_phat_sach` (deploy bản 
 - Lượt đã ghi không bao giờ bị sửa; chạy lại không trùng.
 - Hoàn tác: `DELETE FROM edu_phat_sach WHERE external_id LIKE 'lark:phatsach:%'`.
 
+### Sách đang học và đã học (DS-61 E4)
+
+Cần migration `202611140007_create_edu_sach_hoc`. Cột `Sách đang học` và `Sách đã học` của bảng `HocVien` ghi vào `eduSachHoc` (`externalId = lark:sachhoc:<học viên>:<sách>`), cùng giao dịch với sách; một cuốn nằm ở cả hai cột thì tính là đã học. Liên kết tới sách không được nhập (trùng ký hiệu, thiếu ký hiệu) được đếm và bỏ qua; học viên bị bỏ không có dòng nào. Hiện ở tab "Sách" của hồ sơ học viên. Hoàn tác: `DELETE FROM edu_sach_hoc WHERE external_id LIKE 'lark:sachhoc:%'`.
+
 ### Tiền sách đã nộp (quỹ tiền sách, DS-61 E3)
 
 Cần migration `202611140003_create_edu_nop_sach`. Cột `Tiền sách` của `Tổng Deal` (khoảng 31.240.000 đ) ghi vào `eduNopSach` (`externalId = lark:tongdeal-sach:<rec>`), cùng giao dịch với sách. Quỹ của một học viên = tiền sách đã nộp − tiền sách đã phát, hiện ở cuối trang "Phát sách" (số âm: phụ huynh còn thiếu). Mã bỏ: `NOP_SACH_SO_TIEN_SAI`, `NOP_SACH_THIEU_HOC_VIEN`, `NOP_SACH_HOC_VIEN_BI_BO`, `NOP_SACH_THIEU_NGAY`. Cột `Mua khác` không phải tiền sách và chưa nhập. Hoàn tác: `DELETE FROM edu_nop_sach WHERE external_id LIKE 'lark:tongdeal-sach:%'`. Công thức "thừa thiếu" và "chuyển sang đợt sau" của `Deal book` Lark (10 dòng) không nhập: quỹ được tính thẳng từ hai sổ.

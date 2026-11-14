@@ -116,7 +116,12 @@ export interface SachBaoCao {
     readonly nopTao: number;
     readonly nopTrung: number;
     readonly nopKhongCo: number;
+    readonly hocTao: number;
+    readonly hocTrung: number;
+    readonly hocKhongCo: number;
   };
+  /** The books each student learns or has finished. */
+  readonly hoc: { readonly dong: number; readonly boQua: number };
   /** The book money of `Tổng Deal`. */
   readonly nop: {
     readonly dong: number;
@@ -153,6 +158,7 @@ export function baoCaoSach(plan: SachPlan, ketQua?: SachKetQua): SachBaoCao {
     dong: plan.rows.length,
     problems: nhomSach(plan.problems),
     warnings: nhomSach(plan.warnings),
+    hoc: { dong: plan.hoc.length, boQua: plan.hocBoQua },
     nop: {
       dong: plan.nop.length,
       problems: nhomSach(plan.nopProblems),
@@ -174,6 +180,9 @@ export function baoCaoSach(plan: SachPlan, ketQua?: SachKetQua): SachBaoCao {
             nopTao: ketQua.nopTao,
             nopTrung: ketQua.nopTrung,
             nopKhongCo: ketQua.nopKhongCo,
+            hocTao: ketQua.hocTao,
+            hocTrung: ketQua.hocTrung,
+            hocKhongCo: ketQua.hocKhongCo,
           },
         }
       : {}),
@@ -475,6 +484,13 @@ function inSach(report: SachBaoCao): string[] {
     if (report.ghi)
       lines.push(
         `  Ghi (hoặc ghi thử): tạo ${report.ghi.nopTao}, đã có sẵn ${report.ghi.nopTrung}, không tìm thấy học viên ${report.ghi.nopKhongCo}.`,
+      );
+    lines.push(
+      `Sách của học viên (đang học, đã học): ${report.hoc.dong} cặp học viên - sách hợp lệ, bỏ qua ${report.hoc.boQua} liên kết tới sách không nhập.`,
+    );
+    if (report.ghi)
+      lines.push(
+        `  Ghi (hoặc ghi thử): tạo ${report.ghi.hocTao}, đã có sẵn ${report.ghi.hocTrung}, không tìm thấy học viên hoặc sách ${report.ghi.hocKhongCo}.`,
       );
     lines.push(`Phát sách: ${report.phat.dong} lượt hợp lệ.`);
     for (const group of report.phat.problems)

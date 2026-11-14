@@ -28,6 +28,7 @@ export const COLLECTIONS = {
   phatSach: { name: 'eduPhatSach', title: 'Phát sách' },
   lienHe: { name: 'eduLienHe', title: 'Liên hệ tuyển sinh' },
   hoSoGv: { name: 'eduHoSoGv', title: 'Hồ sơ giáo viên' },
+  sachHoc: { name: 'eduSachHoc', title: 'Sách đã và đang học' },
 } as const;
 
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -298,6 +299,10 @@ export const FIELDS = {
       'createdAt',
     ],
   },
+  sachHoc: {
+    read: ['id', 'hocVienId', 'sachId', 'trangThai'],
+    write: [],
+  },
   hoSoGv: {
     read: ['id', 'userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
     write: ['userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
@@ -400,6 +405,14 @@ export const coSo = simple('edu.coSo', 'Cơ sở', 'coSo', {
   create: true,
   update: FIELDS.coSo.write,
 });
+// The books a student is learning (`dang_hoc`) or has finished (`da_hoc`), shown on his file. Written by the Lark import
+// only; read by whoever sees the student (the record scope is by `hocVienId`).
+const sachHocRead = perm('sachHoc', FIELDS.sachHoc);
+export const sachHoc = defineCompositeResource('edu.sachHoc', (r) =>
+  r
+    .title('Sách đã và đang học')
+    .action('view', (a) => a.title('Xem').grant('data', sachHocRead)),
+);
 // Coach profile and pay per session (DS-61 phase F). Pay is the club's private matter: only the administrator holds
 // this resource; the account itself (`userId`) cannot be changed after the profile is made.
 export const hoSoGv = simple('edu.hoSoGv', 'Hồ sơ giáo viên', 'hoSoGv', {
