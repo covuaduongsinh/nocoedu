@@ -32,6 +32,46 @@ interface Report {
 const rowKey = (row: Record<string, string | number | null>): string =>
   Object.values(row).join('|');
 
+/** Revenue by month as bars (all branches of the report added up); the table below keeps the exact numbers. */
+function RevenueBars(props: { rows: Report['rows'] }): ReactElement | null {
+  const { t } = useTranslation();
+  const months = new Map<string, number>();
+  for (const row of props.rows)
+    months.set(
+      text(row.thang),
+      (months.get(text(row.thang)) ?? 0) + Number(row.doanhThu ?? 0),
+    );
+  const bars = [...months].sort(([a], [b]) => a.localeCompare(b));
+  const max = Math.max(...bars.map(([, value]) => value), 1);
+  if (bars.length === 0) return null;
+  return (
+    <figure className='mb-4 rounded-lg border p-4'>
+      <figcaption className='mb-3 text-sm font-medium'>
+        {t('edu.baoCao.doanhThuChart')}
+      </figcaption>
+      <ul className='flex h-40 items-end gap-2'>
+        {bars.map(([month, value]) => (
+          <li
+            key={month}
+            className='flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1'
+          >
+            <span className='text-xs text-muted-foreground'>
+              {Math.round(value / 1000).toLocaleString('vi-VN')}k
+            </span>
+            <div
+              role='img'
+              aria-label={`${month}: ${value.toLocaleString('vi-VN')}`}
+              className='w-full rounded-t bg-primary'
+              style={{ height: `${Math.max((value / max) * 100, 2)}%` }}
+            />
+            <span className='text-xs'>{month.slice(5)}</span>
+          </li>
+        ))}
+      </ul>
+    </figure>
+  );
+}
+
 export default function BaoCaoPage(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
@@ -126,30 +166,33 @@ export default function BaoCaoPage(): ReactElement {
       ) : result.data.rows.length === 0 ? (
         <p className='text-sm text-muted-foreground'>{t('edu.baoCao.empty')}</p>
       ) : (
-        <div className='overflow-x-auto rounded-lg border'>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {result.data.columns.map((column) => (
-                  <TableHead key={column.key}>
-                    {t(`edu.baoCao.col.${column.key}`)}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {result.data.rows.map((row) => (
-                <TableRow key={rowKey(row)}>
+        <>
+          {kind === 'doanhThu' ? <RevenueBars rows={result.data.rows} /> : null}
+          <div className='overflow-x-auto rounded-lg border'>
+            <Table>
+              <TableHeader>
+                <TableRow>
                   {result.data.columns.map((column) => (
-                    <TableCell key={column.key}>
-                      {text(row[column.key])}
-                    </TableCell>
+                    <TableHead key={column.key}>
+                      {t(`edu.baoCao.col.${column.key}`)}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {result.data.rows.map((row) => (
+                  <TableRow key={rowKey(row)}>
+                    {result.data.columns.map((column) => (
+                      <TableCell key={column.key}>
+                        {text(row[column.key])}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
     </PageContainer>
   );
