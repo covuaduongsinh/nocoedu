@@ -271,6 +271,18 @@ export const EDU_MORE_ROWS: readonly (readonly [
     '按月收入（千越南盾，所有分校合计）',
   ],
   [
+    'baoCao.siSoChart',
+    'Sĩ số từng lớp (số học viên)',
+    'Headcount by class (students)',
+    '各班人数（学员数）',
+  ],
+  [
+    'baoCao.chuyenCanChart',
+    'Chuyên cần từng lớp (% có mặt hoặc học bù)',
+    'Attendance rate by class (% present or make-up)',
+    '各班出勤率（到课或补课百分比）',
+  ],
+  [
     'baoCao.empty',
     'Chưa có số liệu cho báo cáo này.',
     'There is no data for this report yet.',
