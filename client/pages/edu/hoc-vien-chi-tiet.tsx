@@ -8,7 +8,9 @@ import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
 import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
+import { Badge } from '#components/ui/badge';
 import { Button } from '#components/ui/button';
+import { Card, CardContent } from '#components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +20,11 @@ import {
 } from '#components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
 
+import {
+  InitialsAvatar,
+  LevelBadge,
+  SessionBalanceBadge,
+} from './edu-ui-parts.js';
 import {
   post,
   text,
@@ -131,19 +138,61 @@ function StudentFile({
       ? branches.rows.find((row) => row.id === student.coSoId)
       : undefined;
   return (
-    <PageContainer className='mx-auto max-w-6xl'>
-      <PageHeader
-        title={text(student.hoTen)}
-        description={`${text(student.ma)} · ${t(`edu.level.${text(student.levelKey)}`)}`}
-        actions={
-          <div className='flex flex-wrap gap-2'>
-            <NoteButton row={student} onChanged={onChanged} />
-            <RowManage kind='hocVien' row={student} onChanged={onChanged} />
+    <PageContainer className='mx-auto max-w-6xl space-y-6'>
+      {/* 360-Degree Profile Hero Card */}
+      <Card className='overflow-hidden border-primary/20 shadow-xs'>
+        <CardContent className='p-6'>
+          <div className='flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between'>
+            <div className='flex items-center gap-4'>
+              <InitialsAvatar name={text(student.hoTen)} size='xl' />
+              <div className='space-y-1.5'>
+                <div className='flex flex-wrap items-center gap-2'>
+                  <h1 className='text-2xl font-bold tracking-tight text-foreground sm:text-3xl'>
+                    {text(student.hoTen)}
+                  </h1>
+                  <Badge variant='outline' className='font-mono text-xs'>
+                    {text(student.ma)}
+                  </Badge>
+                  <StatusBadge
+                    tone={student.trangThai === 'dang_hoc' ? 'success' : 'neutral'}
+                  >
+                    {t(`edu.status.${text(student.trangThai)}`)}
+                  </StatusBadge>
+                </div>
+                <div className='flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground'>
+                  <LevelBadge levelKey={student.levelKey} size='sm' />
+                  <span>·</span>
+                  <span>
+                    {student.lopId != null
+                      ? text(classRow?.ten) || t('edu.lop.detail')
+                      : t('edu.hocVien.noClass')}
+                  </span>
+                  <span>·</span>
+                  <span>{text(branchRow?.ten) || 'Cơ sở'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className='flex flex-wrap items-center gap-3'>
+              <div className='rounded-xl border bg-muted/40 px-4 py-2.5 text-right'>
+                <span className='block text-xs font-medium uppercase tracking-wider text-muted-foreground'>
+                  {t('edu.diemDanh.balance')}
+                </span>
+                <span className='text-xl font-bold text-foreground'>
+                  <SessionBalanceBadge balance={student.soBuoiConLai != null ? Number(student.soBuoiConLai) : null} />
+                </span>
+              </div>
+              <div className='flex items-center gap-2'>
+                <NoteButton row={student} onChanged={onChanged} />
+                <RowManage kind='hocVien' row={student} onChanged={onChanged} />
+              </div>
+            </div>
           </div>
-        }
-      />
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue='info'>
-        <TabsList>
+        <TabsList className='flex-wrap'>
           <TabsTrigger value='info'>{t('edu.hocVien.tab.info')}</TabsTrigger>
           {canParents ? (
             <TabsTrigger value='parents'>

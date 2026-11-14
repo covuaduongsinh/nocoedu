@@ -1,13 +1,19 @@
 import { useApiClient } from '@nocobase/app-client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
+import { Clock, Plus, School, UserCheck, Users } from 'lucide-react';
 import { useEffect, useState, type ReactElement } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
-import { Button } from '#components/ui/button';
+import { Button, buttonVariants } from '#components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '#components/ui/card';
 
+import {
+  InitialsAvatar,
+  LevelBadge,
+} from './edu-ui-parts.js';
 import { FormDialog, SelectField, TextField } from './form-parts.js';
 import {
   LEVEL_KEYS,
@@ -20,9 +26,9 @@ import {
   type Row,
 } from './kit.js';
 import { ListPage } from './list-page.js';
+import { RowManage } from './sua-xoa.js';
 import { ExportCsv } from './xuat-csv.js';
 import { ImportCsv } from './nhap-csv.js';
-import { RowManage } from './sua-xoa.js';
 
 const NEW_STUDENT = {
   hoTen: '',
@@ -39,6 +45,9 @@ export default function HocVienPage(): ReactElement {
   const [searchParams, setSearchParams] = useSearchParams();
   const api = useApiClient();
   const list = useListState();
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [activeTab, setActiveTab] = useState('all');
+
   const { loaded, total, reload } = usePagedRows('hocVien', {
     page: list.page,
     search: list.applied,
@@ -107,6 +116,27 @@ export default function HocVienPage(): ReactElement {
       ? t('edu.hocVien.noClass')
       : text(classRows.find((row) => row.id === id)?.ten);
 
+  const rawRows = loaded.state === 'ready' ? loaded.rows : [];
+  const activeStudents = rawRows.filter((r) => r.trangThai === 'dang_hoc');
+  const waitingStudents = rawRows.filter((r) => r.trangThai === 'cho_xep_lop' || r.lopId == null);
+  const otherStudents = rawRows.filter((r) => r.trangThai !== 'dang_hoc' && r.trangThai !== 'cho_xep_lop');
+
+  const filteredRows =
+    loaded.state === 'ready'
+      ? activeTab === 'dang_hoc'
+        ? activeStudents
+        : activeTab === 'cho_xep_lop'
+          ? waitingStudents
+          : activeTab === 'other'
+            ? otherStudents
+            : rawRows
+      : [];
+
+  const displayLoaded =
+    loaded.state === 'ready'
+      ? { ...loaded, rows: filteredRows }
+      : loaded;
+
   return (
     <>
       <ListPage
@@ -114,8 +144,129 @@ export default function HocVienPage(): ReactElement {
         description={t('edu.hocVien.description')}
         emptyTitle={t('edu.hocVien.empty')}
         emptyHint={t('edu.hocVien.emptyHint')}
-        loaded={loaded}
+        loaded={displayLoaded}
         onRetry={reload}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        metrics={[
+          {
+            label: 'Tổng số học viên',
+            value: total,
+            sub: 'Học viên trong danh mục',
+            icon: Users,
+            tone: 'primary',
+          },
+          {
+            label: 'Đang theo học',
+            value: activeStudents.length,
+            sub: 'Đang sinh hoạt tại lớp',
+            icon: UserCheck,
+            tone: 'success',
+          },
+          {
+            label: 'Chờ xếp lớp',
+            value: waitingStudents.length,
+            sub: 'Cần phân lớp học',
+            icon: Clock,
+            tone: 'warning',
+          },
+          {
+            label: 'Lớp học hiện có',
+            value: classRows.length,
+            sub: 'Các lớp đang mở',
+            icon: School,
+            tone: 'info',
+          },
+        ]}
+        tabs={[
+          { key: 'all', label: 'Tất cả học viên', count: total },
+          { key: 'dang_hoc', label: 'Đang học', count: activeStudents.length },
+          { key: 'cho_xep_lop', label: 'Chờ xếp lớp', count: waitingStudents.length },
+          { key: 'other', label: 'Bảo lưu / Khác', count: otherStudents.length },
+        ]}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        renderGridItem={(row: Row) => (
+          <Card
+            key={row.id}
+            className='group relative flex flex-col justify-between overflow-hidden transition-all duration-200 hover:border-primary/40 hover:shadow-sm'
+          >
+            <CardHeader className='pb-3'>
+              <div className='flex items-start justify-between gap-2'>
+                <div className='flex items-center gap-3'>
+                  <InitialsAvatar name={text(row.hoTen)} size='md' />
+                  <div className='space-y-0.5'>
+                    <CardTitle className='text-base font-semibold text-foreground'>
+                      <RecordLink to={`/hoc-vien/${row.id}`}>
+                        {text(row.hoTen)}
+                      </RecordLink>
+                    </CardTitle>
+                    <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+                      <span className='font-mono'>{text(row.ma)}</span>
+                      <span>·</span>
+                      <span>{text(row.namSinh)}</span>
+                    </div>
+                  </div>
+                </div>
+                <LevelBadge levelKey={row.levelKey} size='sm' />
+              </div>
+            </CardHeader>
+
+            <CardContent className='space-y-3 pt-0'>
+              <div className='space-y-1.5 text-xs text-muted-foreground'>
+                <div className='flex items-center justify-between'>
+                  <span className='flex items-center gap-1.5'>
+                    <School className='h-3.5 w-3.5' />
+                    <span>{className(row.lopId)}</span>
+                  </span>
+                  <StatusBadge
+                    size='sm'
+                    tone={row.trangThai === 'dang_hoc' ? 'success' : 'neutral'}
+                  >
+                    {t(`edu.status.${text(row.trangThai)}`)}
+                  </StatusBadge>
+                </div>
+              </div>
+
+              <div className='flex items-center justify-between border-t pt-3'>
+                <div className='flex items-center gap-1.5'>
+                  <Link
+                    to={`/hoc-vien/${row.id}`}
+                    className={buttonVariants({ variant: 'outline', size: 'sm', className: 'h-7 text-xs' })}
+                  >
+                    Hồ sơ 360°
+                  </Link>
+                  <Link
+                    to={`/hoc-phi?search=${encodeURIComponent(text(row.ma))}`}
+                    className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-7 text-xs text-primary' })}
+                  >
+                    Thu phí
+                  </Link>
+                </div>
+                <div className='flex items-center gap-1'>
+                  {canLevelUp ? (
+                    <Button
+                      size='sm'
+                      variant='ghost'
+                      className='h-7 px-2 text-xs'
+                      disabled={Number(row.levelOrder) >= 6}
+                      onClick={() =>
+                        setLevelUp({
+                          row,
+                          levelKey:
+                            LEVEL_KEYS[Math.min(Number(row.levelOrder), 5)] ?? 'ma',
+                        })
+                      }
+                    >
+                      {t('edu.hocVien.levelUp')}
+                    </Button>
+                  ) : null}
+                  <RowManage kind='hocVien' row={row} onChanged={reload} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         paging={{ page: list.page, total, onPage: list.setPage }}
         search={{
           value: list.search,
@@ -128,8 +279,9 @@ export default function HocVienPage(): ReactElement {
               {canExport ? <ExportCsv /> : null}
               {canImport ? <ImportCsv onImported={reload} /> : null}
               {canCreate ? (
-                <Button onClick={() => setStudent(NEW_STUDENT)}>
-                  {t('edu.hocVien.new')}
+                <Button onClick={() => setStudent(NEW_STUDENT)} className='gap-1.5'>
+                  <Plus className='h-4 w-4' />
+                  <span>{t('edu.hocVien.new')}</span>
                 </Button>
               ) : null}
             </div>
@@ -141,16 +293,19 @@ export default function HocVienPage(): ReactElement {
             key: 'hoTen',
             label: t('edu.hocVien.hoTen'),
             render: (row) => (
-              <RecordLink to={`/hoc-vien/${row.id}`}>
-                {text(row.hoTen)}
-              </RecordLink>
+              <div className='flex items-center gap-2.5'>
+                <InitialsAvatar name={text(row.hoTen)} size='sm' />
+                <RecordLink to={`/hoc-vien/${row.id}`}>
+                  {text(row.hoTen)}
+                </RecordLink>
+              </div>
             ),
           },
           { key: 'namSinh', label: t('edu.hocVien.namSinh') },
           {
             key: 'levelKey',
             label: t('edu.hocVien.level'),
-            render: (row) => t(`edu.level.${text(row.levelKey)}`),
+            render: (row) => <LevelBadge levelKey={row.levelKey} size='sm' />,
           },
           {
             key: 'lopId',
@@ -177,7 +332,7 @@ export default function HocVienPage(): ReactElement {
           },
         ]}
         rowActions={(row) => (
-          <div className='flex flex-wrap gap-2'>
+          <div className='flex flex-wrap items-center justify-end gap-1.5'>
             {canLevelUp ? (
               <Button
                 size='sm'

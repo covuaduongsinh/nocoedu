@@ -223,7 +223,7 @@ export const EDU_MORE_ROWS: readonly (readonly [
     '复制每段内容粘贴到 Zalo。导出会被记录。',
   ],
   ['nhanXet.month', 'Tháng', 'Month', '月份'],
-  ['nhanXet.kind', 'Loại nhận xét', 'Kind of comment', '评语类型'],
+  ['nhanXet.kindLabel', 'Loại nhận xét', 'Kind of comment', '评语类型'],
   ['nhanXet.kind.thang', 'Theo tháng', 'Monthly', '按月'],
   [
     'nhanXet.kind.dinhKy',

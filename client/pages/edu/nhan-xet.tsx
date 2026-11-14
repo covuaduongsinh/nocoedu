@@ -122,7 +122,7 @@ export default function NhanXetPage(): ReactElement {
       <div className='grid max-w-xl gap-3 sm:grid-cols-3'>
         <SelectField
           id='nx-kind'
-          label={t('edu.nhanXet.kind')}
+          label={t('edu.nhanXet.kindLabel')}
           value={kind}
           onChange={(value) => setKind(value as typeof kind)}
           options={[
