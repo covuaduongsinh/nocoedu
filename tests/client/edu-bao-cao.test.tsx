@@ -24,9 +24,16 @@ import packageMetadata from '../../package.json' with { type: 'json' };
 
 let permissions: AuthorizationSnapshot;
 const getSession = vi.fn(async () => ({ data: null }));
-const api = vi.fn(({ method, path }: ApiCall) => {
+const api = vi.fn(({ method, path, json }: ApiCall) => {
   if (method === 'GET' && path === 'authorization/permissions')
     return { data: permissions };
+  if (path === 'baoCao/xem' && json?.loai === 'siSo')
+    return {
+      data: {
+        columns: [{ key: 'coSo' }, { key: 'lop' }, { key: 'soHocVien' }],
+        rows: [{ coSo: 'A', lop: 'Lớp Một', soHocVien: 12 }],
+      },
+    };
   if (path === 'baoCao/xem')
     return {
       data: {
@@ -84,10 +91,17 @@ describe('reports page', () => {
     );
     await userEvent.selectOptions(screen.getByRole('combobox'), 'doanhThu');
     expect(
-      await screen.findByRole('img', { name: '2026-04: 1.500.000' }),
+      await screen.findByRole('img', { name: '04: 2026-04 1.500.000' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('img', { name: '2026-05: 2.000.000' }),
+      screen.getByRole('img', { name: '05: 2026-05 2.000.000' }),
+    ).toBeInTheDocument();
+  });
+
+  it('draws the headcount of each class on the first report', async () => {
+    await render(<BaoCaoPage />, '/bao-cao', '/bao-cao');
+    expect(
+      await screen.findByRole('img', { name: 'Lớp Một: 12' }),
     ).toBeInTheDocument();
   });
 });

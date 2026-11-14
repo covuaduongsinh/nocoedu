@@ -32,44 +32,105 @@ interface Report {
 const rowKey = (row: Record<string, string | number | null>): string =>
   Object.values(row).join('|');
 
-/** Revenue by month as bars (all branches of the report added up); the table below keeps the exact numbers. */
-function RevenueBars(props: { rows: Report['rows'] }): ReactElement | null {
-  const { t } = useTranslation();
-  const months = new Map<string, number>();
-  for (const row of props.rows)
-    months.set(
-      text(row.thang),
-      (months.get(text(row.thang)) ?? 0) + Number(row.doanhThu ?? 0),
-    );
-  const bars = [...months].sort(([a], [b]) => a.localeCompare(b));
-  const max = Math.max(...bars.map(([, value]) => value), 1);
-  if (bars.length === 0) return null;
+interface Bar {
+  readonly label: string;
+  readonly value: number;
+  /** What is printed above the bar. */
+  readonly shown: string;
+  readonly full: string;
+}
+
+/** Bars drawn from the rows of a report; the table below keeps the exact numbers. `max` fixes the scale (e.g. 100). */
+function BarChart(props: {
+  title: string;
+  bars: readonly Bar[];
+  max?: number;
+}): ReactElement | null {
+  if (props.bars.length === 0) return null;
+  const max = props.max ?? Math.max(...props.bars.map((bar) => bar.value), 1);
   return (
     <figure className='mb-4 rounded-lg border p-4'>
       <figcaption className='mb-3 text-sm font-medium'>
-        {t('edu.baoCao.doanhThuChart')}
+        {props.title}
       </figcaption>
       <ul className='flex h-40 items-end gap-2'>
-        {bars.map(([month, value]) => (
+        {props.bars.map((bar) => (
           <li
-            key={month}
+            key={bar.label}
             className='flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1'
           >
-            <span className='text-xs text-muted-foreground'>
-              {Math.round(value / 1000).toLocaleString('vi-VN')}k
-            </span>
+            <span className='text-xs text-muted-foreground'>{bar.shown}</span>
             <div
               role='img'
-              aria-label={`${month}: ${value.toLocaleString('vi-VN')}`}
+              aria-label={`${bar.label}: ${bar.full}`}
               className='w-full rounded-t bg-primary'
-              style={{ height: `${Math.max((value / max) * 100, 2)}%` }}
+              style={{
+                height: `${Math.min(Math.max((bar.value / max) * 100, 2), 100)}%`,
+              }}
             />
-            <span className='text-xs'>{month.slice(5)}</span>
+            <span className='w-full truncate text-center text-xs'>
+              {bar.label}
+            </span>
           </li>
         ))}
       </ul>
     </figure>
   );
+}
+
+/** The chart of a report, when it has one: revenue by month, headcount by class, attendance rate by class. */
+function ReportChart(props: {
+  kind: string;
+  rows: Report['rows'];
+}): ReactElement | null {
+  const { t } = useTranslation();
+  if (props.kind === 'doanhThu') {
+    const months = new Map<string, number>();
+    for (const row of props.rows)
+      months.set(
+        text(row.thang),
+        (months.get(text(row.thang)) ?? 0) + Number(row.doanhThu ?? 0),
+      );
+    return (
+      <BarChart
+        title={t('edu.baoCao.doanhThuChart')}
+        bars={[...months]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([month, value]) => ({
+            label: month.slice(5),
+            value,
+            shown: `${Math.round(value / 1000).toLocaleString('vi-VN')}k`,
+            full: `${month} ${value.toLocaleString('vi-VN')}`,
+          }))}
+      />
+    );
+  }
+  if (props.kind === 'siSo')
+    return (
+      <BarChart
+        title={t('edu.baoCao.siSoChart')}
+        bars={props.rows.map((row) => ({
+          label: text(row.lop),
+          value: Number(row.soHocVien ?? 0),
+          shown: String(Number(row.soHocVien ?? 0)),
+          full: String(Number(row.soHocVien ?? 0)),
+        }))}
+      />
+    );
+  if (props.kind === 'chuyenCan')
+    return (
+      <BarChart
+        title={t('edu.baoCao.chuyenCanChart')}
+        max={100}
+        bars={props.rows.map((row) => ({
+          label: text(row.lop),
+          value: Number(row.tyLe ?? 0),
+          shown: `${Number(row.tyLe ?? 0)}%`,
+          full: `${Number(row.tyLe ?? 0)}%`,
+        }))}
+      />
+    );
+  return null;
 }
 
 export default function BaoCaoPage(): ReactElement {
@@ -169,7 +230,7 @@ export default function BaoCaoPage(): ReactElement {
         <p className='text-sm text-muted-foreground'>{t('edu.baoCao.empty')}</p>
       ) : (
         <>
-          {kind === 'doanhThu' ? <RevenueBars rows={result.data.rows} /> : null}
+          <ReportChart kind={kind} rows={result.data.rows} />
           <div className='overflow-x-auto rounded-lg border'>
             <Table>
               <TableHeader>
