@@ -1,7 +1,7 @@
 import type { DatabaseManager } from '@nocobase/db';
 
 import { asText } from '../names.js';
-import { numberOf, textOf } from './gia-tri.js';
+import { dateVn, linkIds, numberOf, textOf } from './gia-tri.js';
 import type { LarkData } from './nguon.js';
 
 type Query = ReturnType<DatabaseManager['connection']>['query'];
@@ -30,12 +30,32 @@ export interface SachProblem {
   readonly code: string;
 }
 
+/** A book handed to a student (`Từng lần phát sách`), priced from the catalogue row it points to. */
+export interface PhatSachRow {
+  /** `lark:phatsach:<record id>`. */
+  readonly externalId: string;
+  /** The `HocVien` record id (the external id of the student in NocoEdu). */
+  readonly hocVienKey: string;
+  /** The `Sách` record id and its symbol (the symbol finds a book typed in by hand). */
+  readonly sachKey: string;
+  readonly kyHieu: string;
+  /** `YYYY-MM-DD`. */
+  readonly ngay: string;
+  readonly uuDai: number;
+  /** `giaBan - uuDai` of the book on Lark. */
+  readonly tienSach: number;
+}
+
 export interface SachPlan {
   /** False when the app cannot see the table `Sách`. */
   readonly doc: boolean;
   readonly rows: readonly SachRow[];
   readonly problems: readonly SachProblem[];
   readonly warnings: readonly SachProblem[];
+  /** The handouts of `Từng lần phát sách` (empty when the app cannot see it: `phatDoc`). */
+  readonly phatDoc: boolean;
+  readonly phat: readonly PhatSachRow[];
+  readonly phatProblems: readonly SachProblem[];
 }
 
 export const EMPTY_SACH: SachPlan = {
@@ -43,6 +63,9 @@ export const EMPTY_SACH: SachPlan = {
   rows: [],
   problems: [],
   warnings: [],
+  phatDoc: false,
+  phat: [],
+  phatProblems: [],
 };
 
 const SYMBOL_MAX = 32;
@@ -54,7 +77,10 @@ const price = (cell: unknown): number | null => {
   return Number.isInteger(value) && value >= 0 ? value : Number.NaN;
 };
 
-export function lapSach(data: Pick<LarkData, 'sach' | 'sachDoc'>): SachPlan {
+export function lapSach(
+  data: Pick<LarkData, 'sach' | 'sachDoc' | 'phatSach' | 'phatSachDoc'>,
+  students: ReadonlySet<string> = new Set(),
+): SachPlan {
   if (!data.sachDoc) return EMPTY_SACH;
   const rows: SachRow[] = [];
   const problems: SachProblem[] = [];
@@ -105,7 +131,88 @@ export function lapSach(data: Pick<LarkData, 'sach' | 'sachDoc'>): SachPlan {
       giaBan: giaBan === null || Number.isNaN(giaBan) ? 0 : giaBan,
     });
   }
-  return { doc: true, rows, problems, warnings };
+  const phat = lapPhatSach(data, rows, students);
+  return {
+    doc: true,
+    rows,
+    problems,
+    warnings,
+    phatDoc: data.phatSachDoc,
+    ...phat,
+  };
+}
+
+/**
+ * The handouts: one student and one book each (a row with none or several is left out, never guessed), a day, and a
+ * whole-dong discount not above the price. The amount is the price of the book on Lark minus the discount: Lark's own
+ * price looks the book up by "contains", so `CT1` also finds `CT10`; the exact symbol is used here.
+ */
+function lapPhatSach(
+  data: Pick<LarkData, 'phatSach' | 'phatSachDoc'>,
+  books: readonly SachRow[],
+  students: ReadonlySet<string>,
+): { phat: PhatSachRow[]; phatProblems: SachProblem[] } {
+  const phat: PhatSachRow[] = [];
+  const phatProblems: SachProblem[] = [];
+  if (!data.phatSachDoc) return { phat, phatProblems };
+  const byRecord = new Map(
+    books.map((row) => [row.externalId.slice('lark:sach:'.length), row]),
+  );
+  for (const record of [...data.phatSach].sort((a, b) =>
+    a.recordId.localeCompare(b.recordId),
+  )) {
+    const f = record.fields;
+    const problem = (code: string) =>
+      phatProblems.push({ id: record.recordId, code });
+    const studentLinks = linkIds(f['Tên học sinh']);
+    const bookLinks = linkIds(f['Sách dùng']);
+    if (studentLinks.length !== 1) {
+      problem(
+        studentLinks.length === 0
+          ? 'PHAT_SACH_THIEU_HOC_VIEN'
+          : 'PHAT_SACH_NHIEU_HOC_VIEN',
+      );
+      continue;
+    }
+    if (bookLinks.length !== 1) {
+      problem(
+        bookLinks.length === 0
+          ? 'PHAT_SACH_THIEU_SACH'
+          : 'PHAT_SACH_NHIEU_SACH',
+      );
+      continue;
+    }
+    const student = studentLinks[0];
+    if (!students.has(student)) {
+      problem('PHAT_SACH_HOC_VIEN_BI_BO');
+      continue;
+    }
+    const book = byRecord.get(bookLinks[0]);
+    if (!book) {
+      problem('PHAT_SACH_SACH_BI_BO');
+      continue;
+    }
+    const ngay = dateVn(f['Ngày dùng']);
+    if (!ngay) {
+      problem('PHAT_SACH_THIEU_NGAY');
+      continue;
+    }
+    const uuDai = numberOf(f['Ưu đãi']) ?? 0;
+    if (!Number.isInteger(uuDai) || uuDai < 0 || uuDai > book.giaBan) {
+      problem('PHAT_SACH_UU_DAI_SAI');
+      continue;
+    }
+    phat.push({
+      externalId: `lark:phatsach:${record.recordId}`,
+      hocVienKey: student,
+      sachKey: bookLinks[0],
+      kyHieu: book.kyHieu,
+      ngay,
+      uuDai,
+      tienSach: book.giaBan - uuDai,
+    });
+  }
+  return { phat, phatProblems };
 }
 
 export interface SachKetQua {
@@ -113,13 +220,24 @@ export interface SachKetQua {
   readonly trung: number;
   /** Symbols NocoEdu already holds without the Lark id: left alone (Lark ids of the rows). */
   readonly daCoKyHieu: readonly string[];
+  /** The handouts written, the ones already there, and the ones whose student or book is not in NocoEdu. */
+  readonly phatTao: number;
+  readonly phatTrung: number;
+  readonly phatKhongCo: number;
 }
 
-export const KHONG_GHI_SACH: SachKetQua = { tao: 0, trung: 0, daCoKyHieu: [] };
+export const KHONG_GHI_SACH: SachKetQua = {
+  tao: 0,
+  trung: 0,
+  daCoKyHieu: [],
+  phatTao: 0,
+  phatTrung: 0,
+  phatKhongCo: 0,
+};
 
 /** Writes the books inside the transaction of the import. Books already written, or whose symbol is taken, are skipped. */
 export async function ghiSach(q: Query, plan: SachPlan): Promise<SachKetQua> {
-  if (plan.rows.length === 0) return KHONG_GHI_SACH;
+  if (plan.rows.length === 0 && plan.phat.length === 0) return KHONG_GHI_SACH;
   const existing = await q
     .selectFrom('eduSach')
     .select(['kyHieu', 'externalId'])
@@ -158,5 +276,79 @@ export async function ghiSach(q: Query, plan: SachPlan): Promise<SachKetQua> {
       .insertInto('eduSach')
       .values(values.slice(i, i + 50))
       .execute();
-  return { tao: values.length, trung, daCoKyHieu: daCo };
+  const phatKet = await ghiPhatSach(q, plan.phat);
+  return { tao: values.length, trung, daCoKyHieu: daCo, ...phatKet };
+}
+
+/** Writes the handouts after the books: a handout already written (by its key) is skipped, never edited. */
+async function ghiPhatSach(
+  q: Query,
+  phat: readonly PhatSachRow[],
+): Promise<Pick<SachKetQua, 'phatTao' | 'phatTrung' | 'phatKhongCo'>> {
+  if (phat.length === 0) return { phatTao: 0, phatTrung: 0, phatKhongCo: 0 };
+  const done = new Set(
+    (
+      await q
+        .selectFrom('eduPhatSach')
+        .select('externalId')
+        .where('externalId', 'is not', null)
+        .execute()
+    ).map((row) => asText(row.externalId)),
+  );
+  const students = new Map<string, { id: number; coSoId: number }>();
+  for (const row of await q
+    .selectFrom('eduHocVien')
+    .select(['id', 'externalId', 'coSoId'])
+    .where('externalId', 'is not', null)
+    .execute())
+    students.set(asText(row.externalId), {
+      id: Number(row.id),
+      coSoId: Number(row.coSoId),
+    });
+  const byRecord = new Map<string, number>();
+  const bySymbol = new Map<string, number>();
+  for (const row of await q
+    .selectFrom('eduSach')
+    .select(['id', 'kyHieu', 'externalId'])
+    .execute()) {
+    bySymbol.set(asText(row.kyHieu).toLowerCase(), Number(row.id));
+    if (row.externalId !== null)
+      byRecord.set(asText(row.externalId), Number(row.id));
+  }
+  let phatTrung = 0;
+  let phatKhongCo = 0;
+  const now = new Date();
+  const values: Record<string, unknown>[] = [];
+  for (const row of phat) {
+    if (done.has(row.externalId)) {
+      phatTrung += 1;
+      continue;
+    }
+    const student = students.get(row.hocVienKey);
+    const sachId =
+      byRecord.get(`lark:sach:${row.sachKey}`) ??
+      bySymbol.get(row.kyHieu.toLowerCase());
+    if (!student || sachId === undefined) {
+      phatKhongCo += 1;
+      continue;
+    }
+    values.push({
+      hocVienId: student.id,
+      sachId,
+      coSoId: student.coSoId,
+      ngay: row.ngay,
+      uuDai: row.uuDai,
+      tienSach: row.tienSach,
+      ghiChu: null,
+      nguoiTaoId: null,
+      externalId: row.externalId,
+      createdAt: now,
+    });
+  }
+  for (let i = 0; i < values.length; i += 50)
+    await q
+      .insertInto('eduPhatSach')
+      .values(values.slice(i, i + 50))
+      .execute();
+  return { phatTao: values.length, phatTrung, phatKhongCo };
 }
