@@ -18,6 +18,8 @@ const TABLES = [
   'eduDiemDanh',
   'eduSoDuNhatKy',
   'eduNhapLarkNhatKy',
+  'eduPhatSach',
+  'eduNopSach',
 ] as const;
 
 async function reset(connection: any): Promise<void> {

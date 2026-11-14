@@ -130,6 +130,8 @@ describe('lapThanhToan', () => {
 
 const CLEAR = [
   'eduNhapLarkNhatKy',
+  'eduPhatSach',
+  'eduNopSach',
   'eduSoDuNhatKy',
   'eduThanhToan',
   'eduGoiHoc',
