@@ -1,4 +1,5 @@
 import { useApiClient } from '@nocobase/app-client';
+import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useEffect, useState, type ReactElement } from 'react';
 import { Link } from 'react-router';
@@ -14,7 +15,7 @@ import {
   CardTitle,
 } from '#components/ui/card';
 
-import { useRequest } from './kit.js';
+import { text, todayVn, useRequest, type Row } from './kit.js';
 
 interface SessionView {
   id: number;
@@ -136,6 +137,8 @@ export default function EduHome(): ReactElement {
             </>
           ) : null}
 
+          <CallBacks />
+
           {low.result.state === 'ready' ? (
             <Card className='md:col-span-2'>
               <CardHeader>
@@ -175,6 +178,90 @@ export default function EduHome(): ReactElement {
         </div>
       )}
     </PageContainer>
+  );
+}
+
+/**
+ * Families to call back (admissions): contacts still open whose reminder day has come. Only a role that holds
+ * `edu.tuyenSinh` sees the card; the server limits the rows to its branches.
+ */
+function CallBacks(): ReactElement | null {
+  const { t } = useTranslation();
+  const api = useApiClient();
+  const { can } = useCan({
+    resource: { type: 'composite', id: 'edu.tuyenSinh' },
+    action: 'view',
+  });
+  const [due, setDue] = useState<Row[]>();
+  useEffect(() => {
+    if (!can) return;
+    let live = true;
+    const today = todayVn();
+    api
+      .request<{ data: Row[] }>({
+        path: 'lienHe/findMany',
+        method: 'POST',
+        json: { limit: 100 },
+      })
+      .then((response) => {
+        if (!live) return;
+        setDue(
+          response.data
+            .filter(
+              (row) =>
+                (row.trangThai === 'moi' ||
+                  row.trangThai === 'dang_cham_soc') &&
+                text(row.ngayNhac) !== '' &&
+                text(row.ngayNhac) <= today,
+            )
+            .sort((a, b) => text(a.ngayNhac).localeCompare(text(b.ngayNhac))),
+        );
+      })
+      .catch(() => {
+        if (live) setDue(undefined);
+      });
+    return () => {
+      live = false;
+    };
+  }, [api, can]);
+  if (!can || due === undefined) return null;
+  return (
+    <Card className='md:col-span-2'>
+      <CardHeader>
+        <CardTitle>{t('edu.home.callBack')}</CardTitle>
+        <CardDescription>{t('edu.home.callBackHint')}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {due.length === 0 ? (
+          <p className='text-sm text-muted-foreground'>
+            {t('edu.home.callBackEmpty')}
+          </p>
+        ) : (
+          <ul className='flex flex-col gap-2'>
+            {due.map((row) => (
+              <li
+                key={row.id}
+                className='flex items-center justify-between gap-3 text-sm'
+              >
+                <span>
+                  {text(row.hoTen)}{' '}
+                  <span className='text-muted-foreground'>
+                    {text(row.soDienThoai)}
+                  </span>
+                </span>
+                <StatusBadge tone='warning'>{text(row.ngayNhac)}</StatusBadge>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link
+          className='mt-3 inline-block text-primary underline'
+          to='/tuyen-sinh'
+        >
+          {t('edu.home.callBackOpen')}
+        </Link>
+      </CardContent>
+    </Card>
   );
 }
 
