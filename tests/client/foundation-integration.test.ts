@@ -22,6 +22,7 @@ const eduMenu = [
   'edu-nhanXet',
   'edu-baoCao',
   'edu-sach',
+  'edu-phatSach',
 ];
 
 describe('default Foundation integration', () => {

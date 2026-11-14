@@ -10,4 +10,6 @@ export const PAGES = {
   baoCao: 'edu.baoCao',
   // Added after the first seed ran: granted by `202611130003_edu_sach_grant` (see the generator of the seed).
   sach: 'edu.sach',
+  // Granted by `202611140002_edu_phat_sach_grant`.
+  phatSach: 'edu.phatSach',
 } as const;

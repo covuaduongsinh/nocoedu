@@ -25,6 +25,7 @@ export const COLLECTIONS = {
   nhanXetThang: { name: 'eduNhanXetThang', title: 'Nhận xét tháng' },
   xuatDuLieu: { name: 'eduXuatDuLieuNhatKy', title: 'Nhật ký xuất dữ liệu' },
   sach: { name: 'eduSach', title: 'Sách' },
+  phatSach: { name: 'eduPhatSach', title: 'Phát sách' },
 } as const;
 
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -269,6 +270,31 @@ export const FIELDS = {
   sach: {
     read: ['id', 'kyHieu', 'ten', 'giaBia', 'giaBan', 'trangThai'],
     write: ['kyHieu', 'ten', 'giaBia', 'giaBan', 'trangThai'],
+  },
+  phatSach: {
+    read: [
+      'id',
+      'hocVienId',
+      'sachId',
+      'coSoId',
+      'ngay',
+      'uuDai',
+      'tienSach',
+      'ghiChu',
+      'nguoiTaoId',
+      'createdAt',
+    ],
+    write: [
+      'hocVienId',
+      'sachId',
+      'coSoId',
+      'ngay',
+      'uuDai',
+      'tienSach',
+      'ghiChu',
+      'nguoiTaoId',
+      'createdAt',
+    ],
   },
   xuatDuLieu: {
     read: ['id', 'userId', 'loai', 'soDong', 'createdAt'],
@@ -536,6 +562,20 @@ export const thanhToan = defineCompositeResource('edu.thanhToan', (r) =>
       a
         .title('Ghi nhận thanh toán')
         .grant('data', thanhToanRead.create([...FIELDS.thanhToan.write])),
+    ),
+);
+
+const phatSachRead = perm('phatSach', FIELDS.phatSach);
+
+/** Books handed out: view, and manage (hand a book out; a handout is never edited or deleted here). */
+export const phatSach = defineCompositeResource('edu.phatSach', (r) =>
+  r
+    .title('Phát sách')
+    .action('view', (a) => a.title('Xem').grant('data', phatSachRead))
+    .action('manage', (a) =>
+      a
+        .title('Phát sách cho học viên')
+        .grant('data', phatSachRead.create([...FIELDS.phatSach.write])),
     ),
 );
 
