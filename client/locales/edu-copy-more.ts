@@ -241,6 +241,12 @@ export const EDU_MORE_ROWS: readonly (readonly [
   ['baoCao.csv', 'Tải CSV', 'Download CSV', '下载 CSV'],
   ['baoCao.kind', 'Báo cáo', 'Report', '报表'],
   [
+    'baoCao.doanhThuChart',
+    'Doanh thu theo tháng (nghìn đồng, mọi cơ sở cộng lại)',
+    'Revenue by month (thousand VND, all branches added up)',
+    '按月收入（千越南盾，所有分校合计）',
+  ],
+  [
     'baoCao.empty',
     'Chưa có số liệu cho báo cáo này.',
     'There is no data for this report yet.',
