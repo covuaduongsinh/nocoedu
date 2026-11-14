@@ -10,6 +10,7 @@ import { FormDialog, SelectField, TextField } from './form-parts.js';
 import {
   createOne,
   deleteOne,
+  post,
   text,
   todayVn,
   updateOne,
@@ -55,6 +56,7 @@ export default function TuyenSinhPage(): ReactElement {
     branches.loaded.state === 'ready' ? branches.loaded.rows : [];
   const [form, setForm] = useState<Form>();
   const [removing, setRemoving] = useState<number>();
+  const [purging, setPurging] = useState(false);
   const today = todayVn();
 
   const blank = (): Form => ({
@@ -84,9 +86,14 @@ export default function TuyenSinhPage(): ReactElement {
         }}
         actions={
           canManage ? (
-            <Button onClick={() => setForm(blank())}>
-              {t('edu.tuyenSinh.new')}
-            </Button>
+            <span className='flex gap-2'>
+              <Button variant='outline' onClick={() => setPurging(true)}>
+                {t('edu.tuyenSinh.purge')}
+              </Button>
+              <Button onClick={() => setForm(blank())}>
+                {t('edu.tuyenSinh.new')}
+              </Button>
+            </span>
           ) : null
         }
         rowActions={
@@ -242,6 +249,19 @@ export default function TuyenSinhPage(): ReactElement {
             onChange={(ghiChu) => setForm({ ...form, ghiChu })}
           />
         </FormDialog>
+      ) : null}
+      {purging ? (
+        <FormDialog
+          open
+          title={t('edu.tuyenSinh.purge')}
+          description={t('edu.tuyenSinh.purgeHint')}
+          submitLabel={t('edu.tuyenSinh.purge')}
+          onClose={() => setPurging(false)}
+          onSubmit={async () => {
+            await post(api, '/lienHe/donQuaHan', {});
+            reload();
+          }}
+        />
       ) : null}
       {removing !== undefined ? (
         <FormDialog
