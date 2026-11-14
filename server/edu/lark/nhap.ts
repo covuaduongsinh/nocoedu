@@ -195,6 +195,7 @@ export interface ThanhToanBaoCao {
     readonly trung: number;
     readonly khongCoGoi: number;
     readonly tienKhongCoGoi: number;
+    readonly khongGan: number;
     readonly tongTien: number;
   };
 }
@@ -250,6 +251,7 @@ export function baoCaoThanhToan(
               (sum, item) => sum + item.soTien,
               0,
             ),
+            khongGan: ketQua.khongGan,
             tongTien: ketQua.tongTien,
           },
         }
@@ -510,7 +512,7 @@ function inThanhToan(report: ThanhToanBaoCao): string[] {
     );
   if (report.ghi)
     lines.push(
-      `  Ghi (hoặc ghi thử): tạo ${report.ghi.tao} (${dong(report.ghi.tongTien)}), đã có sẵn ${report.ghi.trung}, không có gói để gắn ${report.ghi.khongCoGoi} (${dong(report.ghi.tienKhongCoGoi)}).`,
+      `  Ghi (hoặc ghi thử): tạo ${report.ghi.tao} (${dong(report.ghi.tongTien)}), đã có sẵn ${report.ghi.trung}, trong đó ${report.ghi.khongGan} khoản ghi không gắn gói (học viên chưa có gói nào), bỏ vì không có học viên ${report.ghi.khongCoGoi} (${dong(report.ghi.tienKhongCoGoi)}).`,
     );
   return lines;
 }

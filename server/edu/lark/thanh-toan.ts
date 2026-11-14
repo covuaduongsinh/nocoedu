@@ -161,8 +161,10 @@ export function lapThanhToan(
 export interface ThanhToanKetQua {
   readonly tao: number;
   readonly trung: number;
-  /** Payments left out because the student has no package at all; `soTien` is what is left out of the revenue. */
+  /** Payments left out because the student is not in NocoEdu (never expected: the plan only holds students it imports); `soTien` is what is left out of the revenue. */
   readonly khongCoGoi: readonly { id: string; soTien: number }[];
+  /** Payments written with no package to point to (the student has none): they count in `tao` and `tongTien`. */
+  readonly khongGan: number;
   /** Sum of the payments written now, in dong. */
   readonly tongTien: number;
 }
@@ -171,6 +173,7 @@ export const KHONG_GHI_THANH_TOAN: ThanhToanKetQua = {
   tao: 0,
   trung: 0,
   khongCoGoi: [],
+  khongGan: 0,
   tongTien: 0,
 };
 
@@ -230,6 +233,7 @@ export async function ghiThanhToan(
   let trung = 0;
   let tongTien = 0;
   const khongCoGoi: { id: string; soTien: number }[] = [];
+  let khongGan = 0;
   const values: Record<string, unknown>[] = [];
   for (const row of plan.rows) {
     if (written.has(row.externalId)) {
@@ -246,15 +250,18 @@ export async function ghiThanhToan(
           daysBetween(a.ngayMua, row.ngay) - daysBetween(b.ngayMua, row.ngay) ||
           a.id - b.id,
       )[0]?.id;
-    if (!student || goiHocId === undefined) {
+    if (!student) {
       khongCoGoi.push({
         id: row.externalId.slice('lark:tongdeal:'.length),
         soTien: row.soTien,
       });
       continue;
     }
+    // A student with no package at all (his Deal was left out, or he only has an old balance) still has paid: the payment
+    // is written with no package, so the revenue is complete; the package is a bookkeeping link only.
+    if (goiHocId === undefined) khongGan += 1;
     values.push({
-      goiHocId,
+      goiHocId: goiHocId ?? null,
       hocVienId: student.id,
       coSoId: student.coSoId,
       soTien: row.soTien,
@@ -272,5 +279,5 @@ export async function ghiThanhToan(
       .insertInto('eduThanhToan')
       .values(values.slice(i, i + CHUNK))
       .execute();
-  return { tao: values.length, trung, khongCoGoi, tongTien };
+  return { tao: values.length, trung, khongCoGoi, khongGan, tongTien };
 }
