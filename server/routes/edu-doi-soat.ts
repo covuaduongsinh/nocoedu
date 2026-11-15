@@ -24,6 +24,17 @@ import {
   type EduEnv,
 } from './edu-support.js';
 
+function normalizeSearchText(str: unknown): string {
+  if (!str) return '';
+  return String(str)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim();
+}
+
 const Id = z.coerce.number().int().positive();
 
 const TongQuanInput = z.object({
@@ -92,10 +103,11 @@ export default [
           .orderBy('id', 'asc')
           .execute();
 
-        const [classes, branches, allPacks, allAttendances, allBooks, allBookPayments, parentLinks, parents] = await Promise.all([
+        const [classes, branches, allPacks, allPayments, allAttendances, allBooks, allBookPayments, parentLinks, parents] = await Promise.all([
           connection.query.selectFrom('eduLop').select(['id', 'ten', 'coSoId']).execute(),
           connection.query.selectFrom('eduCoSo').select(['id', 'ten']).execute(),
-          connection.query.selectFrom('eduGoiHoc').select(['id', 'hocVienId', 'soBuoi', 'thanhTien', 'daThanhToan']).execute(),
+          connection.query.selectFrom('eduGoiHoc').select(['id', 'hocVienId', 'soBuoi', 'thanhTien']).execute(),
+          connection.query.selectFrom('eduThanhToan').select(['id', 'hocVienId', 'goiHocId', 'soTien']).execute(),
           connection.query.selectFrom('eduDiemDanh').select(['id', 'hocVienId', 'soBuoiDaTru']).execute(),
           connection.query.selectFrom('eduPhatSach').select(['id', 'hocVienId', 'tienSach', 'uuDai']).execute(),
           connection.query.selectFrom('eduNopSach').select(['id', 'hocVienId', 'soTien']).execute(),
@@ -115,14 +127,27 @@ export default [
           }
         }
 
+        const paymentMap = new Map<number, number>();
+        for (const p of allPayments) {
+          const hvId = Number(p.hocVienId);
+          paymentMap.set(hvId, (paymentMap.get(hvId) ?? 0) + Number(p.soTien || 0));
+        }
+
         const packStats = new Map<number, { tongSoBuoiDaMua: number; tongTienHocPhi: number; tongDaThanhToan: number }>();
         for (const pack of allPacks) {
           const hvId = Number(pack.hocVienId);
           const s = packStats.get(hvId) ?? { tongSoBuoiDaMua: 0, tongTienHocPhi: 0, tongDaThanhToan: 0 };
           s.tongSoBuoiDaMua += Number(pack.soBuoi || 0);
           s.tongTienHocPhi += Number(pack.thanhTien || 0);
-          s.tongDaThanhToan += Number(pack.daThanhToan || 0);
+          s.tongDaThanhToan = paymentMap.get(hvId) ?? 0;
           packStats.set(hvId, s);
+        }
+        for (const [hvId, paid] of paymentMap.entries()) {
+          if (!packStats.has(hvId)) {
+            packStats.set(hvId, { tongSoBuoiDaMua: 0, tongTienHocPhi: 0, tongDaThanhToan: paid });
+          } else {
+            packStats.get(hvId)!.tongDaThanhToan = paid;
+          }
         }
 
         const attendanceStats = new Map<number, { tongSoBuoiDaHoc: number }>();
@@ -183,9 +208,9 @@ export default [
           tongCongNoSach += congNoSach;
 
           if (search) {
-            const q = search.toLowerCase();
-            const matchName = String(hv.hoTen || '').toLowerCase().includes(q);
-            const matchMa = String(hv.ma || '').toLowerCase().includes(q);
+            const q = normalizeSearchText(search);
+            const matchName = normalizeSearchText(hv.hoTen).includes(q);
+            const matchMa = normalizeSearchText(hv.ma).includes(q);
             const matchPhone = String(ph?.soDienThoai || '').includes(q);
             if (!matchName && !matchMa && !matchPhone) continue;
           }
@@ -257,7 +282,7 @@ export default [
           .executeTakeFirst();
         if (!hocVien) throw eduError('NOT_FOUND', 'STUDENT_NOT_FOUND', 'Student not found');
 
-        const [classes, branches, goiHocs, rawSessions, phatSachs, nopSachs, parentLinks, parents] = await Promise.all([
+        const [classes, branches, goiHocs, allPayments, rawSessions, phatSachs, nopSachs, parentLinks, parents] = await Promise.all([
           connection.query.selectFrom('eduLop').select(['id', 'ten', 'coSoId']).execute(),
           connection.query.selectFrom('eduCoSo').select(['id', 'ten']).execute(),
           connection.query
@@ -266,6 +291,12 @@ export default [
             .where('hocVienId', '=', hocVienId)
             .orderBy('ngayMua', 'asc')
             .orderBy('id', 'asc')
+            .execute(),
+          connection.query
+            .selectFrom('eduThanhToan')
+            .selectAll()
+            .where('hocVienId', '=', hocVienId)
+            .orderBy('ngay', 'asc')
             .execute(),
           connection.query
             .selectFrom('eduDiemDanh')
@@ -342,21 +373,39 @@ export default [
           }
         }
 
+        const paidByGoiHoc = new Map<number, number>();
+        let unallocatedPayment = 0;
+        for (const pm of allPayments) {
+          const st = Number(pm.soTien || 0);
+          if (pm.goiHocId != null && Number(pm.goiHocId) > 0) {
+            const gid = Number(pm.goiHocId);
+            paidByGoiHoc.set(gid, (paidByGoiHoc.get(gid) ?? 0) + st);
+          } else {
+            unallocatedPayment += st;
+          }
+        }
+
         let tongSoBuoiDaMua = 0;
         let tongTienHocPhi = 0;
         let tongDaThanhToan = 0;
 
         const cacKyNop = goiHocs.map((g, index) => {
+          const gId = Number(g.id);
           const soBuoi = Number(g.soBuoi || 0);
           const thanhTien = Number(g.thanhTien || 0);
-          const daThanhToan = Number(g.daThanhToan || 0);
+          let daThanhToan = paidByGoiHoc.get(gId) ?? 0;
+          if (daThanhToan < thanhTien && unallocatedPayment > 0) {
+            const diff = Math.min(thanhTien - daThanhToan, unallocatedPayment);
+            daThanhToan += diff;
+            unallocatedPayment -= diff;
+          }
           const conNo = Math.max(0, thanhTien - daThanhToan);
           tongSoBuoiDaMua += soBuoi;
           tongTienHocPhi += thanhTien;
           tongDaThanhToan += daThanhToan;
 
           return {
-            id: Number(g.id),
+            id: gId,
             kySo: index + 1,
             tenKy: `Kỳ ${index + 1} (${soBuoi} buổi)`,
             ngayMua: asText(g.ngayMua) || '',
@@ -368,6 +417,7 @@ export default [
             trangThai: conNo === 0 ? 'da_dong_du' : daThanhToan > 0 ? 'dong_mot_phan' : 'chua_dong',
           };
         });
+        tongDaThanhToan += unallocatedPayment;
 
         let accumulatedSessions = 0;
         let tongSoBuoiDaHoc = 0;

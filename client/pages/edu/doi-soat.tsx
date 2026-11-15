@@ -175,6 +175,7 @@ export default function DoiSoatPage(): ReactElement {
 
   // State chế độ 1 (Tổng quan)
   const [loadingOverview, setLoadingOverview] = useState(false);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [overviewData, setOverviewData] = useState<{
     thongKe: AuditStats;
     danhSach: StudentOverviewRow[];
@@ -195,10 +196,11 @@ export default function DoiSoatPage(): ReactElement {
   const [studentDetail, setStudentDetail] = useState<StudentAuditDetail | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Bộ lọc bên trong Tab Lịch sử buổi học
+  // Bộ lọc và sắp xếp bên trong Tab Lịch sử buổi học
   const [sessionKyFilter, setSessionKyFilter] = useState<string>('all');
   const [sessionStatusFilter, setSessionStatusFilter] = useState<string>('all');
   const [sessionSearchComment, setSessionSearchComment] = useState<string>('');
+  const [sessionSortOrder, setSessionSortOrder] = useState<'desc' | 'asc'>('desc');
 
   // Dialog Quick Edit buổi học
   const [editSession, setEditSession] = useState<{
@@ -220,6 +222,7 @@ export default function DoiSoatPage(): ReactElement {
     lopId?: string;
   }): Promise<void> => {
     setLoadingOverview(true);
+    setOverviewError(null);
     try {
       const curSearch = override && 'search' in override ? override.search : searchTerm;
       const curStatus = override?.trangThaiLoc ?? filterStatus;
@@ -241,10 +244,20 @@ export default function DoiSoatPage(): ReactElement {
       setOverviewData(res.data);
     } catch (err) {
       console.error(err);
+      setOverviewError(err instanceof Error ? err.message : 'Không thể kết nối máy chủ để tải dữ liệu đối soát.');
     } finally {
       setLoadingOverview(false);
     }
   };
+
+  // Debounced search: gõ phím sau 350ms tự động lọc tức thì
+  useEffect(() => {
+    if (selectedStudentId) return;
+    const timer = setTimeout(() => {
+      void loadOverview();
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const handleFilterStatus = (status: string) => {
     setFilterStatus(status);
@@ -325,10 +338,10 @@ export default function DoiSoatPage(): ReactElement {
     }
   };
 
-  // Lọc danh sách buổi học trong Tab
+  // Lọc và sắp xếp danh sách buổi học trong Tab
   const filteredSessions = useMemo(() => {
     if (!studentDetail) return [];
-    return studentDetail.danhSachBuoiHoc.filter((s) => {
+    const list = studentDetail.danhSachBuoiHoc.filter((s) => {
       if (sessionKyFilter !== 'all') {
         if (sessionKyFilter === 'ngoai_goi' && !s.ngoaiGoi) return false;
         if (sessionKyFilter !== 'ngoai_goi' && String(s.kyId) !== sessionKyFilter) return false;
@@ -342,7 +355,13 @@ export default function DoiSoatPage(): ReactElement {
       }
       return true;
     });
-  }, [studentDetail, sessionKyFilter, sessionStatusFilter, sessionSearchComment]);
+
+    const sorted = [...list];
+    if (sessionSortOrder === 'desc') {
+      sorted.reverse();
+    }
+    return sorted;
+  }, [studentDetail, sessionKyFilter, sessionStatusFilter, sessionSearchComment, sessionSortOrder]);
 
   // Xuất CSV học viên hiện tại
   const exportStudentCsv = (): void => {
@@ -536,6 +555,18 @@ export default function DoiSoatPage(): ReactElement {
             </div>
           </div>
 
+          {/* Thống kê số lượng kết quả tìm kiếm */}
+          {overviewData ? (
+            <div className='flex items-center justify-between text-xs text-muted-foreground px-1 font-medium'>
+              <span>
+                Tìm thấy <strong className='text-foreground'>{overviewData.danhSach.length}</strong> học viên phù hợp
+                {overviewData.danhSach.length !== overviewData.thongKe.tongHocVien
+                  ? ` (trên tổng số ${overviewData.thongKe.tongHocVien} học viên toàn trung tâm)`
+                  : ''}
+              </span>
+            </div>
+          ) : null}
+
           {/* Bảng Danh sách Học viên Đối soát */}
           <div className='overflow-x-auto rounded-lg border bg-card shadow-sm'>
             <Table>
@@ -555,7 +586,27 @@ export default function DoiSoatPage(): ReactElement {
                 </TableRow>
               </TableHeader>
               <TableBody className='text-xs'>
-                {overviewData?.danhSach.length === 0 ? (
+                {loadingOverview ? (
+                  <TableRow>
+                    <TableCell colSpan={11} className='h-36 text-center text-muted-foreground'>
+                      <div className='flex flex-col items-center justify-center gap-2'>
+                        <RefreshCw className='size-5 animate-spin text-primary' />
+                        <span className='font-medium text-xs'>Đang tải và tổng hợp dữ liệu đối soát học viên...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : overviewError ? (
+                  <TableRow>
+                    <TableCell colSpan={11} className='h-36 text-center text-destructive'>
+                      <div className='flex flex-col items-center justify-center gap-2'>
+                        <span className='font-medium text-xs'>⚠️ {overviewError}</span>
+                        <Button size='sm' variant='outline' onClick={() => void loadOverview()}>
+                          Thử lại
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : overviewData?.danhSach.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={11} className='h-32 text-center text-muted-foreground'>
                       Không tìm thấy học viên nào phù hợp với điều kiện tìm kiếm.
@@ -939,6 +990,15 @@ export default function DoiSoatPage(): ReactElement {
                           className='h-8 text-xs'
                         />
                       </div>
+
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={() => setSessionSortOrder(sessionSortOrder === 'desc' ? 'asc' : 'desc')}
+                        className='h-8 text-xs gap-1'
+                      >
+                        {sessionSortOrder === 'desc' ? '⬇️ Mới nhất trước' : '⬆️ Cũ nhất trước'}
+                      </Button>
                     </div>
 
                     <span className='text-xs text-muted-foreground'>
@@ -946,19 +1006,19 @@ export default function DoiSoatPage(): ReactElement {
                     </span>
                   </div>
 
-                  {/* Bảng Buổi Học Full Width */}
+                  {/* Bảng Buổi Học Full Width (Chống đè chữ triệt để) */}
                   <div className='overflow-x-auto rounded-lg border bg-card shadow-sm'>
-                    <Table>
+                    <Table className='min-w-[1100px]'>
                       <TableHeader className='bg-muted/60 sticky top-0 z-10'>
                         <TableRow className='text-xs font-semibold'>
                           <TableHead className='w-12 text-center'>STT</TableHead>
                           <TableHead className='w-32'>Ngày & Giờ</TableHead>
-                          <TableHead className='w-24'>Lớp</TableHead>
+                          <TableHead className='w-20'>Lớp</TableHead>
                           <TableHead className='w-32 text-center'>Trạng thái</TableHead>
-                          <TableHead className='w-16 text-center'>BTVN</TableHead>
-                          <TableHead className='w-16 text-center'>Ý thức</TableHead>
-                          <TableHead>Nhận xét giáo viên</TableHead>
-                          <TableHead className='w-36'>Thuộc kỳ nộp</TableHead>
+                          <TableHead className='w-14 text-center'>BTVN</TableHead>
+                          <TableHead className='w-14 text-center'>Ý thức</TableHead>
+                          <TableHead className='min-w-[280px] max-w-[420px]'>Nhận xét giáo viên</TableHead>
+                          <TableHead className='w-52 min-w-[200px]'>Thuộc kỳ nộp</TableHead>
                           <TableHead className='w-20 text-center'>Trừ buổi</TableHead>
                           <TableHead className='w-16 text-center'>Sửa</TableHead>
                         </TableRow>
@@ -1010,17 +1070,23 @@ export default function DoiSoatPage(): ReactElement {
                               <TableCell className='text-center font-bold'>
                                 {buoi.yThucDiem != null ? `${buoi.yThucDiem}/10` : '—'}
                               </TableCell>
-                              <TableCell className='max-w-md break-words'>
+                              <TableCell className='min-w-[280px] max-w-[420px] break-words whitespace-normal leading-relaxed text-foreground'>
                                 {buoi.nhanXet ? (
-                                  <span className='text-foreground'>{buoi.nhanXet}</span>
+                                  <span>{buoi.nhanXet}</span>
                                 ) : (
                                   <span className='text-muted-foreground italic'>Chưa có nhận xét</span>
                                 )}
                               </TableCell>
-                              <TableCell>
-                                <span className={`text-[11px] font-medium ${buoi.ngoaiGoi ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
-                                  {buoi.kyTen}
-                                </span>
+                              <TableCell className='w-52 min-w-[200px]'>
+                                {buoi.ngoaiGoi ? (
+                                  <div className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-destructive/10 text-destructive border border-destructive/20 whitespace-normal leading-tight'>
+                                    🔴 {buoi.kyTen}
+                                  </div>
+                                ) : (
+                                  <div className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-foreground border border-border whitespace-normal leading-tight'>
+                                    🟢 {buoi.kyTen}
+                                  </div>
+                                )}
                               </TableCell>
                               <TableCell className='text-center font-bold text-destructive'>
                                 {buoi.soBuoiDaTru > 0 ? `-${buoi.soBuoiDaTru}` : '0'}
