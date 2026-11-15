@@ -498,7 +498,7 @@ export default [
         if (!record) throw eduError('NOT_FOUND', 'RECORD_NOT_FOUND', 'Attendance record not found');
 
         const hocVienId = Number(record.hocVienId);
-        const soBuoiDaTruMoi = sessionsToDeduct(trangThai);
+        const soBuoiDaTruMoi = sessionsToDeduct(trangThai, false, false);
 
         await connection.query
           .updateTable('eduDiemDanh')
@@ -555,5 +555,7 @@ export default [
         });
       },
     );
+
+    return new Hono().route('/', router);
   }),
 ];
