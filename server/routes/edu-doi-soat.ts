@@ -80,7 +80,7 @@ export default [
     router.post(
       '/doiSoat/tongQuan',
       declare('Get audit overview for all students', 'getAuditOverview'),
-      needs('edu.hocPhi', 'view'),
+      needs('edu.hocVien', 'view'),
       apiValidator('json', TongQuanInput),
       async (c) => {
         const connection = database.connection();
@@ -244,7 +244,7 @@ export default [
     router.post(
       '/doiSoat/chiTietHocVien',
       declare('Get detailed audit data for one student', 'getStudentAuditDetail'),
-      needs('edu.hocPhi', 'view'),
+      needs('edu.hocVien', 'view'),
       apiValidator('json', ChiTietInput),
       async (c) => {
         const connection = database.connection();
@@ -484,7 +484,7 @@ export default [
     router.post(
       '/doiSoat/capNhatBuoiHoc',
       declare('Quick edit session attendance and recalculate balance', 'quickEditSession'),
-      needs('edu.diemDanh', 'manage'),
+      needs('edu.diemDanh', 'record'),
       apiValidator('json', CapNhatBuoiHocInput),
       async (c) => {
         const connection = database.connection();

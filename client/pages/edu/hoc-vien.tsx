@@ -237,8 +237,14 @@ export default function HocVienPage(): ReactElement {
                     Hồ sơ 360°
                   </Link>
                   <Link
+                    to={`/doi-soat?hocVienId=${row.id}`}
+                    className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-7 text-xs text-primary font-medium' })}
+                  >
+                    Đối soát
+                  </Link>
+                  <Link
                     to={`/hoc-phi?search=${encodeURIComponent(text(row.ma))}`}
-                    className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-7 text-xs text-primary' })}
+                    className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-7 text-xs text-muted-foreground' })}
                   >
                     Thu phí
                   </Link>
@@ -358,6 +364,12 @@ export default function HocVienPage(): ReactElement {
                 {t('edu.hocVien.addParent')}
               </Button>
             ) : null}
+            <Link
+              to={`/doi-soat?hocVienId=${row.id}`}
+              className={buttonVariants({ variant: 'outline', size: 'sm', className: 'h-8 px-2 text-xs text-primary font-medium' })}
+            >
+              Đối soát
+            </Link>
             <RowManage kind='hocVien' row={row} onChanged={reload} />
           </div>
         )}

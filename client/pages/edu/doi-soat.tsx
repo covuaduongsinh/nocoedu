@@ -19,9 +19,12 @@ import {
   Wallet,
   AlertTriangle,
   Edit3,
+  X,
+  ExternalLink,
 } from 'lucide-react';
 
 import { PageContainer } from '#components/page-container';
+import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
 import { Button } from '#components/ui/button';
 import { Input } from '#components/ui/input';
@@ -42,6 +45,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '#components/ui/dialog';
+import { useRows, text } from './kit.js';
 
 const fmt = (value: unknown): string => Number(value || 0).toLocaleString('vi-VN');
 
@@ -163,6 +167,12 @@ export default function DoiSoatPage(): ReactElement {
 
   const selectedStudentId = searchParams.get('hocVienId');
 
+  // Lấy dữ liệu cơ sở và lớp học
+  const classes = useRows('lop').loaded;
+  const branches = useRows('coSo').loaded;
+  const classRows = classes.state === 'ready' ? classes.rows : [];
+  const branchRows = branches.state === 'ready' ? branches.rows : [];
+
   // State chế độ 1 (Tổng quan)
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [overviewData, setOverviewData] = useState<{
@@ -171,6 +181,14 @@ export default function DoiSoatPage(): ReactElement {
   } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('tat_ca');
+  const [selectedCoSoId, setSelectedCoSoId] = useState<string>('all');
+  const [selectedLopId, setSelectedLopId] = useState<string>('all');
+
+  // Lọc danh sách lớp học theo cơ sở đã chọn
+  const availableClasses = useMemo(() => {
+    if (selectedCoSoId === 'all') return classRows;
+    return classRows.filter((c) => String(c.coSoId) === selectedCoSoId);
+  }, [classRows, selectedCoSoId]);
 
   // State chế độ 2 (Chi tiết học viên)
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -194,18 +212,30 @@ export default function DoiSoatPage(): ReactElement {
   } | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Load danh sách tổng quan
-  const loadOverview = async (): Promise<void> => {
+  // Load danh sách tổng quan với tham số ghi đè tức thì
+  const loadOverview = async (override?: {
+    search?: string;
+    trangThaiLoc?: string;
+    coSoId?: string;
+    lopId?: string;
+  }): Promise<void> => {
     setLoadingOverview(true);
     try {
+      const curSearch = override && 'search' in override ? override.search : searchTerm;
+      const curStatus = override?.trangThaiLoc ?? filterStatus;
+      const curCoSoId = override?.coSoId ?? selectedCoSoId;
+      const curLopId = override?.lopId ?? selectedLopId;
+
       const res = await api.request<{
         data: { thongKe: AuditStats; danhSach: StudentOverviewRow[] };
       }>({
         path: '/doiSoat/tongQuan',
         method: 'POST',
         json: {
-          search: searchTerm || null,
-          trangThaiLoc: filterStatus,
+          search: curSearch || null,
+          trangThaiLoc: curStatus,
+          coSoId: curCoSoId !== 'all' ? Number(curCoSoId) : null,
+          lopId: curLopId !== 'all' ? Number(curLopId) : null,
         },
       });
       setOverviewData(res.data);
@@ -214,6 +244,30 @@ export default function DoiSoatPage(): ReactElement {
     } finally {
       setLoadingOverview(false);
     }
+  };
+
+  const handleFilterStatus = (status: string) => {
+    setFilterStatus(status);
+    void loadOverview({ trangThaiLoc: status });
+  };
+
+  const handleCoSoChange = (coSoId: string) => {
+    setSelectedCoSoId(coSoId);
+    setSelectedLopId('all');
+    void loadOverview({ coSoId, lopId: 'all' });
+  };
+
+  const handleLopChange = (lopId: string) => {
+    setSelectedLopId(lopId);
+    void loadOverview({ lopId });
+  };
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setFilterStatus('tat_ca');
+    setSelectedCoSoId('all');
+    setSelectedLopId('all');
+    void loadOverview({ search: '', trangThaiLoc: 'tat_ca', coSoId: 'all', lopId: 'all' });
   };
 
   // Load chi tiết đối soát học viên
@@ -350,16 +404,16 @@ export default function DoiSoatPage(): ReactElement {
           {overviewData ? (
             <div className='grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6'>
               <div
-                onClick={() => { setFilterStatus('tat_ca'); void loadOverview(); }}
+                onClick={() => handleFilterStatus('tat_ca')}
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-primary ${filterStatus === 'tat_ca' ? 'ring-2 ring-primary bg-primary/5' : 'bg-card'}`}
               >
                 <p className='text-xs font-medium text-muted-foreground'>Tổng học viên</p>
                 <p className='mt-1 text-2xl font-bold text-foreground'>{overviewData.thongKe.tongHocVien}</p>
-                <span className='text-[11px] text-muted-foreground'>Đang quản lý</span>
+                <span className='text-[11px] text-muted-foreground'>Tất cả học viên</span>
               </div>
 
               <div
-                onClick={() => { setFilterStatus('vuot_goi'); void loadOverview(); }}
+                onClick={() => handleFilterStatus('vuot_goi')}
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-destructive ${filterStatus === 'vuot_goi' ? 'ring-2 ring-destructive bg-destructive/5' : 'bg-card'}`}
               >
                 <p className='text-xs font-medium text-destructive flex items-center gap-1'>
@@ -370,7 +424,7 @@ export default function DoiSoatPage(): ReactElement {
               </div>
 
               <div
-                onClick={() => { setFilterStatus('sap_het'); void loadOverview(); }}
+                onClick={() => handleFilterStatus('sap_het')}
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-amber-500 ${filterStatus === 'sap_het' ? 'ring-2 ring-amber-500 bg-amber-50/50 dark:bg-amber-950/20' : 'bg-card'}`}
               >
                 <p className='text-xs font-medium text-amber-600 dark:text-amber-400'>Sắp hết buổi</p>
@@ -379,7 +433,7 @@ export default function DoiSoatPage(): ReactElement {
               </div>
 
               <div
-                onClick={() => { setFilterStatus('binh_thuong'); void loadOverview(); }}
+                onClick={() => handleFilterStatus('binh_thuong')}
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-emerald-500 ${filterStatus === 'binh_thuong' ? 'ring-2 ring-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' : 'bg-card'}`}
               >
                 <p className='text-xs font-medium text-emerald-600 dark:text-emerald-400'>Đang an toàn</p>
@@ -388,7 +442,7 @@ export default function DoiSoatPage(): ReactElement {
               </div>
 
               <div
-                onClick={() => { setFilterStatus('no_hoc_phi'); void loadOverview(); }}
+                onClick={() => handleFilterStatus('no_hoc_phi')}
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-primary ${filterStatus === 'no_hoc_phi' ? 'ring-2 ring-primary bg-primary/5' : 'bg-card'}`}
               >
                 <p className='text-xs font-medium text-muted-foreground'>Nợ học phí</p>
@@ -397,7 +451,7 @@ export default function DoiSoatPage(): ReactElement {
               </div>
 
               <div
-                onClick={() => { setFilterStatus('no_sach'); void loadOverview(); }}
+                onClick={() => handleFilterStatus('no_sach')}
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-primary ${filterStatus === 'no_sach' ? 'ring-2 ring-primary bg-primary/5' : 'bg-card'}`}
               >
                 <p className='text-xs font-medium text-muted-foreground'>Nợ tiền sách</p>
@@ -407,39 +461,78 @@ export default function DoiSoatPage(): ReactElement {
             </div>
           ) : null}
 
-          {/* Thanh công cụ Tìm kiếm & Bộ lọc */}
+          {/* Thanh công cụ Tìm kiếm & Bộ lọc Đa năng */}
           <div className='flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3 shadow-sm'>
-            <div className='flex flex-1 items-center gap-2 min-w-[280px]'>
-              <Search className='size-4 text-muted-foreground' />
-              <Input
-                placeholder='Tìm theo Tên học viên, Mã HV hoặc SĐT phụ huynh...'
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') void loadOverview(); }}
-                className='h-8 text-sm'
-              />
-              <Button size='sm' onClick={() => void loadOverview()}>Tìm kiếm</Button>
-            </div>
+            <div className='flex flex-1 flex-wrap items-center gap-2 min-w-[280px]'>
+              <div className='relative flex-1 min-w-[220px]'>
+                <Search className='absolute left-2.5 top-2.5 size-4 text-muted-foreground' />
+                <Input
+                  placeholder='Tìm theo Tên học viên, Mã HV hoặc SĐT phụ huynh...'
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void loadOverview();
+                  }}
+                  className='h-9 pl-8 text-sm'
+                />
+              </div>
 
-            <div className='flex items-center gap-2'>
-              <span className='text-xs text-muted-foreground flex items-center gap-1'>
-                <Filter className='size-3.5' /> Lọc theo:
-              </span>
+              {/* Lọc theo Cơ sở */}
+              <select
+                value={selectedCoSoId}
+                onChange={(e) => handleCoSoChange(e.target.value)}
+                className='h-9 rounded-md border border-input bg-background px-3 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
+              >
+                <option value='all'>Tất cả cơ sở ({branchRows.length})</option>
+                {branchRows.map((b) => (
+                  <option key={b.id} value={String(b.id)}>
+                    {text(b.ten)}
+                  </option>
+                ))}
+              </select>
+
+              {/* Lọc theo Lớp học */}
+              <select
+                value={selectedLopId}
+                onChange={(e) => handleLopChange(e.target.value)}
+                className='h-9 rounded-md border border-input bg-background px-3 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
+              >
+                <option value='all'>Tất cả lớp học ({availableClasses.length})</option>
+                {availableClasses.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {text(c.ten)}
+                  </option>
+                ))}
+              </select>
+
+              {/* Lọc theo Trạng thái đối soát */}
               <select
                 value={filterStatus}
-                onChange={(e) => {
-                  setFilterStatus(e.target.value);
-                  void loadOverview();
-                }}
-                className='h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
+                onChange={(e) => handleFilterStatus(e.target.value)}
+                className='h-9 rounded-md border border-input bg-background px-3 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
               >
-                <option value='tat_ca'>Tất cả học viên</option>
+                <option value='tat_ca'>Tất cả trạng thái</option>
                 <option value='vuot_goi'>🔴 Học viên vượt buổi (Âm)</option>
                 <option value='sap_het'>🟡 Sắp hết buổi (0 - 2)</option>
                 <option value='binh_thuong'>🟢 Còn nhiều buổi (≥ 3)</option>
                 <option value='no_hoc_phi'>💳 Còn nợ học phí</option>
                 <option value='no_sach'>📚 Còn nợ tiền sách</option>
               </select>
+
+              <Button size='sm' className='h-9 px-3 gap-1' onClick={() => void loadOverview()}>
+                <Search className='size-3.5' /> Tìm kiếm
+              </Button>
+
+              {(searchTerm || selectedCoSoId !== 'all' || selectedLopId !== 'all' || filterStatus !== 'tat_ca') ? (
+                <Button
+                  size='sm'
+                  variant='ghost'
+                  className='h-9 px-2 text-xs text-muted-foreground hover:text-foreground gap-1'
+                  onClick={handleResetFilters}
+                >
+                  <X className='size-3.5' /> Đặt lại
+                </Button>
+              ) : null}
             </div>
           </div>
 
@@ -448,35 +541,60 @@ export default function DoiSoatPage(): ReactElement {
             <Table>
               <TableHeader>
                 <TableRow className='bg-muted/50 text-xs font-semibold'>
-                  <TableHead className='w-24'>Mã HV</TableHead>
+                  <TableHead className='w-28'>Mã HV</TableHead>
                   <TableHead>Họ và tên</TableHead>
                   <TableHead>Lớp học</TableHead>
+                  <TableHead>Cơ sở</TableHead>
                   <TableHead>Phụ huynh liên hệ</TableHead>
                   <TableHead className='text-center'>Đã nộp</TableHead>
                   <TableHead className='text-center'>Đã học</TableHead>
                   <TableHead className='text-center'>Số buổi còn lại</TableHead>
                   <TableHead className='text-right'>Học phí</TableHead>
                   <TableHead className='text-right'>Tiền sách</TableHead>
-                  <TableHead className='text-center w-36'>Thao tác</TableHead>
+                  <TableHead className='text-center w-32'>Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className='text-xs'>
                 {overviewData?.danhSach.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className='h-32 text-center text-muted-foreground'>
+                    <TableCell colSpan={11} className='h-32 text-center text-muted-foreground'>
                       Không tìm thấy học viên nào phù hợp với điều kiện tìm kiếm.
                     </TableCell>
                   </TableRow>
                 ) : (
                   overviewData?.danhSach.map((row) => (
                     <TableRow key={row.id} className='hover:bg-muted/40 transition-colors'>
-                      <TableCell className='font-mono font-medium text-muted-foreground'>
-                        {row.ma}
+                      <TableCell>
+                        <RecordLink
+                          to={`/hoc-vien/${row.id}`}
+                          className='font-mono font-medium text-primary hover:underline'
+                        >
+                          {row.ma}
+                        </RecordLink>
                       </TableCell>
-                      <TableCell className='font-semibold text-foreground text-sm'>
-                        {row.hoTen}
+                      <TableCell>
+                        <RecordLink
+                          to={`/hoc-vien/${row.id}`}
+                          className='font-semibold text-foreground hover:underline hover:text-primary transition-colors text-sm'
+                        >
+                          {row.hoTen}
+                        </RecordLink>
                       </TableCell>
-                      <TableCell>{row.lopTen || '—'}</TableCell>
+                      <TableCell>
+                        {row.lopId ? (
+                          <RecordLink
+                            to={`/lop/${row.lopId}`}
+                            className='text-primary hover:underline font-medium'
+                          >
+                            {row.lopTen}
+                          </RecordLink>
+                        ) : (
+                          <span className='text-muted-foreground'>—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className='text-muted-foreground'>{row.coSoTen || '—'}</span>
+                      </TableCell>
                       <TableCell>
                         {row.phuHuynhTen ? (
                           <div>
@@ -577,11 +695,31 @@ export default function DoiSoatPage(): ReactElement {
                     <span className='font-mono text-sm font-normal text-muted-foreground'>
                       ({studentDetail.hocVien.ma})
                     </span>
+                    <RecordLink
+                      to={`/hoc-vien/${studentDetail.hocVien.id}`}
+                      className='inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline ml-2'
+                    >
+                      <ExternalLink className='size-3.5' />
+                      Hồ sơ 360°
+                    </RecordLink>
                   </h2>
-                  <p className='text-xs text-muted-foreground'>
-                    {studentDetail.hocVien.lopTen ? `Lớp: ${studentDetail.hocVien.lopTen}` : 'Chưa xếp lớp'}
-                    {studentDetail.hocVien.coSoTen ? ` · Cơ sở: ${studentDetail.hocVien.coSoTen}` : ''}
-                    {studentDetail.hocVien.phuHuynh ? ` · Phụ huynh: ${studentDetail.hocVien.phuHuynh.hoTen} (${studentDetail.hocVien.phuHuynh.soDienThoai})` : ''}
+                  <p className='text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5'>
+                    {studentDetail.hocVien.lopId ? (
+                      <RecordLink
+                        to={`/lop/${studentDetail.hocVien.lopId}`}
+                        className='text-primary hover:underline font-medium'
+                      >
+                        Lớp: {studentDetail.hocVien.lopTen}
+                      </RecordLink>
+                    ) : (
+                      <span>Chưa xếp lớp</span>
+                    )}
+                    {studentDetail.hocVien.coSoTen ? <span>· Cơ sở: {studentDetail.hocVien.coSoTen}</span> : null}
+                    {studentDetail.hocVien.phuHuynh ? (
+                      <span>
+                        · Phụ huynh: <span className='font-medium text-foreground'>{studentDetail.hocVien.phuHuynh.hoTen}</span> ({studentDetail.hocVien.phuHuynh.soDienThoai})
+                      </span>
+                    ) : null}
                   </p>
                 </div>
               ) : null}

@@ -1,15 +1,16 @@
 import { useApiClient, usePageBreadcrumb } from '@nocobase/app-client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
+import { CalendarCheck } from 'lucide-react';
 import { useEffect, useState, type ReactElement, type ReactNode } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
 import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
 import { Badge } from '#components/ui/badge';
-import { Button } from '#components/ui/button';
+import { Button, buttonVariants } from '#components/ui/button';
 import { Card, CardContent } from '#components/ui/card';
 import {
   Dialog,
@@ -183,6 +184,13 @@ function StudentFile({
                 </span>
               </div>
               <div className='flex items-center gap-2'>
+                <Link
+                  to={`/doi-soat?hocVienId=${student.id}`}
+                  className={buttonVariants({ variant: 'outline', size: 'sm', className: 'h-8 gap-1.5 font-medium text-primary hover:text-primary' })}
+                >
+                  <CalendarCheck className='size-3.5' />
+                  Đối soát buổi học
+                </Link>
                 <NoteButton row={student} onChanged={onChanged} />
                 <RowManage kind='hocVien' row={student} onChanged={onChanged} />
               </div>
