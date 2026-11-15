@@ -8,7 +8,7 @@ import {
   defineApiRoutes,
   describeRoute,
 } from '@nocobase/app-server/router';
-import { databaseManagerToken, type DatabaseManager } from '@nocobase/db';
+import { databaseManagerToken } from '@nocobase/db';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
@@ -17,7 +17,6 @@ import { asText } from '../edu/names.js';
 import {
   ATTENDANCE_STATUSES,
   sessionsToDeduct,
-  todayVn,
 } from '../edu/so-du.js';
 import {
   eduError,
@@ -81,85 +80,74 @@ export default [
     router.post(
       '/doiSoat/tongQuan',
       declare('Get audit overview for all students', 'getAuditOverview'),
+      needs('edu.hocPhi', 'view'),
       apiValidator('json', TongQuanInput),
       async (c) => {
-        needs(c, 'edu.hocPhi', 'view');
-        const db = database.get();
-        if (!db) throw eduError('DATABASE_ERROR', 'NO_DB', 'Database is not ready');
-
+        const connection = database.connection();
         const { search, lopId, coSoId, trangThaiLoc } = c.req.valid('json');
 
-        const hocVienRepo = db.getRepository('eduHocVien');
-        const lopRepo = db.getRepository('eduLop');
-        const coSoRepo = db.getRepository('eduCoSo');
-        const phuHuynhRepo = db.getRepository('eduPhuHuynh');
-        const hocVienPhuHuynhRepo = db.getRepository('eduHocVienPhuHuynh');
-        const goiHocRepo = db.getRepository('eduGoiHoc');
-        const diemDanhRepo = db.getRepository('eduDiemDanh');
-        const phatSachRepo = db.getRepository('eduPhatSach');
-        const nopSachRepo = db.getRepository('eduNopSach');
-
-        // Lấy danh sách học viên
-        const allStudents = await hocVienRepo.find({
-          order: [['id', 'ASC']],
-        });
+        const allStudents = await connection.query
+          .selectFrom('eduHocVien')
+          .selectAll()
+          .orderBy('id', 'asc')
+          .execute();
 
         const [classes, branches, allPacks, allAttendances, allBooks, allBookPayments, parentLinks, parents] = await Promise.all([
-          lopRepo.find(),
-          coSoRepo.find(),
-          goiHocRepo.find(),
-          diemDanhRepo.find(),
-          phatSachRepo.find(),
-          nopSachRepo.find(),
-          hocVienPhuHuynhRepo.find(),
-          phuHuynhRepo.find(),
+          connection.query.selectFrom('eduLop').select(['id', 'ten', 'coSoId']).execute(),
+          connection.query.selectFrom('eduCoSo').select(['id', 'ten']).execute(),
+          connection.query.selectFrom('eduGoiHoc').select(['id', 'hocVienId', 'soBuoi', 'thanhTien', 'daThanhToan']).execute(),
+          connection.query.selectFrom('eduDiemDanh').select(['id', 'hocVienId', 'soBuoiDaTru']).execute(),
+          connection.query.selectFrom('eduPhatSach').select(['id', 'hocVienId', 'tienSach', 'uuDai']).execute(),
+          connection.query.selectFrom('eduNopSach').select(['id', 'hocVienId', 'soTien']).execute(),
+          connection.query.selectFrom('eduHocVienPhuHuynh').select(['hocVienId', 'phuHuynhId']).execute(),
+          connection.query.selectFrom('eduPhuHuynh').select(['id', 'hoTen', 'soDienThoai']).execute(),
         ]);
 
-        const classMap = new Map(classes.map((c: any) => [c.id, c]));
-        const branchMap = new Map(branches.map((b: any) => [b.id, b]));
-        const parentMap = new Map(parents.map((p: any) => [p.id, p]));
+        const classMap = new Map(classes.map((cl) => [Number(cl.id), cl]));
+        const branchMap = new Map(branches.map((b) => [Number(b.id), b]));
+        const parentMap = new Map(parents.map((p) => [Number(p.id), p]));
         const studentParentMap = new Map<number, any>();
         for (const link of parentLinks) {
-          if (!studentParentMap.has(link.hocVienId)) {
-            const p = parentMap.get(link.phuHuynhId);
-            if (p) studentParentMap.set(link.hocVienId, p);
+          const hvId = Number(link.hocVienId);
+          if (!studentParentMap.has(hvId)) {
+            const p = parentMap.get(Number(link.phuHuynhId));
+            if (p) studentParentMap.set(hvId, p);
           }
         }
 
-        // Tính toán gói học theo từng học viên
         const packStats = new Map<number, { tongSoBuoiDaMua: number; tongTienHocPhi: number; tongDaThanhToan: number }>();
         for (const pack of allPacks) {
-          const s = packStats.get(pack.hocVienId) ?? { tongSoBuoiDaMua: 0, tongTienHocPhi: 0, tongDaThanhToan: 0 };
+          const hvId = Number(pack.hocVienId);
+          const s = packStats.get(hvId) ?? { tongSoBuoiDaMua: 0, tongTienHocPhi: 0, tongDaThanhToan: 0 };
           s.tongSoBuoiDaMua += Number(pack.soBuoi || 0);
           s.tongTienHocPhi += Number(pack.thanhTien || 0);
           s.tongDaThanhToan += Number(pack.daThanhToan || 0);
-          packStats.set(pack.hocVienId, s);
+          packStats.set(hvId, s);
         }
 
-        // Tính toán điểm danh theo từng học viên
-        const attendanceStats = new Map<number, { tongSoBuoiDaHoc: number; tongBuoiTru: number }>();
+        const attendanceStats = new Map<number, { tongSoBuoiDaHoc: number }>();
         for (const att of allAttendances) {
-          const s = attendanceStats.get(att.hocVienId) ?? { tongSoBuoiDaHoc: 0, tongBuoiTru: 0 };
+          const hvId = Number(att.hocVienId);
+          const s = attendanceStats.get(hvId) ?? { tongSoBuoiDaHoc: 0 };
           s.tongSoBuoiDaHoc += 1;
-          s.tongBuoiTru += Number(att.soBuoiDaTru || 0);
-          attendanceStats.set(att.hocVienId, s);
+          attendanceStats.set(hvId, s);
         }
 
-        // Tính toán sách theo từng học viên
         const bookStats = new Map<number, { tongTienSachDaPhat: number; tongTienSachDaNop: number }>();
         for (const b of allBooks) {
-          const s = bookStats.get(b.hocVienId) ?? { tongTienSachDaPhat: 0, tongTienSachDaNop: 0 };
+          const hvId = Number(b.hocVienId);
+          const s = bookStats.get(hvId) ?? { tongTienSachDaPhat: 0, tongTienSachDaNop: 0 };
           const tien = Number(b.tienSach || 0) - Number(b.uuDai || 0);
           s.tongTienSachDaPhat += Math.max(0, tien);
-          bookStats.set(b.hocVienId, s);
+          bookStats.set(hvId, s);
         }
         for (const np of allBookPayments) {
-          const s = bookStats.get(np.hocVienId) ?? { tongTienSachDaPhat: 0, tongTienSachDaNop: 0 };
+          const hvId = Number(np.hocVienId);
+          const s = bookStats.get(hvId) ?? { tongTienSachDaPhat: 0, tongTienSachDaNop: 0 };
           s.tongTienSachDaNop += Number(np.soTien || 0);
-          bookStats.set(np.hocVienId, s);
+          bookStats.set(hvId, s);
         }
 
-        // Thống kê toàn trường
         let soHocVienVuotGoi = 0;
         let soHocVienSapHet = 0;
         let soHocVienBinhThuong = 0;
@@ -169,13 +157,18 @@ export default [
         const resultRows: any[] = [];
 
         for (const hv of allStudents) {
-          const lop = hv.lopId ? classMap.get(hv.lopId) : null;
-          const coSo = lop?.coSoId ? branchMap.get(lop.coSoId) : (hv.coSoId ? branchMap.get(hv.coSoId) : null);
-          const ph = studentParentMap.get(hv.id);
+          const hvId = Number(hv.id);
+          const lopIdNum = hv.lopId != null ? Number(hv.lopId) : null;
+          const coSoIdNum = hv.coSoId != null ? Number(hv.coSoId) : null;
 
-          const ps = packStats.get(hv.id) ?? { tongSoBuoiDaMua: 0, tongTienHocPhi: 0, tongDaThanhToan: 0 };
-          const as = attendanceStats.get(hv.id) ?? { tongSoBuoiDaHoc: 0, tongBuoiTru: 0 };
-          const bs = bookStats.get(hv.id) ?? { tongTienSachDaPhat: 0, tongTienSachDaNop: 0 };
+          const lop = lopIdNum != null ? classMap.get(lopIdNum) : null;
+          const lopCoSoId = lop?.coSoId != null ? Number(lop.coSoId) : null;
+          const coSo = lopCoSoId != null ? branchMap.get(lopCoSoId) : (coSoIdNum != null ? branchMap.get(coSoIdNum) : null);
+          const ph = studentParentMap.get(hvId);
+
+          const ps = packStats.get(hvId) ?? { tongSoBuoiDaMua: 0, tongTienHocPhi: 0, tongDaThanhToan: 0 };
+          const asStat = attendanceStats.get(hvId) ?? { tongSoBuoiDaHoc: 0 };
+          const bs = bookStats.get(hvId) ?? { tongTienSachDaPhat: 0, tongTienSachDaNop: 0 };
 
           const soBuoiConLai = Number(hv.soBuoiConLai || 0);
           const tongConNoHocPhi = Math.max(0, ps.tongTienHocPhi - ps.tongDaThanhToan);
@@ -189,7 +182,6 @@ export default [
           tongCongNoHocPhi += tongConNoHocPhi;
           tongCongNoSach += congNoSach;
 
-          // Kiểm tra filter
           if (search) {
             const q = search.toLowerCase();
             const matchName = String(hv.hoTen || '').toLowerCase().includes(q);
@@ -198,8 +190,8 @@ export default [
             if (!matchName && !matchMa && !matchPhone) continue;
           }
 
-          if (lopId && hv.lopId !== lopId) continue;
-          if (coSoId && lop?.coSoId !== coSoId && hv.coSoId !== coSoId) continue;
+          if (lopId && lopIdNum !== lopId) continue;
+          if (coSoId && lopCoSoId !== coSoId && coSoIdNum !== coSoId) continue;
 
           if (trangThaiLoc === 'vuot_goi' && soBuoiConLai >= 0) continue;
           if (trangThaiLoc === 'sap_het' && (soBuoiConLai < 0 || soBuoiConLai > 2)) continue;
@@ -208,19 +200,19 @@ export default [
           if (trangThaiLoc === 'no_sach' && congNoSach <= 0) continue;
 
           resultRows.push({
-            id: hv.id,
-            ma: hv.ma,
-            hoTen: hv.hoTen,
-            lopId: hv.lopId,
-            lopTen: lop ? lop.ten : null,
-            coSoId: coSo ? coSo.id : null,
-            coSoTen: coSo ? coSo.ten : null,
-            phuHuynhTen: ph ? ph.hoTen : null,
-            phuHuynhSdt: ph ? ph.soDienThoai : null,
+            id: hvId,
+            ma: asText(hv.ma),
+            hoTen: asText(hv.hoTen),
+            lopId: lopIdNum,
+            lopTen: lop ? asText(lop.ten) : null,
+            coSoId: coSo ? Number(coSo.id) : null,
+            coSoTen: coSo ? asText(coSo.ten) : null,
+            phuHuynhTen: ph ? asText(ph.hoTen) : null,
+            phuHuynhSdt: ph ? asText(ph.soDienThoai) : null,
             soBuoiConLai,
             soBuoiVuotGoi: soBuoiConLai < 0 ? Math.abs(soBuoiConLai) : 0,
             tongSoBuoiDaMua: ps.tongSoBuoiDaMua,
-            tongSoBuoiDaHoc: as.tongSoBuoiDaHoc,
+            tongSoBuoiDaHoc: asStat.tongSoBuoiDaHoc,
             tongTienHocPhi: ps.tongTienHocPhi,
             tongDaThanhToan: ps.tongDaThanhToan,
             tongConNoHocPhi,
@@ -228,7 +220,7 @@ export default [
             tongTienSachDaNop: bs.tongTienSachDaNop,
             tienSachTon,
             congNoSach,
-            trangThai: hv.trangThai || 'dang_hoc',
+            trangThai: asText(hv.trangThai) || 'dang_hoc',
           });
         }
 
@@ -252,71 +244,109 @@ export default [
     router.post(
       '/doiSoat/chiTietHocVien',
       declare('Get detailed audit data for one student', 'getStudentAuditDetail'),
+      needs('edu.hocPhi', 'view'),
       apiValidator('json', ChiTietInput),
       async (c) => {
-        needs(c, 'edu.hocPhi', 'view');
-        const db = database.get();
-        if (!db) throw eduError('DATABASE_ERROR', 'NO_DB', 'Database is not ready');
-
+        const connection = database.connection();
         const { hocVienId } = c.req.valid('json');
 
-        const hocVienRepo = db.getRepository('eduHocVien');
-        const lopRepo = db.getRepository('eduLop');
-        const coSoRepo = db.getRepository('eduCoSo');
-        const goiHocRepo = db.getRepository('eduGoiHoc');
-        const diemDanhRepo = db.getRepository('eduDiemDanh');
-        const buoiHocRepo = db.getRepository('eduBuoiHoc');
-        const phatSachRepo = db.getRepository('eduPhatSach');
-        const sachRepo = db.getRepository('eduSach');
-        const nopSachRepo = db.getRepository('eduNopSach');
-        const phuHuynhRepo = db.getRepository('eduPhuHuynh');
-        const hocVienPhuHuynhRepo = db.getRepository('eduHocVienPhuHuynh');
-
-        const hocVien = await hocVienRepo.findOne({ filterByTk: hocVienId });
+        const hocVien = await connection.query
+          .selectFrom('eduHocVien')
+          .selectAll()
+          .where('id', '=', hocVienId)
+          .executeTakeFirst();
         if (!hocVien) throw eduError('NOT_FOUND', 'STUDENT_NOT_FOUND', 'Student not found');
 
-        const [classes, branches, goiHocs, diemDanhs, buoiHocs, phatSachs, sachs, nopSachs, parentLinks, parents] = await Promise.all([
-          lopRepo.find(),
-          coSoRepo.find(),
-          goiHocRepo.find({ filter: { hocVienId }, order: [['ngayMua', 'ASC'], ['id', 'ASC']] }),
-          diemDanhRepo.find({ filter: { hocVienId } }),
-          buoiHocRepo.find(),
-          phatSachRepo.find({ filter: { hocVienId }, order: [['ngay', 'ASC']] }),
-          sachRepo.find(),
-          nopSachRepo.find({ filter: { hocVienId }, order: [['ngay', 'ASC']] }),
-          hocVienPhuHuynhRepo.find({ filter: { hocVienId } }),
-          phuHuynhRepo.find(),
+        const [classes, branches, goiHocs, rawSessions, phatSachs, nopSachs, parentLinks, parents] = await Promise.all([
+          connection.query.selectFrom('eduLop').select(['id', 'ten', 'coSoId']).execute(),
+          connection.query.selectFrom('eduCoSo').select(['id', 'ten']).execute(),
+          connection.query
+            .selectFrom('eduGoiHoc')
+            .selectAll()
+            .where('hocVienId', '=', hocVienId)
+            .orderBy('ngayMua', 'asc')
+            .orderBy('id', 'asc')
+            .execute(),
+          connection.query
+            .selectFrom('eduDiemDanh')
+            .innerJoin('eduBuoiHoc', 'eduBuoiHoc.id', 'eduDiemDanh.buoiHocId')
+            .leftJoin('eduLop', 'eduLop.id', 'eduBuoiHoc.lopId')
+            .select([
+              'eduDiemDanh.id as diemDanhId',
+              'eduDiemDanh.buoiHocId',
+              'eduDiemDanh.trangThai',
+              'eduDiemDanh.daLamBtvn',
+              'eduDiemDanh.nhanXet',
+              'eduDiemDanh.soBuoiDaTru',
+              'eduDiemDanh.yThucDiem',
+              'eduBuoiHoc.ngay',
+              'eduBuoiHoc.gioBatDau',
+              'eduBuoiHoc.gioKetThuc',
+              'eduBuoiHoc.lopId',
+              'eduLop.ten as lopTen',
+            ])
+            .where('eduDiemDanh.hocVienId', '=', hocVienId)
+            .orderBy('eduBuoiHoc.ngay', 'asc')
+            .orderBy('eduBuoiHoc.gioBatDau', 'asc')
+            .execute(),
+          connection.query
+            .selectFrom('eduPhatSach')
+            .innerJoin('eduSach', 'eduSach.id', 'eduPhatSach.sachId')
+            .select([
+              'eduPhatSach.id',
+              'eduPhatSach.sachId',
+              'eduPhatSach.ngay',
+              'eduPhatSach.uuDai',
+              'eduPhatSach.tienSach',
+              'eduPhatSach.ghiChu',
+              'eduSach.ten as tenSach',
+              'eduSach.giaBia',
+            ])
+            .where('eduPhatSach.hocVienId', '=', hocVienId)
+            .orderBy('eduPhatSach.ngay', 'asc')
+            .execute(),
+          connection.query
+            .selectFrom('eduNopSach')
+            .selectAll()
+            .where('hocVienId', '=', hocVienId)
+            .orderBy('ngay', 'asc')
+            .execute(),
+          connection.query
+            .selectFrom('eduHocVienPhuHuynh')
+            .selectAll()
+            .where('hocVienId', '=', hocVienId)
+            .execute(),
+          connection.query.selectFrom('eduPhuHuynh').selectAll().execute(),
         ]);
 
-        const classMap = new Map(classes.map((cl: any) => [cl.id, cl]));
-        const branchMap = new Map(branches.map((b: any) => [b.id, b]));
-        const buoiHocMap = new Map(buoiHocs.map((bh: any) => [bh.id, bh]));
-        const sachMap = new Map(sachs.map((s: any) => [s.id, s]));
-        const parentMap = new Map(parents.map((p: any) => [p.id, p]));
+        const classMap = new Map(classes.map((cl) => [Number(cl.id), cl]));
+        const branchMap = new Map(branches.map((b) => [Number(b.id), b]));
+        const parentMap = new Map(parents.map((p) => [Number(p.id), p]));
 
-        const studentLop = hocVien.lopId ? classMap.get(hocVien.lopId) : null;
-        const studentCoSo = studentLop?.coSoId ? branchMap.get(studentLop.coSoId) : (hocVien.coSoId ? branchMap.get(hocVien.coSoId) : null);
+        const lopIdNum = hocVien.lopId != null ? Number(hocVien.lopId) : null;
+        const studentLop = lopIdNum != null ? classMap.get(lopIdNum) : null;
+        const coSoIdNum = hocVien.coSoId != null ? Number(hocVien.coSoId) : (studentLop?.coSoId != null ? Number(studentLop.coSoId) : null);
+        const studentCoSo = coSoIdNum != null ? branchMap.get(coSoIdNum) : null;
 
         let phuHuynhInfo: any = null;
         if (parentLinks.length > 0) {
-          const ph = parentMap.get(parentLinks[0].phuHuynhId);
+          const ph = parentMap.get(Number(parentLinks[0].phuHuynhId));
           if (ph) {
             phuHuynhInfo = {
-              id: ph.id,
-              hoTen: ph.hoTen,
-              soDienThoai: ph.soDienThoai,
-              email: ph.email,
-              moiQuanHe: parentLinks[0].moiQuanHe,
+              id: Number(ph.id),
+              hoTen: asText(ph.hoTen),
+              soDienThoai: asText(ph.soDienThoai),
+              email: ph.email ? asText(ph.email) : null,
+              moiQuanHe: parentLinks[0].moiQuanHe ? asText(parentLinks[0].moiQuanHe) : null,
             };
           }
         }
 
-        // Danh sách kỳ nộp học phí
         let tongSoBuoiDaMua = 0;
         let tongTienHocPhi = 0;
         let tongDaThanhToan = 0;
 
-        const cacKyNop = goiHocs.map((g: any, index: number) => {
+        const cacKyNop = goiHocs.map((g, index) => {
           const soBuoi = Number(g.soBuoi || 0);
           const thanhTien = Number(g.thanhTien || 0);
           const daThanhToan = Number(g.daThanhToan || 0);
@@ -326,10 +356,10 @@ export default [
           tongDaThanhToan += daThanhToan;
 
           return {
-            id: g.id,
+            id: Number(g.id),
             kySo: index + 1,
             tenKy: `Kỳ ${index + 1} (${soBuoi} buổi)`,
-            ngayMua: g.ngayMua || '',
+            ngayMua: asText(g.ngayMua) || '',
             soBuoi,
             donGia: Number(g.donGia || 0),
             thanhTien,
@@ -339,34 +369,6 @@ export default [
           };
         });
 
-        // Sắp xếp các buổi học theo thời gian tăng dần
-        const rawSessions: any[] = [];
-        for (const dd of diemDanhs) {
-          const bh = buoiHocMap.get(dd.buoiHocId);
-          if (!bh) continue;
-          const lopOfBuoi = bh.lopId ? classMap.get(bh.lopId) : null;
-          rawSessions.push({
-            diemDanhId: dd.id,
-            buoiHocId: bh.id,
-            ngay: bh.ngay,
-            gioBatDau: bh.gioBatDau || '',
-            gioKetThuc: bh.gioKetThuc || '',
-            lopId: bh.lopId,
-            lopTen: lopOfBuoi ? lopOfBuoi.ten : '—',
-            trangThai: dd.trangThai,
-            daLamBtvn: Boolean(dd.daLamBtvn),
-            yThucDiem: dd.yThucDiem != null ? Number(dd.yThucDiem) : null,
-            nhanXet: dd.nhanXet || '',
-            soBuoiDaTru: Number(dd.soBuoiDaTru || 0),
-          });
-        }
-
-        rawSessions.sort((a, b) => {
-          if (a.ngay !== b.ngay) return a.ngay.localeCompare(b.ngay);
-          return a.gioBatDau.localeCompare(b.gioBatDau);
-        });
-
-        // Mapping Buổi học vào từng Kỳ nộp theo thứ tự thời gian (FIFO)
         let accumulatedSessions = 0;
         let tongSoBuoiDaHoc = 0;
         let currentKyIdx = 0;
@@ -374,10 +376,9 @@ export default [
 
         const danhSachBuoiHoc = rawSessions.map((s, idx) => {
           tongSoBuoiDaHoc += 1;
-          const ded = s.soBuoiDaTru > 0 ? s.soBuoiDaTru : 0;
+          const ded = Number(s.soBuoiDaTru || 0) > 0 ? Number(s.soBuoiDaTru) : 0;
           accumulatedSessions += ded;
 
-          // Tìm xem buổi này rơi vào kỳ nào
           while (currentKyIdx < cacKyNop.length - 1 && accumulatedSessions > kyAccumulatedCapacity) {
             currentKyIdx++;
             kyAccumulatedCapacity += cacKyNop[currentKyIdx].soBuoi;
@@ -387,16 +388,26 @@ export default [
           const ky = !ngoaiGoi && currentKyIdx < cacKyNop.length ? cacKyNop[currentKyIdx] : null;
 
           return {
-            ...s,
+            diemDanhId: Number(s.diemDanhId),
+            buoiHocId: Number(s.buoiHocId),
             stt: idx + 1,
             buoiThu: accumulatedSessions,
+            ngay: asText(s.ngay),
+            gioBatDau: asText(s.gioBatDau),
+            gioKetThuc: asText(s.gioKetThuc),
+            lopId: s.lopId != null ? Number(s.lopId) : null,
+            lopTen: s.lopTen ? asText(s.lopTen) : '—',
+            trangThai: asText(s.trangThai),
+            daLamBtvn: Boolean(s.daLamBtvn),
+            yThucDiem: s.yThucDiem != null ? Number(s.yThucDiem) : null,
+            nhanXet: s.nhanXet ? asText(s.nhanXet) : '',
+            soBuoiDaTru: Number(s.soBuoiDaTru || 0),
             kyId: ky ? ky.id : null,
             kyTen: ky ? ky.tenKy : 'Vượt gói / Chưa nộp kỳ mới',
             ngoaiGoi,
           };
         });
 
-        // Tính số buổi đã dùng cho từng kỳ nộp
         let usedSessions = 0;
         for (const ky of cacKyNop) {
           const sessionsInThisKy = Math.min(ky.soBuoi, Math.max(0, accumulatedSessions - usedSessions));
@@ -406,24 +417,22 @@ export default [
           (ky as any).tienDo = ky.soBuoi > 0 ? Math.round((sessionsInThisKy / ky.soBuoi) * 100) : 0;
         }
 
-        // Sách & Quỹ giáo trình
         let tongTienSachDaPhat = 0;
-        const sachDaPhat = phatSachs.map((ps: any) => {
-          const s = sachMap.get(ps.sachId);
-          const giaBia = Number(ps.tienSach || s?.giaBia || 0);
+        const sachDaPhat = phatSachs.map((ps) => {
+          const giaBia = Number(ps.giaBia || ps.tienSach || 0);
           const uuDai = Number(ps.uuDai || 0);
-          const thanhTien = Math.max(0, giaBia - uuDai);
+          const thanhTien = Math.max(0, Number(ps.tienSach || 0) - uuDai);
           tongTienSachDaPhat += thanhTien;
           return {
-            id: ps.id,
-            sachId: ps.sachId,
-            tenSach: s ? s.ten : 'Giáo trình',
-            ngayPhat: ps.ngay || '',
+            id: Number(ps.id),
+            sachId: Number(ps.sachId),
+            tenSach: asText(ps.tenSach),
+            ngayPhat: asText(ps.ngay) || '',
             soLuong: 1,
             giaBia,
             uuDai,
             thanhTien,
-            ghiChu: ps.ghiChu || '',
+            ghiChu: ps.ghiChu ? asText(ps.ghiChu) : '',
           };
         });
 
@@ -440,16 +449,16 @@ export default [
         return c.json({
           data: {
             hocVien: {
-              id: hocVien.id,
-              ma: hocVien.ma,
-              hoTen: hocVien.hoTen,
-              lopId: hocVien.lopId,
-              lopTen: studentLop ? studentLop.ten : null,
-              coSoId: studentCoSo ? studentCoSo.id : null,
-              coSoTen: studentCoSo ? studentCoSo.ten : null,
+              id: Number(hocVien.id),
+              ma: asText(hocVien.ma),
+              hoTen: asText(hocVien.hoTen),
+              lopId: lopIdNum,
+              lopTen: studentLop ? asText(studentLop.ten) : null,
+              coSoId: coSoIdNum,
+              coSoTen: studentCoSo ? asText(studentCoSo.ten) : null,
               phuHuynh: phuHuynhInfo,
               soBuoiConLai,
-              trangThai: hocVien.trangThai || 'dang_hoc',
+              trangThai: asText(hocVien.trangThai) || 'dang_hoc',
             },
             tongHop: {
               tongSoBuoiDaMua,
@@ -471,45 +480,49 @@ export default [
       },
     );
 
-    // 3. API Sửa nhanh một buổi học (Quick Edit attendance) & Tự động tính toán lại số buổi còn lại
+    // 3. API Sửa nhanh một buổi học & Tự động tính toán lại số buổi còn lại
     router.post(
       '/doiSoat/capNhatBuoiHoc',
       declare('Quick edit session attendance and recalculate balance', 'quickEditSession'),
+      needs('edu.diemDanh', 'manage'),
       apiValidator('json', CapNhatBuoiHocInput),
       async (c) => {
-        needs(c, 'edu.diemDanh', 'edit');
-        const db = database.get();
-        if (!db) throw eduError('DATABASE_ERROR', 'NO_DB', 'Database is not ready');
-
+        const connection = database.connection();
         const { diemDanhId, trangThai, daLamBtvn, yThucDiem, nhanXet } = c.req.valid('json');
 
-        const diemDanhRepo = db.getRepository('eduDiemDanh');
-        const hocVienRepo = db.getRepository('eduHocVien');
-        const goiHocRepo = db.getRepository('eduGoiHoc');
-
-        const record = await diemDanhRepo.findOne({ filterByTk: diemDanhId });
+        const record = await connection.query
+          .selectFrom('eduDiemDanh')
+          .selectAll()
+          .where('id', '=', diemDanhId)
+          .executeTakeFirst();
         if (!record) throw eduError('NOT_FOUND', 'RECORD_NOT_FOUND', 'Attendance record not found');
 
-        const hocVienId = record.hocVienId;
-
-        // Tính số buổi trừ mới dựa trên trạng thái
+        const hocVienId = Number(record.hocVienId);
         const soBuoiDaTruMoi = sessionsToDeduct(trangThai);
 
-        // Update bản ghi điểm danh
-        await diemDanhRepo.update({
-          filterByTk: diemDanhId,
-          values: {
+        await connection.query
+          .updateTable('eduDiemDanh')
+          .set({
             trangThai,
             soBuoiDaTru: soBuoiDaTruMoi,
-            daLamBtvn: daLamBtvn !== undefined ? daLamBtvn : record.daLamBtvn,
+            daLamBtvn: daLamBtvn !== undefined ? (daLamBtvn ? 1 : 0) : record.daLamBtvn,
             yThucDiem: yThucDiem !== undefined ? yThucDiem : record.yThucDiem,
             nhanXet: nhanXet !== undefined ? nhanXet : record.nhanXet,
-          },
-        });
+          })
+          .where('id', '=', diemDanhId)
+          .execute();
 
-        // Tính toán lại số buổi còn lại cho học viên
-        const allPacks = await goiHocRepo.find({ filter: { hocVienId } });
-        const allAttendances = await diemDanhRepo.find({ filter: { hocVienId } });
+        const allPacks = await connection.query
+          .selectFrom('eduGoiHoc')
+          .select(['soBuoi'])
+          .where('hocVienId', '=', hocVienId)
+          .execute();
+
+        const allAttendances = await connection.query
+          .selectFrom('eduDiemDanh')
+          .select(['soBuoiDaTru'])
+          .where('hocVienId', '=', hocVienId)
+          .execute();
 
         let tongMua = 0;
         for (const p of allPacks) {
@@ -523,12 +536,13 @@ export default [
 
         const soBuoiConLaiMoi = tongMua - tongTru;
 
-        await hocVienRepo.update({
-          filterByTk: hocVienId,
-          values: {
+        await connection.query
+          .updateTable('eduHocVien')
+          .set({
             soBuoiConLai: soBuoiConLaiMoi,
-          },
-        });
+          })
+          .where('id', '=', hocVienId)
+          .execute();
 
         return c.json({
           data: {
