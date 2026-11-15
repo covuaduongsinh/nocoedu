@@ -15,6 +15,7 @@ import eduNhanXet from './edu-nhan-xet.js';
 import eduCrmBackup from './edu-crm-backup.js';
 import eduXuatCsv from './edu-xuat-csv.js';
 import eduTraCuu from './edu-tra-cuu.js';
+import eduDoiSoat from './edu-doi-soat.js';
 
 const routes: readonly AppRouteContribution<Application>[] = [
   ...eduData,
@@ -30,6 +31,7 @@ const routes: readonly AppRouteContribution<Application>[] = [
   ...eduXuatCsv,
   ...eduBaoCao,
   ...eduTraCuu,
+  ...eduDoiSoat,
   ...eduExt,
 ];
 

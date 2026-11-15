@@ -1,0 +1,1182 @@
+import { useApiClient } from '@nocobase/app-client';
+import { useTranslation } from '@nocobase/i18n/client';
+import { useEffect, useState, useMemo, type ReactElement } from 'react';
+import { useSearchParams } from 'react-router';
+import {
+  ArrowLeft,
+  CalendarCheck,
+  CheckCircle2,
+  ChevronRight,
+  Download,
+  Filter,
+  Layers,
+  Maximize2,
+  Minimize2,
+  Printer,
+  RefreshCw,
+  Search,
+  BookOpen,
+  Wallet,
+  AlertTriangle,
+  Edit3,
+} from 'lucide-react';
+
+import { PageContainer } from '#components/page-container';
+import { StatusBadge } from '#components/status-badge';
+import { Button } from '#components/ui/button';
+import { Input } from '#components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#components/ui/dialog';
+
+const fmt = (value: unknown): string => Number(value || 0).toLocaleString('vi-VN');
+
+interface StudentOverviewRow {
+  id: number;
+  ma: string;
+  hoTen: string;
+  lopId: number | null;
+  lopTen: string | null;
+  coSoId: number | null;
+  coSoTen: string | null;
+  phuHuynhTen: string | null;
+  phuHuynhSdt: string | null;
+  soBuoiConLai: number;
+  soBuoiVuotGoi: number;
+  tongSoBuoiDaMua: number;
+  tongSoBuoiDaHoc: number;
+  tongTienHocPhi: number;
+  tongDaThanhToan: number;
+  tongConNoHocPhi: number;
+  tongTienSachDaPhat: number;
+  tongTienSachDaNop: number;
+  tienSachTon: number;
+  congNoSach: number;
+  trangThai: string;
+}
+
+interface AuditStats {
+  tongHocVien: number;
+  soHocVienVuotGoi: number;
+  soHocVienSapHet: number;
+  soHocVienBinhThuong: number;
+  tongCongNoHocPhi: number;
+  tongCongNoSach: number;
+}
+
+interface StudentAuditDetail {
+  hocVien: {
+    id: number;
+    ma: string;
+    hoTen: string;
+    lopId: number | null;
+    lopTen: string | null;
+    coSoId: number | null;
+    coSoTen: string | null;
+    phuHuynh: {
+      id: number;
+      hoTen: string;
+      soDienThoai: string;
+      email: string | null;
+      moiQuanHe: string | null;
+    } | null;
+    soBuoiConLai: number;
+    trangThai: string;
+  };
+  tongHop: {
+    tongSoBuoiDaMua: number;
+    tongSoBuoiDaHoc: number;
+    soBuoiConLai: number;
+    soBuoiVuotGoi: number;
+    tongTienHocPhi: number;
+    tongDaThanhToan: number;
+    tongConNo: number;
+    tongTienSachDaPhat: number;
+    tongTienSachDaNop: number;
+    tienSachTon: number;
+  };
+  cacKyNop: {
+    id: number;
+    kySo: number;
+    tenKy: string;
+    ngayMua: string;
+    soBuoi: number;
+    donGia: number;
+    thanhTien: number;
+    daThanhToan: number;
+    conNo: number;
+    daDung: number;
+    conLai: number;
+    tienDo: number;
+    trangThai: string;
+  }[];
+  sachDaPhat: {
+    id: number;
+    sachId: number;
+    tenSach: string;
+    ngayPhat: string;
+    soLuong: number;
+    giaBia: number;
+    uuDai: number;
+    thanhTien: number;
+    ghiChu: string;
+  }[];
+  danhSachBuoiHoc: {
+    diemDanhId: number;
+    buoiHocId: number;
+    stt: number;
+    buoiThu: number;
+    ngay: string;
+    gioBatDau: string;
+    gioKetThuc: string;
+    lopId: number | null;
+    lopTen: string;
+    trangThai: string;
+    daLamBtvn: boolean;
+    yThucDiem: number | null;
+    nhanXet: string;
+    soBuoiDaTru: number;
+    kyId: number | null;
+    kyTen: string;
+    ngoaiGoi: boolean;
+  }[];
+}
+
+export default function DoiSoatPage(): ReactElement {
+  const { t } = useTranslation();
+  const api = useApiClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const selectedStudentId = searchParams.get('hocVienId');
+
+  // State chế độ 1 (Tổng quan)
+  const [loadingOverview, setLoadingOverview] = useState(false);
+  const [overviewData, setOverviewData] = useState<{
+    thongKe: AuditStats;
+    danhSach: StudentOverviewRow[];
+  } | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('tat_ca');
+
+  // State chế độ 2 (Chi tiết học viên)
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [studentDetail, setStudentDetail] = useState<StudentAuditDetail | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Bộ lọc bên trong Tab Lịch sử buổi học
+  const [sessionKyFilter, setSessionKyFilter] = useState<string>('all');
+  const [sessionStatusFilter, setSessionStatusFilter] = useState<string>('all');
+  const [sessionSearchComment, setSessionSearchComment] = useState<string>('');
+
+  // Dialog Quick Edit buổi học
+  const [editSession, setEditSession] = useState<{
+    diemDanhId: number;
+    ngay: string;
+    lopTen: string;
+    trangThai: string;
+    daLamBtvn: boolean;
+    yThucDiem: number | '';
+    nhanXet: string;
+  } | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Load danh sách tổng quan
+  const loadOverview = async (): Promise<void> => {
+    setLoadingOverview(true);
+    try {
+      const res = await api.request<{
+        data: { thongKe: AuditStats; danhSach: StudentOverviewRow[] };
+      }>({
+        path: '/doiSoat/tongQuan',
+        method: 'POST',
+        json: {
+          search: searchTerm || null,
+          trangThaiLoc: filterStatus,
+        },
+      });
+      setOverviewData(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingOverview(false);
+    }
+  };
+
+  // Load chi tiết đối soát học viên
+  const loadStudentDetail = async (id: number): Promise<void> => {
+    setLoadingDetail(true);
+    try {
+      const res = await api.request<{ data: StudentAuditDetail }>({
+        path: '/doiSoat/chiTietHocVien',
+        method: 'POST',
+        json: { hocVienId: id },
+      });
+      setStudentDetail(res.data);
+    } catch (err) {
+      console.error(err);
+      alert('Không thể tải chi tiết đối soát học viên.');
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedStudentId) {
+      loadStudentDetail(Number(selectedStudentId));
+    } else {
+      loadOverview();
+    }
+  }, [selectedStudentId]);
+
+  // Lưu chỉnh sửa nhanh buổi học
+  const handleSaveEditSession = async (): Promise<void> => {
+    if (!editSession) return;
+    setSavingEdit(true);
+    try {
+      await api.request({
+        path: '/doiSoat/capNhatBuoiHoc',
+        method: 'POST',
+        json: {
+          diemDanhId: editSession.diemDanhId,
+          trangThai: editSession.trangThai,
+          daLamBtvn: editSession.daLamBtvn,
+          yThucDiem: editSession.yThucDiem === '' ? null : Number(editSession.yThucDiem),
+          nhanXet: editSession.nhanXet,
+        },
+      });
+      // Tải lại chi tiết học viên
+      if (studentDetail) {
+        await loadStudentDetail(studentDetail.hocVien.id);
+      }
+      setEditSession(null);
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi cập nhật buổi học: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Lọc danh sách buổi học trong Tab
+  const filteredSessions = useMemo(() => {
+    if (!studentDetail) return [];
+    return studentDetail.danhSachBuoiHoc.filter((s) => {
+      if (sessionKyFilter !== 'all') {
+        if (sessionKyFilter === 'ngoai_goi' && !s.ngoaiGoi) return false;
+        if (sessionKyFilter !== 'ngoai_goi' && String(s.kyId) !== sessionKyFilter) return false;
+      }
+      if (sessionStatusFilter !== 'all' && s.trangThai !== sessionStatusFilter) {
+        return false;
+      }
+      if (sessionSearchComment) {
+        const q = sessionSearchComment.toLowerCase();
+        if (!s.nhanXet?.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [studentDetail, sessionKyFilter, sessionStatusFilter, sessionSearchComment]);
+
+  // Xuất CSV học viên hiện tại
+  const exportStudentCsv = (): void => {
+    if (!studentDetail) return;
+    const headers = ['STT', 'Ngày', 'Giờ', 'Lớp', 'Trạng thái', 'BTVN', 'Ý thức', 'Nhận xét', 'Trừ buổi', 'Kỳ nộp'];
+    const rows = studentDetail.danhSachBuoiHoc.map((s, idx) => [
+      idx + 1,
+      s.ngay,
+      s.gioBatDau?.slice(0, 5),
+      `"${s.lopTen}"`,
+      s.trangThai === 'co_mat' ? 'Có mặt' : s.trangThai === 'hoc_bu' ? 'Học bù' : s.trangThai === 'vang_co_phep' ? 'Vắng có phép' : 'Vắng không phép',
+      s.daLamBtvn ? 'Đã làm' : 'Chưa',
+      s.yThucDiem != null ? s.yThucDiem : '',
+      `"${(s.nhanXet || '').replace(/"/g, '""')}"`,
+      s.soBuoiDaTru,
+      `"${s.kyTen}"`,
+    ]);
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `doi-soat-${studentDetail.hocVien.ma}-${studentDetail.hocVien.hoTen}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <PageContainer>
+      {/* =========================================================================
+          CHẾ ĐỘ 1: BẢNG ĐIỀU KHIỂN ĐỐI SOÁT TOÀN TRUNG TÂM (HUB VIEW)
+         ========================================================================= */}
+      {!selectedStudentId ? (
+        <div className='flex flex-col gap-6 py-4'>
+          {/* Header Trang */}
+          <div className='flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between'>
+            <div>
+              <h1 className='text-2xl font-bold tracking-tight text-foreground flex items-center gap-2'>
+                <CalendarCheck className='size-6 text-primary' />
+                Đối Soát Buổi Học & Học Phí
+              </h1>
+              <p className='text-sm text-muted-foreground'>
+                Kiểm tra, phân tích số buổi đã học, các kỳ nộp học phí, sách giáo trình và nhận xét học viên toàn trung tâm.
+              </p>
+            </div>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => void loadOverview()}
+              disabled={loadingOverview}
+              className='gap-1.5'
+            >
+              <RefreshCw className={`size-4 ${loadingOverview ? 'animate-spin' : ''}`} />
+              Làm mới số liệu
+            </Button>
+          </div>
+
+          {/* Khối Thống kê Toàn trường (KPI Cards) */}
+          {overviewData ? (
+            <div className='grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6'>
+              <div
+                onClick={() => { setFilterStatus('tat_ca'); void loadOverview(); }}
+                className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-primary ${filterStatus === 'tat_ca' ? 'ring-2 ring-primary bg-primary/5' : 'bg-card'}`}
+              >
+                <p className='text-xs font-medium text-muted-foreground'>Tổng học viên</p>
+                <p className='mt-1 text-2xl font-bold text-foreground'>{overviewData.thongKe.tongHocVien}</p>
+                <span className='text-[11px] text-muted-foreground'>Đang quản lý</span>
+              </div>
+
+              <div
+                onClick={() => { setFilterStatus('vuot_goi'); void loadOverview(); }}
+                className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-destructive ${filterStatus === 'vuot_goi' ? 'ring-2 ring-destructive bg-destructive/5' : 'bg-card'}`}
+              >
+                <p className='text-xs font-medium text-destructive flex items-center gap-1'>
+                  <AlertTriangle className='size-3.5' /> Vượt buổi (Âm)
+                </p>
+                <p className='mt-1 text-2xl font-bold text-destructive'>{overviewData.thongKe.soHocVienVuotGoi}</p>
+                <span className='text-[11px] text-destructive'>Cần thu kỳ mới</span>
+              </div>
+
+              <div
+                onClick={() => { setFilterStatus('sap_het'); void loadOverview(); }}
+                className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-amber-500 ${filterStatus === 'sap_het' ? 'ring-2 ring-amber-500 bg-amber-50/50 dark:bg-amber-950/20' : 'bg-card'}`}
+              >
+                <p className='text-xs font-medium text-amber-600 dark:text-amber-400'>Sắp hết buổi</p>
+                <p className='mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400'>{overviewData.thongKe.soHocVienSapHet}</p>
+                <span className='text-[11px] text-muted-foreground'>Còn 0 - 2 buổi</span>
+              </div>
+
+              <div
+                onClick={() => { setFilterStatus('binh_thuong'); void loadOverview(); }}
+                className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-emerald-500 ${filterStatus === 'binh_thuong' ? 'ring-2 ring-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' : 'bg-card'}`}
+              >
+                <p className='text-xs font-medium text-emerald-600 dark:text-emerald-400'>Đang an toàn</p>
+                <p className='mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400'>{overviewData.thongKe.soHocVienBinhThuong}</p>
+                <span className='text-[11px] text-muted-foreground'>Còn ≥ 3 buổi</span>
+              </div>
+
+              <div
+                onClick={() => { setFilterStatus('no_hoc_phi'); void loadOverview(); }}
+                className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-primary ${filterStatus === 'no_hoc_phi' ? 'ring-2 ring-primary bg-primary/5' : 'bg-card'}`}
+              >
+                <p className='text-xs font-medium text-muted-foreground'>Nợ học phí</p>
+                <p className='mt-1 text-lg font-bold text-foreground'>{fmt(overviewData.thongKe.tongCongNoHocPhi)} đ</p>
+                <span className='text-[11px] text-muted-foreground'>Tiền học chưa nộp</span>
+              </div>
+
+              <div
+                onClick={() => { setFilterStatus('no_sach'); void loadOverview(); }}
+                className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-primary ${filterStatus === 'no_sach' ? 'ring-2 ring-primary bg-primary/5' : 'bg-card'}`}
+              >
+                <p className='text-xs font-medium text-muted-foreground'>Nợ tiền sách</p>
+                <p className='mt-1 text-lg font-bold text-foreground'>{fmt(overviewData.thongKe.tongCongNoSach)} đ</p>
+                <span className='text-[11px] text-muted-foreground'>Tiền sách chưa thu</span>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Thanh công cụ Tìm kiếm & Bộ lọc */}
+          <div className='flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3 shadow-sm'>
+            <div className='flex flex-1 items-center gap-2 min-w-[280px]'>
+              <Search className='size-4 text-muted-foreground' />
+              <Input
+                placeholder='Tìm theo Tên học viên, Mã HV hoặc SĐT phụ huynh...'
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') void loadOverview(); }}
+                className='h-8 text-sm'
+              />
+              <Button size='sm' onClick={() => void loadOverview()}>Tìm kiếm</Button>
+            </div>
+
+            <div className='flex items-center gap-2'>
+              <span className='text-xs text-muted-foreground flex items-center gap-1'>
+                <Filter className='size-3.5' /> Lọc theo:
+              </span>
+              <select
+                value={filterStatus}
+                onChange={(e) => {
+                  setFilterStatus(e.target.value);
+                  void loadOverview();
+                }}
+                className='h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
+              >
+                <option value='tat_ca'>Tất cả học viên</option>
+                <option value='vuot_goi'>🔴 Học viên vượt buổi (Âm)</option>
+                <option value='sap_het'>🟡 Sắp hết buổi (0 - 2)</option>
+                <option value='binh_thuong'>🟢 Còn nhiều buổi (≥ 3)</option>
+                <option value='no_hoc_phi'>💳 Còn nợ học phí</option>
+                <option value='no_sach'>📚 Còn nợ tiền sách</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Bảng Danh sách Học viên Đối soát */}
+          <div className='overflow-x-auto rounded-lg border bg-card shadow-sm'>
+            <Table>
+              <TableHeader>
+                <TableRow className='bg-muted/50 text-xs font-semibold'>
+                  <TableHead className='w-24'>Mã HV</TableHead>
+                  <TableHead>Họ và tên</TableHead>
+                  <TableHead>Lớp học</TableHead>
+                  <TableHead>Phụ huynh liên hệ</TableHead>
+                  <TableHead className='text-center'>Đã nộp</TableHead>
+                  <TableHead className='text-center'>Đã học</TableHead>
+                  <TableHead className='text-center'>Số buổi còn lại</TableHead>
+                  <TableHead className='text-right'>Học phí</TableHead>
+                  <TableHead className='text-right'>Tiền sách</TableHead>
+                  <TableHead className='text-center w-36'>Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className='text-xs'>
+                {overviewData?.danhSach.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className='h-32 text-center text-muted-foreground'>
+                      Không tìm thấy học viên nào phù hợp với điều kiện tìm kiếm.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  overviewData?.danhSach.map((row) => (
+                    <TableRow key={row.id} className='hover:bg-muted/40 transition-colors'>
+                      <TableCell className='font-mono font-medium text-muted-foreground'>
+                        {row.ma}
+                      </TableCell>
+                      <TableCell className='font-semibold text-foreground text-sm'>
+                        {row.hoTen}
+                      </TableCell>
+                      <TableCell>{row.lopTen || '—'}</TableCell>
+                      <TableCell>
+                        {row.phuHuynhTen ? (
+                          <div>
+                            <span className='font-medium text-foreground'>{row.phuHuynhTen}</span>
+                            {row.phuHuynhSdt ? (
+                              <span className='block text-[11px] text-muted-foreground font-mono'>
+                                {row.phuHuynhSdt}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className='text-muted-foreground'>—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className='text-center font-bold text-foreground'>
+                        {row.tongSoBuoiDaMua}
+                      </TableCell>
+                      <TableCell className='text-center font-medium text-foreground'>
+                        {row.tongSoBuoiDaHoc}
+                      </TableCell>
+                      <TableCell className='text-center'>
+                        {row.soBuoiConLai < 0 ? (
+                          <StatusBadge tone='neutral' className='border-destructive/30 bg-destructive/10 text-destructive font-bold'>
+                            🔴 Vượt {Math.abs(row.soBuoiConLai)} buổi
+                          </StatusBadge>
+                        ) : row.soBuoiConLai === 0 ? (
+                          <StatusBadge tone='warning' className='font-semibold'>
+                            🟡 Hết buổi (0)
+                          </StatusBadge>
+                        ) : row.soBuoiConLai <= 2 ? (
+                          <StatusBadge tone='warning' className='font-semibold'>
+                            🟡 Còn {row.soBuoiConLai} buổi
+                          </StatusBadge>
+                        ) : (
+                          <StatusBadge tone='success' className='font-semibold'>
+                            🟢 Còn {row.soBuoiConLai} buổi
+                          </StatusBadge>
+                        )}
+                      </TableCell>
+                      <TableCell className='text-right'>
+                        <span className='font-medium'>{fmt(row.tongDaThanhToan)} đ</span>
+                        {row.tongConNoHocPhi > 0 ? (
+                          <span className='block text-[11px] text-destructive font-medium'>
+                            Nợ: {fmt(row.tongConNoHocPhi)} đ
+                          </span>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className='text-right'>
+                        <span className='font-medium'>{fmt(row.tongTienSachDaPhat)} đ</span>
+                        {row.tienSachTon < 0 ? (
+                          <span className='block text-[11px] text-destructive font-medium'>
+                            Nợ sách: {fmt(Math.abs(row.tienSachTon))} đ
+                          </span>
+                        ) : row.tienSachTon > 0 ? (
+                          <span className='block text-[11px] text-emerald-600 font-medium'>
+                            Quỹ dư: {fmt(row.tienSachTon)} đ
+                          </span>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className='text-center'>
+                        <Button
+                          size='sm'
+                          className='h-8 px-2.5 bg-primary/90 hover:bg-primary font-medium text-xs gap-1 shadow-sm'
+                          onClick={() => setSearchParams({ hocVienId: String(row.id) })}
+                        >
+                          <Layers className='size-3.5' />
+                          Đối soát
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      ) : (
+        /* =========================================================================
+            CHẾ ĐỘ 2: KHÔNG GIAN ĐỐI SOÁT CHI TIẾT HỌC VIÊN (STUDENT WORKSPACE)
+           ========================================================================= */
+        <div className='flex flex-col gap-6 py-4'>
+          {/* Thanh điều hướng quay lại & Nút tác vụ */}
+          <div className='flex flex-wrap items-center justify-between gap-3 border-b pb-4'>
+            <div className='flex items-center gap-3'>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => setSearchParams({})}
+                className='gap-1.5'
+              >
+                <ArrowLeft className='size-4' />
+                Quay lại danh sách
+              </Button>
+              {studentDetail ? (
+                <div>
+                  <h2 className='text-xl font-bold tracking-tight text-foreground flex items-center gap-2'>
+                    {studentDetail.hocVien.hoTen}
+                    <span className='font-mono text-sm font-normal text-muted-foreground'>
+                      ({studentDetail.hocVien.ma})
+                    </span>
+                  </h2>
+                  <p className='text-xs text-muted-foreground'>
+                    {studentDetail.hocVien.lopTen ? `Lớp: ${studentDetail.hocVien.lopTen}` : 'Chưa xếp lớp'}
+                    {studentDetail.hocVien.coSoTen ? ` · Cơ sở: ${studentDetail.hocVien.coSoTen}` : ''}
+                    {studentDetail.hocVien.phuHuynh ? ` · Phụ huynh: ${studentDetail.hocVien.phuHuynh.hoTen} (${studentDetail.hocVien.phuHuynh.soDienThoai})` : ''}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className='flex items-center gap-2'>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={exportStudentCsv}
+                disabled={!studentDetail}
+                className='gap-1.5'
+              >
+                <Download className='size-4' />
+                Xuất CSV
+              </Button>
+              <Button
+                size='sm'
+                onClick={() => window.print()}
+                disabled={!studentDetail}
+                className='gap-1.5 bg-primary font-medium'
+              >
+                <Printer className='size-4' />
+                🖨️ In phiếu đối soát A4
+              </Button>
+            </div>
+          </div>
+
+          {loadingDetail || !studentDetail ? (
+            <div className='flex h-64 items-center justify-center text-sm text-muted-foreground'>
+              <RefreshCw className='size-6 animate-spin mr-2 text-primary' /> Đang tải dữ liệu đối soát học viên...
+            </div>
+          ) : (
+            <div className='flex flex-col gap-6'>
+              {/* Thẻ KPI Tóm tắt Của Học Viên */}
+              <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
+                <div className='rounded-xl border bg-card p-4 shadow-sm'>
+                  <p className='text-xs font-medium text-muted-foreground'>Tổng số buổi đã nộp</p>
+                  <p className='mt-1 text-2xl font-bold text-primary'>
+                    {studentDetail.tongHop.tongSoBuoiDaMua} buổi
+                  </p>
+                  <span className='text-[11px] text-muted-foreground'>
+                    {studentDetail.cacKyNop.length} kỳ học phí
+                  </span>
+                </div>
+
+                <div className='rounded-xl border bg-card p-4 shadow-sm'>
+                  <p className='text-xs font-medium text-muted-foreground'>Tổng số buổi đã học</p>
+                  <p className='mt-1 text-2xl font-bold text-foreground'>
+                    {studentDetail.tongHop.tongSoBuoiDaHoc} buổi
+                  </p>
+                  <span className='text-[11px] text-muted-foreground'>Đã ghi nhận điểm danh</span>
+                </div>
+
+                <div className='rounded-xl border bg-card p-4 shadow-sm'>
+                  <p className='text-xs font-medium text-muted-foreground'>Số buổi còn lại</p>
+                  <p className={`mt-1 text-2xl font-bold ${studentDetail.tongHop.soBuoiConLai < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                    {studentDetail.tongHop.soBuoiConLai < 0
+                      ? `🔴 Vượt ${studentDetail.tongHop.soBuoiVuotGoi} buổi`
+                      : `🟢 Còn ${studentDetail.tongHop.soBuoiConLai} buổi`}
+                  </p>
+                  <span className='text-[11px] text-muted-foreground'>
+                    {studentDetail.tongHop.soBuoiConLai < 0 ? 'Chưa đóng học phí kỳ mới' : 'Số dư khả dụng'}
+                  </span>
+                </div>
+
+                <div className='rounded-xl border bg-card p-4 shadow-sm'>
+                  <p className='text-xs font-medium text-muted-foreground'>Học phí & Quỹ sách</p>
+                  <p className='mt-1 text-sm font-semibold'>
+                    Học phí: {fmt(studentDetail.tongHop.tongDaThanhToan)} đ
+                    {studentDetail.tongHop.tongConNo > 0 ? (
+                      <span className='text-destructive ml-1.5'>(Nợ: {fmt(studentDetail.tongHop.tongConNo)} đ)</span>
+                    ) : null}
+                  </p>
+                  <p className='text-xs text-muted-foreground mt-0.5'>
+                    Sách đã nhận: {fmt(studentDetail.tongHop.tongTienSachDaPhat)} đ
+                    {studentDetail.tongHop.tienSachTon < 0 ? (
+                      <span className='text-destructive font-semibold ml-1.5'>
+                        (Nợ: {fmt(Math.abs(studentDetail.tongHop.tienSachTon))} đ)
+                      </span>
+                    ) : studentDetail.tongHop.tienSachTon > 0 ? (
+                      <span className='text-emerald-600 font-semibold ml-1.5'>
+                        (Tồn: {fmt(studentDetail.tongHop.tienSachTon)} đ)
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+              </div>
+
+              {/* Hệ thống 4 Tabs Chuyên Sâu */}
+              <Tabs value={activeTab} onValueChange={setActiveTab} className='w-full'>
+                <TabsList className='grid w-full grid-cols-4 max-w-2xl bg-muted/70 p-1'>
+                  <TabsTrigger value='overview' className='gap-1.5 text-xs font-medium'>
+                    <Layers className='size-3.5' /> Tổng quan tiến độ
+                  </TabsTrigger>
+                  <TabsTrigger value='sessions' className='gap-1.5 text-xs font-medium'>
+                    <CalendarCheck className='size-3.5' /> Buổi học & Sửa nhanh ({studentDetail.danhSachBuoiHoc.length})
+                  </TabsTrigger>
+                  <TabsTrigger value='tuition' className='gap-1.5 text-xs font-medium'>
+                    <Wallet className='size-3.5' /> Kỳ học phí ({studentDetail.cacKyNop.length})
+                  </TabsTrigger>
+                  <TabsTrigger value='books' className='gap-1.5 text-xs font-medium'>
+                    <BookOpen className='size-3.5' /> Sách & Quỹ ({studentDetail.sachDaPhat.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* TAB 1: TỔNG QUAN TIẾN ĐỘ TỪNG KỲ HỌC */}
+                <TabsContent value='overview' className='mt-4 flex flex-col gap-6'>
+                  <div>
+                    <h3 className='text-base font-bold text-foreground mb-3 flex items-center gap-2'>
+                      <span>📊 Cột mốc phân bổ buổi học theo từng kỳ nộp</span>
+                    </h3>
+                    {studentDetail.cacKyNop.length === 0 ? (
+                      <div className='rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground'>
+                        Chưa có gói học phí nào được tạo cho học viên này.
+                      </div>
+                    ) : (
+                      <div className='flex flex-col gap-3'>
+                        {studentDetail.cacKyNop.map((ky) => (
+                          <div key={ky.id} className='rounded-xl border bg-card p-4 shadow-sm flex flex-col gap-3'>
+                            <div className='flex flex-wrap items-center justify-between gap-2'>
+                              <div className='flex items-center gap-2'>
+                                <span className='font-bold text-base text-foreground'>{ky.tenKy}</span>
+                                <span className='text-xs text-muted-foreground font-mono'>
+                                  (Ngày nộp: {ky.ngayMua || 'Chưa cập nhật'})
+                                </span>
+                              </div>
+                              <div className='flex items-center gap-2'>
+                                <span className='text-xs font-medium text-foreground'>
+                                  Đã học: <strong>{ky.daDung}</strong> / {ky.soBuoi} buổi
+                                </span>
+                                <StatusBadge tone={ky.tienDo === 100 ? 'success' : ky.tienDo > 0 ? 'warning' : 'neutral'}>
+                                  {ky.tienDo === 100 ? '✅ Đã hoàn thành' : ky.tienDo > 0 ? `Đang học (${ky.tienDo}%)` : 'Chưa học'}
+                                </StatusBadge>
+                              </div>
+                            </div>
+
+                            {/* Thanh tiến độ (Progress bar) */}
+                            <div className='w-full bg-muted rounded-full h-2.5 overflow-hidden'>
+                              <div
+                                className={`h-2.5 rounded-full transition-all ${ky.tienDo === 100 ? 'bg-emerald-600' : 'bg-primary'}`}
+                                style={{ width: `${Math.min(100, ky.tienDo)}%` }}
+                              />
+                            </div>
+
+                            <div className='flex flex-wrap items-center justify-between text-xs text-muted-foreground pt-1 border-t'>
+                              <span>Học phí gói: <strong>{fmt(ky.thanhTien)} đ</strong> ({fmt(ky.donGia)} đ/buổi)</span>
+                              <span>Đã nộp: <strong className='text-emerald-600'>{fmt(ky.daThanhToan)} đ</strong></span>
+                              <span>Còn nợ: <strong className={ky.conNo > 0 ? 'text-destructive' : 'text-foreground'}>{fmt(ky.conNo)} đ</strong></span>
+                              <span>Số buổi còn lại của kỳ: <strong className='text-primary'>{ky.conLai} buổi</strong></span>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Cảnh báo vượt gói nếu có */}
+                        {studentDetail.tongHop.soBuoiConLai < 0 ? (
+                          <div className='rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-destructive flex items-center justify-between gap-4'>
+                            <div className='flex items-center gap-3'>
+                              <AlertTriangle className='size-6 shrink-0' />
+                              <div>
+                                <p className='font-bold text-base'>
+                                  Học viên đã học vượt {studentDetail.tongHop.soBuoiVuotGoi} buổi ngoài các kỳ đã nộp!
+                                </p>
+                                <p className='text-xs opacity-90'>
+                                  Các buổi học gần nhất chưa được kết nối với kỳ học phí mới. Vui lòng tạo gói buổi mới và ghi nhận thanh toán.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* TAB 2: LỊCH SỬ BUỔI HỌC & SỬA NHANH (QUICK EDIT) */}
+                <TabsContent value='sessions' className='mt-4 flex flex-col gap-4'>
+                  {/* Bộ lọc buổi học */}
+                  <div className='flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3 shadow-sm'>
+                    <div className='flex flex-wrap items-center gap-3'>
+                      <div className='flex items-center gap-1.5'>
+                        <span className='text-xs text-muted-foreground'>Kỳ học:</span>
+                        <select
+                          value={sessionKyFilter}
+                          onChange={(e) => setSessionKyFilter(e.target.value)}
+                          className='h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
+                        >
+                          <option value='all'>Tất cả các kỳ</option>
+                          {studentDetail.cacKyNop.map((ky) => (
+                            <option key={ky.id} value={String(ky.id)}>{ky.tenKy}</option>
+                          ))}
+                          <option value='ngoai_goi'>🔴 Vượt gói / Chưa nộp kỳ mới</option>
+                        </select>
+                      </div>
+
+                      <div className='flex items-center gap-1.5'>
+                        <span className='text-xs text-muted-foreground'>Trạng thái:</span>
+                        <select
+                          value={sessionStatusFilter}
+                          onChange={(e) => setSessionStatusFilter(e.target.value)}
+                          className='h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
+                        >
+                          <option value='all'>Tất cả trạng thái</option>
+                          <option value='co_mat'>Có mặt</option>
+                          <option value='hoc_bu'>Học bù</option>
+                          <option value='vang_co_phep'>Vắng có phép</option>
+                          <option value='vang_khong_phep'>Vắng không phép</option>
+                        </select>
+                      </div>
+
+                      <div className='flex items-center gap-1.5 min-w-[200px]'>
+                        <Search className='size-3.5 text-muted-foreground' />
+                        <Input
+                          placeholder='Tìm từ khóa nhận xét...'
+                          value={sessionSearchComment}
+                          onChange={(e) => setSessionSearchComment(e.target.value)}
+                          className='h-8 text-xs'
+                        />
+                      </div>
+                    </div>
+
+                    <span className='text-xs text-muted-foreground'>
+                      Hiển thị <strong>{filteredSessions.length}</strong> / {studentDetail.danhSachBuoiHoc.length} buổi học
+                    </span>
+                  </div>
+
+                  {/* Bảng Buổi Học Full Width */}
+                  <div className='overflow-x-auto rounded-lg border bg-card shadow-sm'>
+                    <Table>
+                      <TableHeader className='bg-muted/60 sticky top-0 z-10'>
+                        <TableRow className='text-xs font-semibold'>
+                          <TableHead className='w-12 text-center'>STT</TableHead>
+                          <TableHead className='w-32'>Ngày & Giờ</TableHead>
+                          <TableHead className='w-24'>Lớp</TableHead>
+                          <TableHead className='w-32 text-center'>Trạng thái</TableHead>
+                          <TableHead className='w-16 text-center'>BTVN</TableHead>
+                          <TableHead className='w-16 text-center'>Ý thức</TableHead>
+                          <TableHead>Nhận xét giáo viên</TableHead>
+                          <TableHead className='w-36'>Thuộc kỳ nộp</TableHead>
+                          <TableHead className='w-20 text-center'>Trừ buổi</TableHead>
+                          <TableHead className='w-16 text-center'>Sửa</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className='text-xs'>
+                        {filteredSessions.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={10} className='h-28 text-center text-muted-foreground'>
+                              Không có buổi học nào thỏa mãn bộ lọc đã chọn.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredSessions.map((buoi) => (
+                            <TableRow key={buoi.diemDanhId} className='hover:bg-muted/40 transition-colors'>
+                              <TableCell className='text-center font-mono text-muted-foreground'>
+                                {buoi.stt}
+                              </TableCell>
+                              <TableCell className='font-medium whitespace-nowrap'>
+                                {buoi.ngay} <span className='text-muted-foreground'>({buoi.gioBatDau?.slice(0, 5)})</span>
+                              </TableCell>
+                              <TableCell className='font-medium'>{buoi.lopTen}</TableCell>
+                              <TableCell className='text-center'>
+                                <StatusBadge
+                                  tone={
+                                    buoi.trangThai === 'co_mat' || buoi.trangThai === 'hoc_bu'
+                                      ? 'success'
+                                      : buoi.trangThai === 'vang_co_phep'
+                                        ? 'warning'
+                                        : 'neutral'
+                                  }
+                                  className={
+                                    buoi.trangThai === 'vang_khong_phep'
+                                      ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                                      : undefined
+                                  }
+                                >
+                                  {buoi.trangThai === 'co_mat'
+                                    ? 'Có mặt'
+                                    : buoi.trangThai === 'hoc_bu'
+                                      ? 'Học bù'
+                                      : buoi.trangThai === 'vang_co_phep'
+                                        ? 'Vắng có phép'
+                                        : 'Vắng không phép'}
+                                </StatusBadge>
+                              </TableCell>
+                              <TableCell className='text-center'>
+                                {buoi.daLamBtvn ? '✅' : '❌'}
+                              </TableCell>
+                              <TableCell className='text-center font-bold'>
+                                {buoi.yThucDiem != null ? `${buoi.yThucDiem}/10` : '—'}
+                              </TableCell>
+                              <TableCell className='max-w-md break-words'>
+                                {buoi.nhanXet ? (
+                                  <span className='text-foreground'>{buoi.nhanXet}</span>
+                                ) : (
+                                  <span className='text-muted-foreground italic'>Chưa có nhận xét</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <span className={`text-[11px] font-medium ${buoi.ngoaiGoi ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                                  {buoi.kyTen}
+                                </span>
+                              </TableCell>
+                              <TableCell className='text-center font-bold text-destructive'>
+                                {buoi.soBuoiDaTru > 0 ? `-${buoi.soBuoiDaTru}` : '0'}
+                              </TableCell>
+                              <TableCell className='text-center'>
+                                <Button
+                                  variant='ghost'
+                                  size='sm'
+                                  className='h-7 w-7 p-0 hover:bg-primary/10 hover:text-primary'
+                                  onClick={() =>
+                                    setEditSession({
+                                      diemDanhId: buoi.diemDanhId,
+                                      ngay: buoi.ngay,
+                                      lopTen: buoi.lopTen,
+                                      trangThai: buoi.trangThai,
+                                      daLamBtvn: buoi.daLamBtvn,
+                                      yThucDiem: buoi.yThucDiem ?? '',
+                                      nhanXet: buoi.nhanXet || '',
+                                    })
+                                  }
+                                >
+                                  <Edit3 className='size-3.5' />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+
+                {/* TAB 3: KỲ NỘP HỌC PHÍ */}
+                <TabsContent value='tuition' className='mt-4 flex flex-col gap-4'>
+                  <div className='overflow-x-auto rounded-lg border bg-card shadow-sm'>
+                    <Table>
+                      <TableHeader className='bg-muted/60'>
+                        <TableRow className='text-xs font-semibold'>
+                          <TableHead>Tên gói / Kỳ nộp</TableHead>
+                          <TableHead>Ngày nộp</TableHead>
+                          <TableHead className='text-center'>Số buổi</TableHead>
+                          <TableHead className='text-right'>Đơn giá</TableHead>
+                          <TableHead className='text-right'>Thành tiền</TableHead>
+                          <TableHead className='text-right'>Đã nộp</TableHead>
+                          <TableHead className='text-right'>Còn nợ</TableHead>
+                          <TableHead className='text-center'>Trạng thái</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className='text-xs'>
+                        {studentDetail.cacKyNop.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className='h-24 text-center text-muted-foreground'>
+                              Chưa có gói học phí nào.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          studentDetail.cacKyNop.map((ky) => (
+                            <TableRow key={ky.id}>
+                              <TableCell className='font-bold text-foreground'>{ky.tenKy}</TableCell>
+                              <TableCell>{ky.ngayMua || '—'}</TableCell>
+                              <TableCell className='text-center font-bold'>{ky.soBuoi}</TableCell>
+                              <TableCell className='text-right'>{fmt(ky.donGia)} đ</TableCell>
+                              <TableCell className='text-right font-semibold'>{fmt(ky.thanhTien)} đ</TableCell>
+                              <TableCell className='text-right text-emerald-600 font-bold'>{fmt(ky.daThanhToan)} đ</TableCell>
+                              <TableCell className={`text-right font-bold ${ky.conNo > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                {ky.conNo > 0 ? `${fmt(ky.conNo)} đ` : '0 đ'}
+                              </TableCell>
+                              <TableCell className='text-center'>
+                                <StatusBadge tone={ky.conNo === 0 ? 'success' : ky.daThanhToan > 0 ? 'warning' : 'neutral'}>
+                                  {ky.conNo === 0 ? 'Đã đóng đủ' : ky.daThanhToan > 0 ? 'Đóng một phần' : 'Chưa đóng'}
+                                </StatusBadge>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+
+                {/* TAB 4: SÁCH & GIÁO TRÌNH */}
+                <TabsContent value='books' className='mt-4 flex flex-col gap-4'>
+                  <div className='overflow-x-auto rounded-lg border bg-card shadow-sm'>
+                    <Table>
+                      <TableHeader className='bg-muted/60'>
+                        <TableRow className='text-xs font-semibold'>
+                          <TableHead>Tên đầu sách / Giáo trình</TableHead>
+                          <TableHead>Ngày phát</TableHead>
+                          <TableHead className='text-center'>Số lượng</TableHead>
+                          <TableHead className='text-right'>Giá bìa</TableHead>
+                          <TableHead className='text-right'>Ưu đãi</TableHead>
+                          <TableHead className='text-right'>Thành tiền</TableHead>
+                          <TableHead>Ghi chú</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className='text-xs'>
+                        {studentDetail.sachDaPhat.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className='h-24 text-center text-muted-foreground'>
+                              Học viên chưa nhận đầu sách nào.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          studentDetail.sachDaPhat.map((sach) => (
+                            <TableRow key={sach.id}>
+                              <TableCell className='font-bold text-foreground'>{sach.tenSach}</TableCell>
+                              <TableCell>{sach.ngayPhat || '—'}</TableCell>
+                              <TableCell className='text-center'>{sach.soLuong}</TableCell>
+                              <TableCell className='text-right'>{fmt(sach.giaBia)} đ</TableCell>
+                              <TableCell className='text-right text-emerald-600'>{fmt(sach.uuDai)} đ</TableCell>
+                              <TableCell className='text-right font-bold'>{fmt(sach.thanhTien)} đ</TableCell>
+                              <TableCell className='text-muted-foreground'>{sach.ghiChu || '—'}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+
+          {/* =========================================================================
+              MODAL SỬA NHANH BUỔI HỌC (QUICK EDIT DIALOG)
+             ========================================================================= */}
+          {editSession ? (
+            <Dialog open onOpenChange={(open) => { if (!open) setEditSession(null); }}>
+              <DialogContent className='max-w-lg'>
+                <DialogHeader>
+                  <DialogTitle className='text-lg font-bold flex items-center gap-2'>
+                    <Edit3 className='size-5 text-primary' /> Sửa thông tin buổi học
+                  </DialogTitle>
+                  <DialogDescription>
+                    Buổi học ngày: <strong>{editSession.ngay}</strong> · Lớp: <strong>{editSession.lopTen}</strong>
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className='flex flex-col gap-4 py-3 text-sm'>
+                  <div className='flex flex-col gap-1.5'>
+                    <label className='font-semibold text-xs text-foreground'>Trạng thái điểm danh</label>
+                    <select
+                      value={editSession.trangThai}
+                      onChange={(e) => setEditSession({ ...editSession, trangThai: e.target.value })}
+                      className='h-9 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
+                    >
+                      <option value='co_mat'>🟢 Có mặt (Trừ 1 buổi)</option>
+                      <option value='hoc_bu'>🟢 Học bù (Trừ 1 buổi)</option>
+                      <option value='vang_co_phep'>🟡 Vắng có phép (Không trừ buổi)</option>
+                      <option value='vang_khong_phep'>🔴 Vắng không phép (Trừ 1 buổi)</option>
+                    </select>
+                  </div>
+
+                  <div className='flex items-center gap-2 pt-1'>
+                    <input
+                      type='checkbox'
+                      id='edit-btvn'
+                      checked={editSession.daLamBtvn}
+                      onChange={(e) => setEditSession({ ...editSession, daLamBtvn: e.target.checked })}
+                      className='size-4 rounded border-input'
+                    />
+                    <label htmlFor='edit-btvn' className='text-sm font-medium cursor-pointer'>
+                      Đã làm bài tập về nhà (BTVN)
+                    </label>
+                  </div>
+
+                  <div className='flex flex-col gap-1.5'>
+                    <label className='font-semibold text-xs text-foreground'>Điểm ý thức học tập (0 - 10)</label>
+                    <Input
+                      type='number'
+                      min={0}
+                      max={10}
+                      placeholder='Ví dụ: 8 hoặc 10...'
+                      value={editSession.yThucDiem}
+                      onChange={(e) =>
+                        setEditSession({
+                          ...editSession,
+                          yThucDiem: e.target.value === '' ? '' : Number(e.target.value),
+                        })
+                      }
+                      className='h-9 text-sm'
+                    />
+                  </div>
+
+                  <div className='flex flex-col gap-1.5'>
+                    <label className='font-semibold text-xs text-foreground'>Nhận xét của giáo viên</label>
+                    <textarea
+                      rows={3}
+                      placeholder='Nhập nhận xét chi tiết về buổi học...'
+                      value={editSession.nhanXet}
+                      onChange={(e) => setEditSession({ ...editSession, nhanXet: e.target.value })}
+                      className='w-full rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring'
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button variant='outline' onClick={() => setEditSession(null)}>
+                    Hủy bỏ
+                  </Button>
+                  <Button
+                    onClick={() => void handleSaveEditSession()}
+                    disabled={savingEdit}
+                    className='bg-primary font-medium'
+                  >
+                    {savingEdit ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          ) : null}
+
+          {/* =========================================================================
+              MẪU IN PHIẾU ĐỐI SOÁT CHUẨN KHỔ A4 (DÀNH CHO @MEDIA PRINT)
+             ========================================================================= */}
+          {studentDetail ? (
+            <div className='hidden print:block font-serif text-black p-6'>
+              <div className='text-center border-b-2 border-black pb-4 mb-4'>
+                <h1 className='text-2xl font-bold uppercase tracking-wider'>CLB CỜ VUA DƯƠNG SINH</h1>
+                <p className='text-xs italic'>Hệ thống đào tạo cờ vua chuẩn thi đấu - Hotline: 0989.xxx.xxx</p>
+                <h2 className='text-xl font-bold uppercase mt-3'>BẢNG KÊ ĐỐI SOÁT BUỔI HỌC & HỌC PHÍ</h2>
+              </div>
+
+              <div className='grid grid-cols-2 gap-4 text-xs mb-4'>
+                <div>
+                  <p>Học viên: <strong>{studentDetail.hocVien.hoTen}</strong> (Mã: {studentDetail.hocVien.ma})</p>
+                  <p>Lớp học: <strong>{studentDetail.hocVien.lopTen || '—'}</strong> · Cơ sở: <strong>{studentDetail.hocVien.coSoTen || '—'}</strong></p>
+                </div>
+                <div>
+                  <p>Phụ huynh: <strong>{studentDetail.hocVien.phuHuynh?.hoTen || '—'}</strong></p>
+                  <p>Số điện thoại: <strong>{studentDetail.hocVien.phuHuynh?.soDienThoai || '—'}</strong></p>
+                </div>
+              </div>
+
+              <div className='border border-black p-3 mb-4 text-xs'>
+                <h3 className='font-bold uppercase mb-2'>TỔNG HỢP SỐ BUỔI & HỌC PHÍ</h3>
+                <div className='grid grid-cols-3 gap-2'>
+                  <p>Tổng buổi nộp: <strong>{studentDetail.tongHop.tongSoBuoiDaMua} buổi</strong></p>
+                  <p>Tổng buổi đã học: <strong>{studentDetail.tongHop.tongSoBuoiDaHoc} buổi</strong></p>
+                  <p>Số buổi còn lại: <strong>{studentDetail.tongHop.soBuoiConLai} buổi</strong></p>
+                  <p>Học phí đã nộp: <strong>{fmt(studentDetail.tongHop.tongDaThanhToan)} đ</strong></p>
+                  <p>Học phí còn nợ: <strong>{fmt(studentDetail.tongHop.tongConNo)} đ</strong></p>
+                  <p>Quỹ tiền sách: <strong>{fmt(studentDetail.tongHop.tienSachTon)} đ</strong></p>
+                </div>
+              </div>
+
+              <h3 className='font-bold uppercase text-xs mb-2'>CHI TIẾT LỊCH SỬ CÁC BUỔI ĐIỂM DANH</h3>
+              <table className='w-full border-collapse border border-black text-[11px] mb-8'>
+                <thead>
+                  <tr className='bg-gray-100'>
+                    <th className='border border-black p-1 text-center w-8'>STT</th>
+                    <th className='border border-black p-1 text-left'>Ngày & Giờ</th>
+                    <th className='border border-black p-1 text-left'>Lớp</th>
+                    <th className='border border-black p-1 text-center'>Trạng thái</th>
+                    <th className='border border-black p-1 text-center'>Ý thức</th>
+                    <th className='border border-black p-1 text-left'>Nhận xét của giáo viên</th>
+                    <th className='border border-black p-1 text-center'>Trừ buổi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {studentDetail.danhSachBuoiHoc.map((b, idx) => (
+                    <tr key={b.diemDanhId}>
+                      <td className='border border-black p-1 text-center'>{idx + 1}</td>
+                      <td className='border border-black p-1'>{b.ngay} ({b.gioBatDau?.slice(0, 5)})</td>
+                      <td className='border border-black p-1'>{b.lopTen}</td>
+                      <td className='border border-black p-1 text-center'>
+                        {b.trangThai === 'co_mat' ? 'Có mặt' : b.trangThai === 'hoc_bu' ? 'Học bù' : b.trangThai === 'vang_co_phep' ? 'Vắng có phép' : 'Vắng không phép'}
+                      </td>
+                      <td className='border border-black p-1 text-center'>{b.yThucDiem != null ? `${b.yThucDiem}/10` : '—'}</td>
+                      <td className='border border-black p-1'>{b.nhanXet || '—'}</td>
+                      <td className='border border-black p-1 text-center font-bold'>
+                        {b.soBuoiDaTru > 0 ? `-${b.soBuoiDaTru}` : '0'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className='grid grid-cols-2 text-center text-xs mt-8 pt-4'>
+                <div>
+                  <p className='font-bold uppercase'>ĐẠI DIỆN TRUNG TÂM</p>
+                  <p className='italic text-[10px]'>(Ký, đóng dấu và ghi rõ họ tên)</p>
+                  <div className='h-20' />
+                </div>
+                <div>
+                  <p className='font-bold uppercase'>PHỤ HUYNH HỌC VIÊN</p>
+                  <p className='italic text-[10px]'>(Ký và ghi rõ họ tên xác nhận đối soát)</p>
+                  <div className='h-20' />
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </PageContainer>
+  );
+}

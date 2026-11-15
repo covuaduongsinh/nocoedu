@@ -2,6 +2,7 @@ import { useApiClient } from '@nocobase/app-client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useState, type ReactElement } from 'react';
+import { useNavigate } from 'react-router';
 
 import { RecordLink } from '#components/record-link';
 import { StatusBadge } from '#components/status-badge';
@@ -108,6 +109,7 @@ interface AuditData {
  */
 export default function HocPhiPage(): ReactElement {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const api = useApiClient();
   const list = useListState();
   const { loaded, total, reload } = usePagedRows('hocVien', {
@@ -286,10 +288,9 @@ export default function HocPhiPage(): ReactElement {
               size='sm'
               variant='default'
               className='bg-primary/90 hover:bg-primary font-medium'
-              disabled={auditRowId === Number(row.id)}
-              onClick={() => void openAudit(row)}
+              onClick={() => navigate(`/doi-soat?hocVienId=${row.id}`)}
             >
-              {auditRowId === Number(row.id) ? '⏳ Đang tải...' : '📋 Đối soát buổi học'}
+              📋 Đối soát buổi học
             </Button>
             {canSell ? (
               <Button
