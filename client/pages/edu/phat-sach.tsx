@@ -15,6 +15,7 @@ import {
 } from '#components/ui/table';
 
 import { FormDialog, SelectField, TextField } from './form-parts.js';
+import { GenericImportDialog } from './generic-import-dialog.js';
 import {
   post,
   text,
@@ -143,19 +144,27 @@ export default function PhatSachPage(): ReactElement {
         onRetry={reload}
         paging={{ page: list.page, total, onPage: list.setPage }}
         actions={
-          canManage ? (
-            <span className='flex gap-2'>
-              <Button
-                variant='outline'
-                onClick={() =>
-                  setPaying({ hocVienId: '', soTien: '', ngay: todayVn() })
-                }
-              >
-                {t('edu.quySach.pay')}
-              </Button>
-              <Button onClick={open}>{t('edu.phatSach.new')}</Button>
-            </span>
-          ) : null
+          <div className='flex items-center gap-2'>
+            <GenericImportDialog
+              entity='phatSach'
+              title='Nhập Dữ liệu Phát Sách từ CSV'
+              buttonLabel='Nhập Phát Sách CSV'
+              onSuccess={reload}
+            />
+            {canManage ? (
+              <span className='flex gap-2'>
+                <Button
+                  variant='outline'
+                  onClick={() =>
+                    setPaying({ hocVienId: '', soTien: '', ngay: todayVn() })
+                  }
+                >
+                  {t('edu.quySach.pay')}
+                </Button>
+                <Button onClick={open}>{t('edu.phatSach.new')}</Button>
+              </span>
+            ) : null}
+          </div>
         }
         columns={[
           { key: 'ngay', label: t('edu.phatSach.ngay') },

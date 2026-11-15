@@ -16,6 +16,7 @@ import {
   LevelBadge,
 } from './edu-ui-parts.js';
 import { FormDialog, SelectField, TextField } from './form-parts.js';
+import { GenericImportDialog } from './generic-import-dialog.js';
 import {
   createOne,
   LEVEL_KEYS,
@@ -195,12 +196,20 @@ export default function LopPage(): ReactElement {
           onChange: list.setSearch,
         }}
         actions={
-          canManage ? (
-            <Button onClick={() => setForm(EMPTY)} className='gap-1.5'>
-              <Plus className='h-4 w-4' />
-              <span>{t('edu.lop.new')}</span>
-            </Button>
-          ) : null
+          <div className='flex items-center gap-2'>
+            <GenericImportDialog
+              entity='lop'
+              title='Nhập danh sách Lớp học từ CSV'
+              buttonLabel='Nhập Lớp CSV'
+              onSuccess={reload}
+            />
+            {canManage ? (
+              <Button onClick={() => setForm(EMPTY)} className='gap-1.5'>
+                <Plus className='h-4 w-4' />
+                <span>{t('edu.lop.new')}</span>
+              </Button>
+            ) : null}
+          </div>
         }
         columns={[
           { key: 'ma', label: t('edu.lop.ma') },

@@ -23,6 +23,7 @@ import {
 } from '#components/ui/table';
 
 import { FormDialog, SelectField, TextField } from './form-parts.js';
+import { GenericImportDialog } from './generic-import-dialog.js';
 import {
   createOne,
   text,
@@ -248,21 +249,29 @@ export default function HoSoGvPage(): ReactElement {
         onRetry={reload}
         paging={{ page: list.page, total, onPage: list.setPage }}
         actions={
-          canManage ? (
-            <Button
-              onClick={() =>
-                setForm({
-                  userId: '',
-                  tenVietTat: '',
-                  viTri: '',
-                  tinhTrang: 'dang_lam',
-                  thuLaoMotBuoi: '0',
-                })
-              }
-            >
-              {t('edu.hoSoGv.new')}
-            </Button>
-          ) : null
+          <div className='flex items-center gap-2'>
+            <GenericImportDialog
+              entity='hoSoGv'
+              title='Nhập Hồ sơ Giáo viên từ CSV'
+              buttonLabel='Nhập Giáo viên CSV'
+              onSuccess={reload}
+            />
+            {canManage ? (
+              <Button
+                onClick={() =>
+                  setForm({
+                    userId: '',
+                    tenVietTat: '',
+                    viTri: '',
+                    tinhTrang: 'dang_lam',
+                    thuLaoMotBuoi: '0',
+                  })
+                }
+              >
+                {t('edu.hoSoGv.new')}
+              </Button>
+            ) : null}
+          </div>
         }
         rowActions={
           canManage

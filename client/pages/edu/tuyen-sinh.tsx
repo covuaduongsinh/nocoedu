@@ -29,6 +29,7 @@ import {
 
 import { InitialsAvatar } from './edu-ui-parts.js';
 import { FormDialog, SelectField, TextField } from './form-parts.js';
+import { GenericImportDialog } from './generic-import-dialog.js';
 import {
   createOne,
   deleteOne,
@@ -250,25 +251,33 @@ export default function TuyenSinhPage(): ReactElement {
           </div>
         }
         actions={
-          canManage ? (
-            <div className='flex items-center gap-2'>
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => setCrmOpen(true)}
-                className='gap-1.5 border-violet-500/30 text-violet-700 hover:bg-violet-50 dark:text-violet-300'
-              >
-                🔗 Kết nối NocoCRM
-              </Button>
-              <Button variant='outline' size='sm' onClick={() => setPurging(true)}>
-                {t('edu.tuyenSinh.purge')}
-              </Button>
-              <Button size='sm' onClick={() => setForm(blank())} className='gap-1.5'>
-                <Plus className='h-4 w-4' />
-                <span>{t('edu.tuyenSinh.new')}</span>
-              </Button>
-            </div>
-          ) : null
+          <div className='flex items-center gap-2'>
+            <GenericImportDialog
+              entity='tuyenSinh'
+              title='Nhập Dữ liệu Tuyển Sinh từ CSV'
+              buttonLabel='Nhập Tuyển sinh CSV'
+              onSuccess={reload}
+            />
+            {canManage ? (
+              <div className='flex items-center gap-2'>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setCrmOpen(true)}
+                  className='gap-1.5 border-violet-500/30 text-violet-700 hover:bg-violet-50 dark:text-violet-300'
+                >
+                  🔗 Kết nối NocoCRM
+                </Button>
+                <Button variant='outline' size='sm' onClick={() => setPurging(true)}>
+                  {t('edu.tuyenSinh.purge')}
+                </Button>
+                <Button size='sm' onClick={() => setForm(blank())} className='gap-1.5'>
+                  <Plus className='h-4 w-4' />
+                  <span>{t('edu.tuyenSinh.new')}</span>
+                </Button>
+              </div>
+            ) : null}
+          </div>
         }
         paging={{ page: list.page, total, onPage: list.setPage }}
         search={{

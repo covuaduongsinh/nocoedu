@@ -8,6 +8,7 @@ import { Checkbox } from '#components/ui/checkbox';
 import { StatusBadge } from '#components/status-badge';
 
 import { FormDialog, TextField } from './form-parts.js';
+import { GenericImportDialog } from './generic-import-dialog.js';
 import { createOne, useListState, usePagedRows } from './kit.js';
 import { ListPage } from './list-page.js';
 import { RowManage } from './sua-xoa.js';
@@ -48,9 +49,17 @@ export default function CoSoPage(): ReactElement {
           onChange: list.setSearch,
         }}
         actions={
-          canManage ? (
-            <Button onClick={() => setForm(EMPTY)}>{t('edu.coSo.new')}</Button>
-          ) : null
+          <div className='flex items-center gap-2'>
+            <GenericImportDialog
+              entity='coSo'
+              title='Nhập danh sách Cơ sở từ CSV'
+              buttonLabel='Nhập Cơ sở CSV'
+              onSuccess={reload}
+            />
+            {canManage ? (
+              <Button onClick={() => setForm(EMPTY)}>{t('edu.coSo.new')}</Button>
+            ) : null}
+          </div>
         }
         columns={[
           { key: 'ma', label: t('edu.coSo.ma') },

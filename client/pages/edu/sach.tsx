@@ -7,6 +7,7 @@ import { StatusBadge } from '#components/status-badge';
 import { Button } from '#components/ui/button';
 
 import { FormDialog, SelectField, TextField } from './form-parts.js';
+import { GenericImportDialog } from './generic-import-dialog.js';
 import {
   createOne,
   text,
@@ -72,9 +73,17 @@ export default function SachPage(): ReactElement {
           onChange: list.setSearch,
         }}
         actions={
-          canManage ? (
-            <Button onClick={() => setForm(EMPTY)}>{t('edu.sach.new')}</Button>
-          ) : null
+          <div className='flex items-center gap-2'>
+            <GenericImportDialog
+              entity='sach'
+              title='Nhập Danh mục Sách từ CSV'
+              buttonLabel='Nhập Sách CSV'
+              onSuccess={reload}
+            />
+            {canManage ? (
+              <Button onClick={() => setForm(EMPTY)}>{t('edu.sach.new')}</Button>
+            ) : null}
+          </div>
         }
         rowActions={
           canManage
