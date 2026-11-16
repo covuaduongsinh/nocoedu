@@ -168,6 +168,28 @@ test('the package list is for those who see packages, with what is owed for thos
     loai: 'goiHocChiTiet',
   });
   expect(coach.status).toBe(403);
+  // What is owed is a money report too: a coach gets none of it.
+  expect(
+    (await post(hlvA.session, '/baoCao/xem', { loai: 'congNo' })).status,
+  ).toBe(403);
+  const owed = await view(keToan.session, { loai: 'congNo' });
+  expect(
+    owed.data.rows.map((row) => [row.ma, row.soGoiNo, row.conNo, row.noTuNgay]),
+  ).toEqual([
+    ['HS-B', 1, 800000, '2026-11-06'],
+    ['HS-A', 1, 700000, '2026-11-05'],
+  ]);
+  const owedInBranch = await view(managerA.session, { loai: 'congNo' });
+  expect(owedInBranch.data.rows.map((row) => row.ma)).toEqual(['HS-A']);
+  // Revenue split by how the money came in.
+  const revenue = await view(keToan.session, { loai: 'doanhThu' });
+  expect(revenue.data.rows).toHaveLength(1);
+  expect(revenue.data.rows[0]).toMatchObject({
+    doanhThu: 300000,
+    tienMat: 0,
+    chuyenKhoan: 300000,
+    khac: 0,
+  });
 
   const all = await view(keToan.session, { loai: 'goiHocChiTiet' });
   expect(all.data.rows.map((row) => [row.ma, row.daThu, row.conNo])).toEqual([

@@ -52,6 +52,8 @@ const REPORTS = [
   'diemDanhChiTiet',
   'goiHocChiTiet',
   'lechSoDu',
+  // Who still owes tuition, and how much.
+  'congNo',
 ] as const;
 type ReportKind = (typeof REPORTS)[number];
 
@@ -88,6 +90,7 @@ const GATE: Record<ReportKind, string> = {
   diemDanhChiTiet: 'edu.diemDanh',
   goiHocChiTiet: 'edu.goiHoc',
   lechSoDu: 'edu.soDu',
+  congNo: 'edu.thanhToan',
 };
 
 const STATUS_LABEL: Readonly<Record<string, string>> = {
@@ -208,6 +211,11 @@ export default [
         const to = input.denThang ?? today.slice(0, 7);
         const totals = new Map<string, number>();
         const counts = new Map<string, number>();
+        // How the money came in: cash, bank transfer, or not known (payments imported from Lark carry no method).
+        const byMethod = new Map<
+          string,
+          { tienMat: number; chuyenKhoan: number; khac: number }
+        >();
         for (const month of monthsBetween(from, to)) {
           const payments = await readAll(
             'eduThanhToan',
@@ -220,6 +228,16 @@ export default [
             const key = `${month}|${num(p.coSoId)}`;
             totals.set(key, (totals.get(key) ?? 0) + num(p.soTien));
             counts.set(key, (counts.get(key) ?? 0) + 1);
+            const split = byMethod.get(key) ?? {
+              tienMat: 0,
+              chuyenKhoan: 0,
+              khac: 0,
+            };
+            if (p.hinhThuc === 'tien_mat') split.tienMat += num(p.soTien);
+            else if (p.hinhThuc === 'chuyen_khoan')
+              split.chuyenKhoan += num(p.soTien);
+            else split.khac += num(p.soTien);
+            byMethod.set(key, split);
           }
         }
         const branches = await nameMap(
@@ -233,6 +251,9 @@ export default [
               thang,
               coSo: branches.get(num(coSoId)) ?? '',
               doanhThu: total,
+              tienMat: byMethod.get(key)?.tienMat ?? 0,
+              chuyenKhoan: byMethod.get(key)?.chuyenKhoan ?? 0,
+              khac: byMethod.get(key)?.khac ?? 0,
               soKhoan: counts.get(key) ?? 0,
               trungBinh: Math.round(total / (counts.get(key) || 1)),
             };
@@ -245,6 +266,9 @@ export default [
             { key: 'thang', label: 'Tháng' },
             { key: 'coSo', label: 'Cơ sở' },
             { key: 'doanhThu', label: 'Doanh thu (đồng)' },
+            { key: 'tienMat', label: 'Tiền mặt (đồng)' },
+            { key: 'chuyenKhoan', label: 'Chuyển khoản (đồng)' },
+            { key: 'khac', label: 'Không rõ hình thức (đồng)' },
             { key: 'soKhoan', label: 'Số khoản nộp' },
             { key: 'trungBinh', label: 'Trung bình mỗi khoản (đồng)' },
           ],
@@ -683,6 +707,71 @@ export default [
                   ]
                 : []),
               { key: 'soBuoiConLai', label: 'Số buổi còn lại' },
+            ],
+            rows,
+          };
+        }
+        case 'congNo': {
+          // What each student still owes: for every package, its total minus what was paid for it. It needs both the
+          // packages and the payments, read through their own policies, for the students in the filter.
+          const paymentPolicy = gate.eduThanhToan;
+          const packagePolicy = (
+            await optionalPoliciesOf(c, 'edu.goiHoc', 'view')
+          )?.eduGoiHoc;
+          if (!paymentPolicy || !packagePolicy) throw denied();
+          const byId = new Map(students.map((s) => [num(s.id), s]));
+          const paid = new Map<number, number>();
+          for (const payment of await readAll('eduThanhToan', paymentPolicy)) {
+            if (payment.goiHocId == null) continue;
+            const id = num(payment.goiHocId);
+            paid.set(id, (paid.get(id) ?? 0) + num(payment.soTien));
+          }
+          const owing = new Map<
+            number,
+            { soGoi: number; tongNo: number; tuNgay: string }
+          >();
+          for (const pack of await readAll('eduGoiHoc', packagePolicy)) {
+            const hocVienId = num(pack.hocVienId);
+            if (!byId.has(hocVienId)) continue;
+            const due = num(pack.thanhTien) - (paid.get(num(pack.id)) ?? 0);
+            if (due <= 0) continue;
+            const row = owing.get(hocVienId) ?? {
+              soGoi: 0,
+              tongNo: 0,
+              tuNgay: asText(pack.ngayMua),
+            };
+            row.soGoi += 1;
+            row.tongNo += due;
+            if (asText(pack.ngayMua) < row.tuNgay)
+              row.tuNgay = asText(pack.ngayMua);
+            owing.set(hocVienId, row);
+          }
+          const rows = [...owing.entries()]
+            .map(([hocVienId, row]) => {
+              const student = byId.get(hocVienId);
+              return {
+                ma: asText(student?.ma),
+                hoTen: asText(student?.hoTen),
+                lop:
+                  student?.lopId == null
+                    ? ''
+                    : (lops.get(num(student.lopId)) ?? ''),
+                coSo: branches.get(num(student?.coSoId)) ?? '',
+                soGoiNo: row.soGoi,
+                conNo: row.tongNo,
+                noTuNgay: row.tuNgay,
+              };
+            })
+            .sort((a, b) => b.conNo - a.conNo || a.ma.localeCompare(b.ma));
+          return {
+            columns: [
+              { key: 'ma', label: 'Mã' },
+              { key: 'hoTen', label: 'Họ tên' },
+              { key: 'lop', label: 'Lớp' },
+              { key: 'coSo', label: 'Cơ sở' },
+              { key: 'soGoiNo', label: 'Số gói còn nợ' },
+              { key: 'conNo', label: 'Còn nợ (đồng)' },
+              { key: 'noTuNgay', label: 'Nợ từ ngày' },
             ],
             rows,
           };

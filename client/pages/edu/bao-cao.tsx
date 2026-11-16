@@ -199,6 +199,7 @@ export default function BaoCaoPage(): ReactElement {
     'thieuDongY',
     ...(canAttendance ? ['chuyenCan', 'nghiDai', 'diemDanhChiTiet'] : []),
     ...(canRevenue ? ['doanhThu'] : []),
+    ...(canRevenue && canPackages ? ['congNo'] : []),
     ...(canPackages ? ['goiHocChiTiet'] : []),
     // Balances that disagree with the ledger: for whoever may read the ledger.
     ...(canLedger ? ['lechSoDu'] : []),
