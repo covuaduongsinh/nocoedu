@@ -289,9 +289,14 @@ export function createApplicationRoutes(
   rawConfig: unknown = readAppClientRuntimeConfig(),
 ): readonly AppClientRouteContribution[] {
   const config = createAppClientConfig({ rawConfig });
+  // The directory of notification templates joins System settings as soon as the application sends something: an
+  // invitation mailer is configured, or the daily tuition reminder has its in-app channel
+  // (`server/providers/edu-nhac-hoc-phi.ts`).
   return includeNotificationTemplateRoutes(
     [appRoutes, settingsShellRoutes, systemSettingsRoutes],
-    config.get<boolean>('notificationTemplates.invitationConfigured') === true,
+    config.get<boolean>('notificationTemplates.invitationConfigured') ===
+      true ||
+      config.get<boolean>('notificationTemplates.tuitionReminder') === true,
   );
 }
 

@@ -14,6 +14,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
 import { asText } from '../edu/names.js';
+import { reminderThresholds } from '../edu/nguong-nhac.js';
 import {
   allocateFifo,
   fromLedger,
@@ -29,7 +30,6 @@ import {
 import {
   ATTENDANCE_STATUSES,
   datesBetween,
-  LOW_BALANCE_THRESHOLD,
   todayVn,
   vietQrConfig,
   vietQrUrl,
@@ -821,6 +821,8 @@ export default [
       declare('Students with few sessions left', 'lowBalance'),
       needs('edu.hocVien', 'view'),
       async (c) => {
+        // Each branch says at which balance it starts reminding; the query asks up to the highest of them.
+        const thresholds = await reminderThresholds(database.connection());
         const rows = await database
           .repository('eduHocVien')
           .withPolicy(policyOf(c, 'eduHocVien'))
@@ -828,19 +830,21 @@ export default [
             filter: (f) =>
               f.and([
                 f.string('trangThai').eq('dang_hoc'),
-                f.number('soBuoiConLai').lte(LOW_BALANCE_THRESHOLD),
+                f.number('soBuoiConLai').lte(thresholds.highest),
               ]),
             sort: (s) => s.field('soBuoiConLai').asc(),
             limit: 200,
           });
         return c.json({
-          data: rows.map((row) => ({
-            id: Number(row.id),
-            ma: asText(row.ma),
-            hoTen: asText(row.hoTen),
-            lopId: row.lopId == null ? null : Number(row.lopId),
-            soBuoiConLai: Number(row.soBuoiConLai),
-          })),
+          data: rows
+            .filter((row) => thresholds.isLow(row))
+            .map((row) => ({
+              id: Number(row.id),
+              ma: asText(row.ma),
+              hoTen: asText(row.hoTen),
+              lopId: row.lopId == null ? null : Number(row.lopId),
+              soBuoiConLai: Number(row.soBuoiConLai),
+            })),
         });
       },
     );

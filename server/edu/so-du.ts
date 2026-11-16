@@ -17,7 +17,7 @@ export const ATTENDANCE_STATUSES = [
 ] as const;
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
 
-/** A student with this many sessions left or fewer is warned about. */
+/** A student with this many sessions left or fewer is warned about, unless the branch says otherwise (`nguong-nhac.ts`). */
 export const LOW_BALANCE_THRESHOLD = 2;
 
 /** Whether an absence without leave deducts a session: off by default, on with `EDU_TRU_BUOI_VANG_KHONG_PHEP=true`. */
@@ -43,9 +43,6 @@ export function sessionsToDeduct(
       return excusedAbsenceDeducts ? 0 : 1;
   }
 }
-
-export const isLowBalance = (balance: number): boolean =>
-  balance <= LOW_BALANCE_THRESHOLD;
 
 /** A boolean column as read back from SQLite (0/1) or PostgreSQL (true/false). */
 export function asBoolean(value: unknown): boolean {
