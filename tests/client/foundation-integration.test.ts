@@ -11,22 +11,8 @@ import {
 } from '../../client/routing/route-navigation.js';
 
 /** The sidebar of a signed-in person with every NocoEdu page granted. */
-const eduMenu = [
-  'home',
-  'edu-diemDanh',
-  'edu-doi-soat',
-  'edu-hocPhi',
-  'edu-nhanXet',
-  'edu-tuyenSinh',
-  'edu-hocVien',
-  'edu-baoCao',
-  'edu-lop',
-  'edu-coSo',
-  'edu-hoSoGv',
-  'edu-sach',
-  'edu-phatSach',
-  'edu-sao-luu',
-];
+// The application's pages sit in two sidebar sections (see `client/routes.ts`).
+const eduMenu = ['home', 'edu-nav-operations', 'edu-nav-catalogue'];
 
 describe('default Foundation integration', () => {
   it('registers the Foundation deployment evidence build hook', () => {

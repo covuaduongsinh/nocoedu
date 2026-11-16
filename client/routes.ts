@@ -94,110 +94,127 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     navigation: { title: 'edu.nav.home', icon: Home, order: 0 },
     path: '/',
   },
+  // The sidebar has two sections, each a pathless group: the paths below are unchanged, only the menu is grouped.
   // --- NHÓM 1: VẬN HÀNH HÀNG NGÀY ----------------------------------------------------
-  ...eduPage(
-    'diemDanh',
-    '/diem-danh',
-    CalendarCheck,
-    1,
-    () => import('./pages/edu/diem-danh/index.js'),
-  ),
   {
-    // Its own page grant (`edu.doiSoat`, seed `202611160001_edu_doi_soat_sao_luu_grant`); what a person sees on the
-    // page still follows their business actions, so a coach gets sessions and no tuition.
-    auth: 'required' as const,
-    authz: {
-      resource: { type: 'page' as const, id: 'edu.doiSoat' },
-      action: 'access',
-    },
-    componentLoader: () => import('./pages/edu/doi-soat.js'),
-    name: 'edu-doi-soat',
-    navigation: { title: 'edu.nav.doiSoat', icon: ClipboardCheck, order: 2 },
-    path: '/doi-soat',
+    name: 'edu-nav-operations',
+    navigation: { title: 'edu.nav.operations', order: 1 },
+    children: [
+      ...eduPage(
+        'diemDanh',
+        '/diem-danh',
+        CalendarCheck,
+        1,
+        () => import('./pages/edu/diem-danh/index.js'),
+      ),
+      {
+        // Its own page grant (`edu.doiSoat`, seed `202611160001_edu_doi_soat_sao_luu_grant`); what a person sees on the
+        // page still follows their business actions, so a coach gets sessions and no tuition.
+        auth: 'required' as const,
+        authz: {
+          resource: { type: 'page' as const, id: 'edu.doiSoat' },
+          action: 'access',
+        },
+        componentLoader: () => import('./pages/edu/doi-soat.js'),
+        name: 'edu-doi-soat',
+        navigation: {
+          title: 'edu.nav.doiSoat',
+          icon: ClipboardCheck,
+          order: 2,
+        },
+        path: '/doi-soat',
+      },
+      ...eduPage(
+        'hocPhi',
+        '/hoc-phi',
+        Wallet,
+        3,
+        () => import('./pages/edu/hoc-phi/index.js'),
+      ),
+      ...eduPage(
+        'nhanXet',
+        '/nhan-xet',
+        MessageSquareText,
+        4,
+        () => import('./pages/edu/nhan-xet.js'),
+      ),
+      ...eduPage(
+        'tuyenSinh',
+        '/tuyen-sinh',
+        UserPlus,
+        5,
+        () => import('./pages/edu/tuyen-sinh.js'),
+      ),
+      ...eduPage(
+        'hocVien',
+        '/hoc-vien',
+        Users,
+        6,
+        () => import('./pages/edu/hoc-vien.js'),
+      ),
+      ...eduPage(
+        'baoCao',
+        '/bao-cao',
+        BarChart3,
+        7,
+        () => import('./pages/edu/bao-cao.js'),
+      ),
+    ],
   },
-  ...eduPage(
-    'hocPhi',
-    '/hoc-phi',
-    Wallet,
-    3,
-    () => import('./pages/edu/hoc-phi/index.js'),
-  ),
-  ...eduPage(
-    'nhanXet',
-    '/nhan-xet',
-    MessageSquareText,
-    4,
-    () => import('./pages/edu/nhan-xet.js'),
-  ),
-  ...eduPage(
-    'tuyenSinh',
-    '/tuyen-sinh',
-    UserPlus,
-    5,
-    () => import('./pages/edu/tuyen-sinh.js'),
-  ),
-  ...eduPage(
-    'hocVien',
-    '/hoc-vien',
-    Users,
-    6,
-    () => import('./pages/edu/hoc-vien.js'),
-  ),
-  ...eduPage(
-    'baoCao',
-    '/bao-cao',
-    BarChart3,
-    7,
-    () => import('./pages/edu/bao-cao.js'),
-  ),
 
   // --- NHÓM 2: DANH MỤC & DỮ LIỆU (ÍT THAY ĐỔI) ---------------------------------------
-  ...eduPage(
-    'lop',
-    '/lop',
-    GraduationCap,
-    8,
-    () => import('./pages/edu/lop.js'),
-  ),
-  ...eduPage(
-    'coSo',
-    '/co-so',
-    Building2,
-    9,
-    () => import('./pages/edu/co-so.js'),
-  ),
-  ...eduPage(
-    'hoSoGv',
-    '/giao-vien',
-    UserCog,
-    10,
-    () => import('./pages/edu/ho-so-gv.js'),
-  ),
-  ...eduPage(
-    'sach',
-    '/sach',
-    BookOpen,
-    11,
-    () => import('./pages/edu/sach.js'),
-  ),
-  ...eduPage(
-    'phatSach',
-    '/phat-sach',
-    BookMarked,
-    12,
-    () => import('./pages/edu/phat-sach.js'),
-  ),
   {
-    // Administrators only (`edu.saoLuu`): a backup is a copy of every student, parent and payment.
-    auth: 'required' as const,
-    authz: {
-      resource: { type: 'page' as const, id: 'edu.saoLuu' },
-      action: 'access',
-    },
-    componentLoader: () => import('./pages/edu/sao-luu.js'),
-    name: 'edu-sao-luu',
-    navigation: { title: 'edu.nav.saoLuu', icon: Database, order: 13 },
-    path: '/sao-luu',
+    name: 'edu-nav-catalogue',
+    navigation: { title: 'edu.nav.catalogue', order: 2 },
+    children: [
+      ...eduPage(
+        'lop',
+        '/lop',
+        GraduationCap,
+        8,
+        () => import('./pages/edu/lop.js'),
+      ),
+      ...eduPage(
+        'coSo',
+        '/co-so',
+        Building2,
+        9,
+        () => import('./pages/edu/co-so.js'),
+      ),
+      ...eduPage(
+        'hoSoGv',
+        '/giao-vien',
+        UserCog,
+        10,
+        () => import('./pages/edu/ho-so-gv.js'),
+      ),
+      ...eduPage(
+        'sach',
+        '/sach',
+        BookOpen,
+        11,
+        () => import('./pages/edu/sach.js'),
+      ),
+      ...eduPage(
+        'phatSach',
+        '/phat-sach',
+        BookMarked,
+        12,
+        () => import('./pages/edu/phat-sach.js'),
+      ),
+      {
+        // Administrators only (`edu.saoLuu`): a backup is a copy of every student, parent and payment.
+        auth: 'required' as const,
+        authz: {
+          resource: { type: 'page' as const, id: 'edu.saoLuu' },
+          action: 'access',
+        },
+        componentLoader: () => import('./pages/edu/sao-luu.js'),
+        name: 'edu-sao-luu',
+        navigation: { title: 'edu.nav.saoLuu', icon: Database, order: 13 },
+        path: '/sao-luu',
+      },
+    ],
   },
 
   // Detail pages & secondary paths without sidebar navigation

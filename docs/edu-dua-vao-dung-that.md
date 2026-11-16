@@ -37,18 +37,17 @@ Không có kênh này, ứng dụng vẫn chạy nhưng **không có thông báo
 ## D. Sau khi triển khai (làm trong ứng dụng)
 
 1. **Lệch sổ số dư.** Vào Báo cáo, chọn "Lệch sổ số dư". Mỗi dòng là một học viên có số buổi còn lại khác con số trên dòng sổ cuối (số buổi từng bị ghi ngoài sổ). Khác với báo cáo "Số dư âm", là danh sách học viên đang nợ buổi để báo phụ huynh đóng học phí kỳ mới. Xử lý từng dòng bằng **Điều chỉnh số dư** ở trang Học phí (chỉ Quản trị và Kế toán, bắt buộc ghi lý do). Xong khi báo cáo trống.
-2. **Tài khoản và bộ quyền.** Vào Quản lý người dùng, tạo tài khoản cho HLV, kế toán, quản lý cơ sở rồi gán **một** bộ quyền cho mỗi người: `NocoEdu - Huấn luyện viên`, `NocoEdu - Kế toán`, `NocoEdu - Quản lý cơ sở` (riêng Quản lý cơ sở còn phải được ghi là người quản lý của cơ sở: **hiện chưa có màn hình cho việc này**, xem mục E). Các bộ quyền không tự gán cho ai. Kiểm: đăng nhập thử từng vai, HLV chỉ thấy lớp mình, quản lý chỉ thấy cơ sở mình.
+2. **Tài khoản và bộ quyền.** Vào Quản lý người dùng, tạo tài khoản cho HLV, kế toán, quản lý cơ sở rồi gán **một** bộ quyền cho mỗi người: `NocoEdu - Huấn luyện viên`, `NocoEdu - Kế toán`, `NocoEdu - Quản lý cơ sở` (riêng Quản lý cơ sở còn phải được ghi tên là người quản lý của cơ sở: vào trang **Cơ sở**, nút **Người quản lý** ở dòng cơ sở, chọn tài khoản; chỉ Quản trị làm được. Chưa ghi tên thì tài khoản đó không thấy dữ liệu nào). Các bộ quyền không tự gán cho ai. Kiểm: đăng nhập thử từng vai, HLV chỉ thấy lớp mình, quản lý chỉ thấy cơ sở mình.
 3. **Gán HLV cho 7 lớp** đang thiếu HLV (`HLV_CHUA_GHEP` khi nhập từ Lark): trang Lớp học, sửa lớp, chọn HLV. Chỉ HLV đã có tài khoản mới chọn được, nên làm sau bước 2. Lớp chưa có HLV thì không ai điểm danh được.
 4. **Thu đồng ý của phụ huynh** cho các học viên nhập từ Lark (việc Thầy đã đưa vào kế hoạch). Nên có đồng ý của phụ huynh trước khi gửi link riêng cho họ.
 5. **Chạy thử một vòng đủ:** điểm danh một buổi bằng điện thoại, bán gói, thu tiền, in phiếu thu, tạo link cho một phụ huynh (nhờ họ mở thử), và chờ 08:00 hôm sau để thấy thông báo nhắc thu trong Hộp thư của Kế toán và Quản lý.
 
 ## E. Còn nợ
 
-- **Chặn việc dùng Quản lý cơ sở:** chưa có màn hình gắn một tài khoản vào cơ sở mình quản lý (bảng `eduCoSoQuanLy`; bộ quyền `edu.coSoQuanLy` đã có hành động tạo, nhưng giao diện chưa có nút). Cho tới khi làm, tài khoản Quản lý cơ sở chưa thấy dữ liệu nào. Đây là việc nên làm ngay trong Giai đoạn 4.
-
 - Chưa có tệp logo Dương Sinh trong repo: phiếu thu in chữ "Cờ vua Dương Sinh". Gửi tệp logo (PNG hoặc SVG) để đưa vào phiếu thu và trang phụ huynh.
 - Trên điện thoại, các bảng ở trang Học phí cuộn ngang trong khung.
 - Khung ứng dụng đã có tiếng Việt và tên Dương Sinh, nhưng **hình logo** vẫn là của NocoBase cho tới khi có tệp logo. Trên máy chủ, mở `config.yml` và kiểm `client.app.title` (nếu còn `NocoBase` thì đổi thành `NocoEdu - Cờ vua Dương Sinh`).
-- Chưa làm: menu chia nhóm (Vận hành, Danh mục), chuyển chữ ghi cứng còn lại của trang Đối soát, Tuyển sinh, Nhận xét sang bản dịch (khoảng 300 dòng), và `DatePicker`/`DataTable` của mẫu cho các trang edu.
+- Chưa làm: `DatePicker`/`DataTable` của mẫu cho các trang edu (các trang vẫn dùng ô ngày của trình duyệt và `FormDialog`).
+- Phiếu đối soát in ra còn số hotline mẫu trong `client/pages/edu/doi-soat.tsx`.
 - Chạy nhiều bản ứng dụng cùng lúc thì job nhắc thu cần Redis (`jobs.default`); một bản thì không cần.
 - Phiếu đối soát in ra còn chữ ghi cứng và số hotline mẫu (`client/pages/edu/doi-soat.tsx`).

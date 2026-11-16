@@ -17,11 +17,15 @@ import { EDU_DOI_SOAT_ROWS } from './edu-copy-doi-soat.js';
 import { EDU_NHAP_DU_LIEU_ROWS } from './edu-copy-nhap-du-lieu.js';
 import { EDU_HOC_PHI_ROWS } from './edu-copy-hoc-phi.js';
 import { EDU_CONG_PH_ROWS } from './edu-copy-cong-ph.js';
+import { EDU_NHAN_XET_ROWS } from './edu-copy-nhan-xet.js';
+import { EDU_DOI_SOAT_DETAIL_ROWS } from './edu-copy-doi-soat-detail.js';
 
 type Row = readonly [key: string, vi: string, en: string, zh: string];
 
 const ROWS: readonly Row[] = [
   ['nav.home', 'Trang chủ', 'Home', '首页'],
+  ['nav.operations', 'Vận hành', 'Operations', '日常运营'],
+  ['nav.catalogue', 'Danh mục', 'Catalogue', '基础资料'],
   ['nav.coSo', 'Cơ sở', 'Branches', '分校'],
   ['nav.lop', 'Lớp học', 'Classes', '班级'],
   ['nav.hocVien', 'Học viên', 'Students', '学员'],
@@ -330,6 +334,8 @@ function build(index: 1 | 2 | 3): Tree {
     ...EDU_DIEM_DANH_ROWS,
     ...EDU_HOC_PHI_ROWS,
     ...EDU_CONG_PH_ROWS,
+    ...EDU_NHAN_XET_ROWS,
+    ...EDU_DOI_SOAT_DETAIL_ROWS,
   ]) {
     const parts = row[0].split('.');
     let node = root;

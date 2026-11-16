@@ -335,7 +335,7 @@ export default function NhanXetPage(): ReactElement {
                     </Button>
                     {status[student.id] === 'saved' ? (
                       <span className='text-xs font-medium text-(--status-success) flex items-center gap-1'>
-                        Đã lưu nhận xét
+                        {t('edu.nhanXet.savedComment')}
                       </span>
                     ) : null}
                     {status[student.id] === 'error' ? (
@@ -348,7 +348,9 @@ export default function NhanXetPage(): ReactElement {
                     ) : null}
                   </div>
                   <span className='text-[11px] text-muted-foreground'>
-                    {(drafts[student.id] ?? '').length}/3000 ký tự
+                    {t('edu.nhanXet.charCount', {
+                      n: (drafts[student.id] ?? '').length,
+                    })}
                   </span>
                 </div>
               ) : null}
@@ -397,13 +399,14 @@ export default function NhanXetPage(): ReactElement {
         <DialogContent className='max-w-2xl max-h-[85vh] overflow-y-auto'>
           <DialogHeader className='border-b pb-3'>
             <DialogTitle className='text-lg font-bold'>
-              📋 Lịch Sử Nhận Xét Các Buổi Học ({month})
+              {t('edu.nhanXet.historyTitle', { ky: month })}
             </DialogTitle>
             <DialogDescription>
               {historyModal ? (
                 <span>
-                  Học viên: <strong>{text(historyModal.student.hoTen)}</strong>{' '}
-                  ({text(historyModal.student.ma)})
+                  {t('edu.nhanXet.studentLabel')}{' '}
+                  <strong>{text(historyModal.student.hoTen)}</strong> (
+                  {text(historyModal.student.ma)})
                 </span>
               ) : null}
             </DialogDescription>
@@ -415,26 +418,30 @@ export default function NhanXetPage(): ReactElement {
               <div className='grid grid-cols-2 gap-2 sm:grid-cols-4'>
                 <div className='rounded-md border bg-muted/40 p-2 text-center'>
                   <span className='block text-[11px] text-muted-foreground'>
-                    Số buổi tham gia
+                    {t('edu.nhanXet.stat.attended')}
                   </span>
                   <span className='font-bold text-sm text-foreground'>
-                    {historyModal.data.thongKe.soBuoiCoMat}/
-                    {historyModal.data.thongKe.tongBuoi} buổi
+                    {t('edu.nhanXet.stat.attendedValue', {
+                      present: historyModal.data.thongKe.soBuoiCoMat,
+                      total: historyModal.data.thongKe.tongBuoi,
+                    })}
                   </span>
                 </div>
                 <div className='rounded-md border bg-muted/40 p-2 text-center'>
                   <span className='block text-[11px] text-muted-foreground'>
-                    Số buổi vắng
+                    {t('edu.nhanXet.stat.absent')}
                   </span>
                   <span
                     className={`font-bold text-sm ${historyModal.data.thongKe.soBuoiVang > 0 ? 'text-destructive' : 'text-(--status-success)'}`}
                   >
-                    {historyModal.data.thongKe.soBuoiVang} buổi
+                    {t('edu.nhanXet.stat.sessionsN', {
+                      n: historyModal.data.thongKe.soBuoiVang,
+                    })}
                   </span>
                 </div>
                 <div className='rounded-md border bg-muted/40 p-2 text-center'>
                   <span className='block text-[11px] text-muted-foreground'>
-                    Tỷ lệ làm BTVN
+                    {t('edu.nhanXet.stat.homeworkRate')}
                   </span>
                   <span className='font-bold text-sm text-primary'>
                     {historyModal.data.thongKe.tyLeLamBtvn}%
@@ -442,7 +449,7 @@ export default function NhanXetPage(): ReactElement {
                 </div>
                 <div className='rounded-md border bg-muted/40 p-2 text-center'>
                   <span className='block text-[11px] text-muted-foreground'>
-                    Điểm ý thức TB
+                    {t('edu.nhanXet.stat.awareness')}
                   </span>
                   <span className='font-bold text-sm text-(--status-warning)'>
                     {historyModal.data.thongKe.diemYThucTb != null
@@ -455,11 +462,11 @@ export default function NhanXetPage(): ReactElement {
               {/* Dòng thời gian chi tiết các buổi */}
               <div>
                 <h4 className='mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground'>
-                  Ghi chú & Nhận xét từng buổi của giáo viên
+                  {t('edu.nhanXet.timelineTitle')}
                 </h4>
                 {historyModal.data.danhSach.length === 0 ? (
                   <p className='rounded border border-dashed p-4 text-center text-xs text-muted-foreground'>
-                    Không có buổi học nào trong giai đoạn này.
+                    {t('edu.nhanXet.noSessions')}
                   </p>
                 ) : (
                   <div className='flex flex-col gap-2'>
@@ -482,19 +489,24 @@ export default function NhanXetPage(): ReactElement {
                             }`}
                           >
                             {buoi.trangThai === 'co_mat'
-                              ? 'Có mặt'
+                              ? t('edu.diemDanh.s.co_mat')
                               : buoi.trangThai === 'hoc_bu'
-                                ? 'Học bù'
-                                : 'Vắng'}
+                                ? t('edu.diemDanh.s.hoc_bu')
+                                : t('edu.nhanXet.absent')}
                           </span>
                         </div>
                         <div className='flex items-center gap-3 text-muted-foreground text-[11px]'>
                           <span>
-                            BTVN: {buoi.daLamBtvn ? 'Đã làm' : 'Chưa làm'}
+                            {t('edu.nhanXet.homework', {
+                              state: buoi.daLamBtvn
+                                ? t('edu.nhanXet.homeworkDone')
+                                : t('edu.nhanXet.homeworkNotDone'),
+                            })}
                           </span>
                           {buoi.yThucDiem != null ? (
                             <span>
-                              Ý thức: <strong>{buoi.yThucDiem}/10</strong>
+                              {t('edu.nhanXet.awareness')}{' '}
+                              <strong>{buoi.yThucDiem}/10</strong>
                             </span>
                           ) : null}
                         </div>
@@ -504,7 +516,7 @@ export default function NhanXetPage(): ReactElement {
                             buoi.nhanXet
                           ) : (
                             <em className='text-muted-foreground'>
-                              Không có ghi chú riêng
+                              {t('edu.nhanXet.noOwnNote')}
                             </em>
                           )}
                         </div>

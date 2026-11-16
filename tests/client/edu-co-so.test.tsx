@@ -44,6 +44,18 @@ const api = vi.fn(({ method, path }: ApiCall) => {
         },
       ],
     };
+  if (path === 'coSoQuanLy/count') return { data: 1 };
+  if (path === 'coSoQuanLy/findMany')
+    return { data: [{ id: 8, coSoId: 1, userId: 'u1' }] };
+  if (path === 'quanLy/danhSach')
+    return {
+      data: [
+        { id: 'u1', name: 'Quản lý Mẫu 1' },
+        { id: 'u2', name: 'Quản lý Mẫu 2' },
+      ],
+    };
+  if (path === 'coSoQuanLy/createOne' || path === 'coSoQuanLy/deleteOne')
+    return { data: { id: 9 } };
   if (path === 'coSo/createOne' || path === 'coSo/updateOne')
     return { data: { id: 1 } };
   return new Response(null, { status: 404 });
@@ -81,6 +93,10 @@ describe('the threshold on the branch form', () => {
       permissions: [
         {
           resource: { type: 'composite', id: 'edu.coSo' },
+          actions: ['manage', 'view'],
+        },
+        {
+          resource: { type: 'composite', id: 'edu.coSoQuanLy' },
           actions: ['manage', 'view'],
         },
       ],
@@ -140,6 +156,43 @@ describe('the threshold on the branch form', () => {
             filter: { id: 1 },
             values: expect.objectContaining({ nguongNhacBuoi: 5 }),
           }),
+        }),
+      ),
+    );
+  });
+
+  it('names and removes the managers of a branch, offering only accounts not named yet', async () => {
+    await render();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Người quản lý' }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      await within(dialog).findByText('Quản lý Mẫu 1'),
+    ).toBeInTheDocument();
+    // The account already named is not offered again.
+    const select = within(dialog).getByLabelText('Thêm người quản lý');
+    expect(
+      within(select).queryByRole('option', { name: 'Quản lý Mẫu 1' }),
+    ).toBeNull();
+    await userEvent.selectOptions(select, 'u2');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Thêm' }));
+    await waitFor(() =>
+      expect(api).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: 'coSoQuanLy/createOne',
+          json: expect.objectContaining({
+            values: { coSoId: 1, userId: 'u2' },
+          }),
+        }),
+      ),
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Gỡ' }));
+    await waitFor(() =>
+      expect(api).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: 'coSoQuanLy/deleteOne',
+          json: expect.objectContaining({ filter: { id: 8 } }),
         }),
       ),
     );

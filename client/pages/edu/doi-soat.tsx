@@ -177,6 +177,8 @@ export default function DoiSoatPage(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
   const errorMessage = useErrorMessage();
+  const money = (value: unknown): string =>
+    t('edu.doiSoat.money', { v: fmt(value) });
   const { can: canExport } = useCan({
     resource: { type: 'composite', id: 'edu.baoCao' },
     action: 'export',
@@ -407,11 +409,10 @@ export default function DoiSoatPage(): ReactElement {
             <div>
               <h1 className='text-2xl font-bold tracking-tight text-foreground flex items-center gap-2'>
                 <CalendarCheck className='size-6 text-primary' />
-                Đối Soát Buổi Học & Học Phí
+                {t('edu.doiSoat.hubTitle')}
               </h1>
               <p className='text-sm text-muted-foreground'>
-                Kiểm tra, phân tích số buổi đã học, các kỳ nộp học phí, sách
-                giáo trình và nhận xét học viên toàn trung tâm.
+                {t('edu.doiSoat.hubDescription')}
               </p>
             </div>
             <Button
@@ -424,7 +425,7 @@ export default function DoiSoatPage(): ReactElement {
               <RefreshCw
                 className={`size-4 ${loadingOverview ? 'animate-spin' : ''}`}
               />
-              Làm mới số liệu
+              {t('edu.doiSoat.refresh')}
             </Button>
           </div>
 
@@ -436,13 +437,13 @@ export default function DoiSoatPage(): ReactElement {
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-primary ${filterStatus === 'tat_ca' ? 'ring-2 ring-primary bg-primary/5' : 'bg-card'}`}
               >
                 <p className='text-xs font-medium text-muted-foreground'>
-                  Tổng học viên
+                  {t('edu.doiSoat.kpi.total')}
                 </p>
                 <p className='mt-1 text-2xl font-bold text-foreground'>
                   {overviewData.thongKe.tongHocVien}
                 </p>
                 <span className='text-[11px] text-muted-foreground'>
-                  Tất cả học viên
+                  {t('edu.doiSoat.kpi.totalSub')}
                 </span>
               </div>
 
@@ -451,13 +452,14 @@ export default function DoiSoatPage(): ReactElement {
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-destructive ${filterStatus === 'vuot_goi' ? 'ring-2 ring-destructive bg-destructive/5' : 'bg-card'}`}
               >
                 <p className='text-xs font-medium text-destructive flex items-center gap-1'>
-                  <AlertTriangle className='size-3.5' /> Vượt buổi (Âm)
+                  <AlertTriangle className='size-3.5' />{' '}
+                  {t('edu.doiSoat.kpi.over')}
                 </p>
                 <p className='mt-1 text-2xl font-bold text-destructive'>
                   {overviewData.thongKe.soHocVienVuotGoi}
                 </p>
                 <span className='text-[11px] text-destructive'>
-                  Cần thu kỳ mới
+                  {t('edu.doiSoat.kpi.overSub')}
                 </span>
               </div>
 
@@ -466,13 +468,13 @@ export default function DoiSoatPage(): ReactElement {
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-(--status-warning) ${filterStatus === 'sap_het' ? 'ring-2 ring-(--status-warning) bg-(--status-warning-background)' : 'bg-card'}`}
               >
                 <p className='text-xs font-medium text-(--status-warning)'>
-                  Sắp hết buổi
+                  {t('edu.doiSoat.kpi.low')}
                 </p>
                 <p className='mt-1 text-2xl font-bold text-(--status-warning)'>
                   {overviewData.thongKe.soHocVienSapHet}
                 </p>
                 <span className='text-[11px] text-muted-foreground'>
-                  Còn 0 - 2 buổi
+                  {t('edu.doiSoat.kpi.lowSub')}
                 </span>
               </div>
 
@@ -481,13 +483,13 @@ export default function DoiSoatPage(): ReactElement {
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-(--status-success) ${filterStatus === 'binh_thuong' ? 'ring-2 ring-(--status-success) bg-(--status-success-background)' : 'bg-card'}`}
               >
                 <p className='text-xs font-medium text-(--status-success)'>
-                  Đang an toàn
+                  {t('edu.doiSoat.kpi.safe')}
                 </p>
                 <p className='mt-1 text-2xl font-bold text-(--status-success)'>
                   {overviewData.thongKe.soHocVienBinhThuong}
                 </p>
                 <span className='text-[11px] text-muted-foreground'>
-                  Còn ≥ 3 buổi
+                  {t('edu.doiSoat.kpi.safeSub')}
                 </span>
               </div>
 
@@ -496,13 +498,13 @@ export default function DoiSoatPage(): ReactElement {
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-primary ${filterStatus === 'no_hoc_phi' ? 'ring-2 ring-primary bg-primary/5' : 'bg-card'}`}
               >
                 <p className='text-xs font-medium text-muted-foreground'>
-                  Nợ học phí
+                  {t('edu.doiSoat.kpi.tuitionDebt')}
                 </p>
                 <p className='mt-1 text-lg font-bold text-foreground'>
-                  {fmt(overviewData.thongKe.tongCongNoHocPhi)} đ
+                  {money(overviewData.thongKe.tongCongNoHocPhi)}
                 </p>
                 <span className='text-[11px] text-muted-foreground'>
-                  Tiền học chưa nộp
+                  {t('edu.doiSoat.kpi.tuitionDebtSub')}
                 </span>
               </div>
 
@@ -511,13 +513,13 @@ export default function DoiSoatPage(): ReactElement {
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-primary ${filterStatus === 'no_sach' ? 'ring-2 ring-primary bg-primary/5' : 'bg-card'}`}
               >
                 <p className='text-xs font-medium text-muted-foreground'>
-                  Nợ tiền sách
+                  {t('edu.doiSoat.kpi.bookDebt')}
                 </p>
                 <p className='mt-1 text-lg font-bold text-foreground'>
-                  {fmt(overviewData.thongKe.tongCongNoSach)} đ
+                  {money(overviewData.thongKe.tongCongNoSach)}
                 </p>
                 <span className='text-[11px] text-muted-foreground'>
-                  Tiền sách chưa thu
+                  {t('edu.doiSoat.kpi.bookDebtSub')}
                 </span>
               </div>
             </div>
@@ -529,7 +531,7 @@ export default function DoiSoatPage(): ReactElement {
               <div className='relative flex-1 min-w-[220px]'>
                 <Search className='absolute left-2.5 top-2.5 size-4 text-muted-foreground' />
                 <Input
-                  placeholder='Tìm theo Tên học viên, Mã HV hoặc SĐT phụ huynh...'
+                  placeholder={t('edu.doiSoat.searchPlaceholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={(e) => {
@@ -545,7 +547,9 @@ export default function DoiSoatPage(): ReactElement {
                 onChange={(e) => handleCoSoChange(e.target.value)}
                 className='h-9 rounded-md border border-input bg-background px-3 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
               >
-                <option value='all'>Tất cả cơ sở ({branchRows.length})</option>
+                <option value='all'>
+                  {t('edu.doiSoat.allBranches', { n: branchRows.length })}
+                </option>
                 {branchRows.map((b) => (
                   <option key={b.id} value={String(b.id)}>
                     {text(b.ten)}
@@ -560,7 +564,7 @@ export default function DoiSoatPage(): ReactElement {
                 className='h-9 rounded-md border border-input bg-background px-3 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
               >
                 <option value='all'>
-                  Tất cả lớp học ({availableClasses.length})
+                  {t('edu.doiSoat.allClasses', { n: availableClasses.length })}
                 </option>
                 {availableClasses.map((c) => (
                   <option key={c.id} value={String(c.id)}>
@@ -575,12 +579,16 @@ export default function DoiSoatPage(): ReactElement {
                 onChange={(e) => handleFilterStatus(e.target.value)}
                 className='h-9 rounded-md border border-input bg-background px-3 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
               >
-                <option value='tat_ca'>Tất cả trạng thái</option>
-                <option value='vuot_goi'>Học viên vượt buổi (Âm)</option>
-                <option value='sap_het'>Sắp hết buổi (0 - 2)</option>
-                <option value='binh_thuong'>Còn nhiều buổi (≥ 3)</option>
-                <option value='no_hoc_phi'>💳 Còn nợ học phí</option>
-                <option value='no_sach'>📚 Còn nợ tiền sách</option>
+                <option value='tat_ca'>{t('edu.doiSoat.filterAll')}</option>
+                <option value='vuot_goi'>{t('edu.doiSoat.filterOver')}</option>
+                <option value='sap_het'>{t('edu.doiSoat.filterLow')}</option>
+                <option value='binh_thuong'>
+                  {t('edu.doiSoat.filterSafe')}
+                </option>
+                <option value='no_hoc_phi'>
+                  {t('edu.doiSoat.filterTuition')}
+                </option>
+                <option value='no_sach'>{t('edu.doiSoat.filterBook')}</option>
               </select>
 
               <Button
@@ -588,7 +596,7 @@ export default function DoiSoatPage(): ReactElement {
                 className='h-9 px-3 gap-1'
                 onClick={() => loadOverview()}
               >
-                <Search className='size-3.5' /> Tìm kiếm
+                <Search className='size-3.5' /> {t('edu.doiSoat.search')}
               </Button>
 
               {searchTerm ||
@@ -601,7 +609,7 @@ export default function DoiSoatPage(): ReactElement {
                   className='h-9 px-2 text-xs text-muted-foreground hover:text-foreground gap-1'
                   onClick={handleResetFilters}
                 >
-                  <X className='size-3.5' /> Đặt lại
+                  <X className='size-3.5' /> {t('edu.doiSoat.reset')}
                 </Button>
               ) : null}
             </div>
@@ -611,14 +619,16 @@ export default function DoiSoatPage(): ReactElement {
           {overviewData ? (
             <div className='flex items-center justify-between text-xs text-muted-foreground px-1 font-medium'>
               <span>
-                Tìm thấy{' '}
+                {t('edu.doiSoat.foundPrefix')}{' '}
                 <strong className='text-foreground'>
                   {overviewData.danhSach.length}
                 </strong>{' '}
-                học viên phù hợp
+                {t('edu.doiSoat.foundSuffix')}
                 {overviewData.danhSach.length !==
                 overviewData.thongKe.tongHocVien
-                  ? ` (trên tổng số ${overviewData.thongKe.tongHocVien} học viên toàn trung tâm)`
+                  ? t('edu.doiSoat.foundOfTotal', {
+                      n: overviewData.thongKe.tongHocVien,
+                    })
                   : ''}
               </span>
             </div>
@@ -629,17 +639,31 @@ export default function DoiSoatPage(): ReactElement {
             <Table>
               <TableHeader>
                 <TableRow className='bg-muted/50 text-xs font-semibold'>
-                  <TableHead className='w-28'>Mã HV</TableHead>
-                  <TableHead>Họ và tên</TableHead>
-                  <TableHead>Lớp học</TableHead>
-                  <TableHead>Cơ sở</TableHead>
-                  <TableHead>Phụ huynh liên hệ</TableHead>
-                  <TableHead className='text-center'>Đã nộp</TableHead>
-                  <TableHead className='text-center'>Đã học</TableHead>
-                  <TableHead className='text-center'>Số buổi còn lại</TableHead>
-                  <TableHead className='text-right'>Học phí</TableHead>
-                  <TableHead className='text-right'>Tiền sách</TableHead>
-                  <TableHead className='text-center w-32'>Thao tác</TableHead>
+                  <TableHead className='w-28'>
+                    {t('edu.doiSoat.th.ma')}
+                  </TableHead>
+                  <TableHead>{t('edu.doiSoat.th.name')}</TableHead>
+                  <TableHead>{t('edu.doiSoat.th.class')}</TableHead>
+                  <TableHead>{t('edu.doiSoat.th.branch')}</TableHead>
+                  <TableHead>{t('edu.doiSoat.th.parent')}</TableHead>
+                  <TableHead className='text-center'>
+                    {t('edu.doiSoat.th.paid')}
+                  </TableHead>
+                  <TableHead className='text-center'>
+                    {t('edu.doiSoat.th.studied')}
+                  </TableHead>
+                  <TableHead className='text-center'>
+                    {t('edu.doiSoat.th.remaining')}
+                  </TableHead>
+                  <TableHead className='text-right'>
+                    {t('edu.doiSoat.th.tuition')}
+                  </TableHead>
+                  <TableHead className='text-right'>
+                    {t('edu.doiSoat.th.books')}
+                  </TableHead>
+                  <TableHead className='text-center w-32'>
+                    {t('edu.doiSoat.th.actions')}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className='text-xs'>
@@ -652,7 +676,7 @@ export default function DoiSoatPage(): ReactElement {
                       <div className='flex flex-col items-center justify-center gap-2'>
                         <RefreshCw className='size-5 animate-spin text-primary' />
                         <span className='font-medium text-xs'>
-                          Đang tải và tổng hợp dữ liệu đối soát học viên...
+                          {t('edu.doiSoat.loadingOverview')}
                         </span>
                       </div>
                     </TableCell>
@@ -672,7 +696,7 @@ export default function DoiSoatPage(): ReactElement {
                           variant='outline'
                           onClick={() => loadOverview()}
                         >
-                          Thử lại
+                          {t('edu.common.retry')}
                         </Button>
                       </div>
                     </TableCell>
@@ -683,8 +707,7 @@ export default function DoiSoatPage(): ReactElement {
                       colSpan={11}
                       className='h-32 text-center text-muted-foreground'
                     >
-                      Không tìm thấy học viên nào phù hợp với điều kiện tìm
-                      kiếm.
+                      {t('edu.doiSoat.noResults')}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -754,43 +777,51 @@ export default function DoiSoatPage(): ReactElement {
                             tone='neutral'
                             className='border-destructive/30 bg-destructive/10 text-destructive font-bold'
                           >
-                            Vượt {Math.abs(row.soBuoiConLai)} buổi
+                            {t('edu.doiSoat.overN', {
+                              n: Math.abs(row.soBuoiConLai),
+                            })}
                           </StatusBadge>
                         ) : row.soBuoiConLai === 0 ? (
                           <StatusBadge tone='warning' className='font-semibold'>
-                            Hết buổi (0)
+                            {t('edu.doiSoat.zeroLeft')}
                           </StatusBadge>
                         ) : row.soBuoiConLai <= 2 ? (
                           <StatusBadge tone='warning' className='font-semibold'>
-                            Còn {row.soBuoiConLai} buổi
+                            {t('edu.doiSoat.leftN', { n: row.soBuoiConLai })}
                           </StatusBadge>
                         ) : (
                           <StatusBadge tone='success' className='font-semibold'>
-                            Còn {row.soBuoiConLai} buổi
+                            {t('edu.doiSoat.leftN', { n: row.soBuoiConLai })}
                           </StatusBadge>
                         )}
                       </TableCell>
                       <TableCell className='text-right'>
                         <span className='font-medium'>
-                          {fmt(row.tongDaThanhToan)} đ
+                          {money(row.tongDaThanhToan)}
                         </span>
                         {row.tongConNoHocPhi > 0 ? (
                           <span className='block text-[11px] text-destructive font-medium'>
-                            Nợ: {fmt(row.tongConNoHocPhi)} đ
+                            {t('edu.doiSoat.debt', {
+                              v: fmt(row.tongConNoHocPhi),
+                            })}
                           </span>
                         ) : null}
                       </TableCell>
                       <TableCell className='text-right'>
                         <span className='font-medium'>
-                          {fmt(row.tongTienSachDaPhat)} đ
+                          {money(row.tongTienSachDaPhat)}
                         </span>
                         {row.tienSachTon < 0 ? (
                           <span className='block text-[11px] text-destructive font-medium'>
-                            Nợ sách: {fmt(Math.abs(row.tienSachTon))} đ
+                            {t('edu.doiSoat.bookDebt', {
+                              v: fmt(Math.abs(row.tienSachTon)),
+                            })}
                           </span>
                         ) : row.tienSachTon > 0 ? (
                           <span className='block text-[11px] text-(--status-success) font-medium'>
-                            Quỹ dư: {fmt(row.tienSachTon)} đ
+                            {t('edu.doiSoat.bookSurplus', {
+                              v: fmt(row.tienSachTon),
+                            })}
                           </span>
                         ) : null}
                       </TableCell>
@@ -803,7 +834,7 @@ export default function DoiSoatPage(): ReactElement {
                           }
                         >
                           <Layers className='size-3.5' />
-                          Đối soát
+                          {t('edu.doiSoat.audit')}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -828,7 +859,7 @@ export default function DoiSoatPage(): ReactElement {
                 className='gap-1.5'
               >
                 <ArrowLeft className='size-4' />
-                Quay lại danh sách
+                {t('edu.doiSoat.back')}
               </Button>
               {studentDetail ? (
                 <div>
@@ -842,7 +873,7 @@ export default function DoiSoatPage(): ReactElement {
                       className='inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline ml-2'
                     >
                       <ExternalLink className='size-3.5' />
-                      Hồ sơ 360°
+                      {t('edu.doiSoat.profile360')}
                     </RecordLink>
                   </h2>
                   <p className='text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5'>
@@ -851,17 +882,23 @@ export default function DoiSoatPage(): ReactElement {
                         to={`/lop/${studentDetail.hocVien.lopId}`}
                         className='text-primary hover:underline font-medium'
                       >
-                        Lớp: {studentDetail.hocVien.lopTen}
+                        {t('edu.doiSoat.classLine', {
+                          ten: studentDetail.hocVien.lopTen,
+                        })}
                       </RecordLink>
                     ) : (
-                      <span>Chưa xếp lớp</span>
+                      <span>{t('edu.hocVien.noClass')}</span>
                     )}
                     {studentDetail.hocVien.coSoTen ? (
-                      <span>· Cơ sở: {studentDetail.hocVien.coSoTen}</span>
+                      <span>
+                        {t('edu.doiSoat.branchLine', {
+                          ten: studentDetail.hocVien.coSoTen,
+                        })}
+                      </span>
                     ) : null}
                     {studentDetail.hocVien.phuHuynh ? (
                       <span>
-                        · Phụ huynh:{' '}
+                        {t('edu.doiSoat.parentLead')}{' '}
                         <span className='font-medium text-foreground'>
                           {studentDetail.hocVien.phuHuynh.hoTen}
                         </span>{' '}
@@ -882,7 +919,7 @@ export default function DoiSoatPage(): ReactElement {
                 className='gap-1.5'
               >
                 <Download className='size-4' />
-                Xuất CSV
+                {t('edu.doiSoat.exportCsvShort')}
               </Button>
               <Button
                 size='sm'
@@ -891,7 +928,7 @@ export default function DoiSoatPage(): ReactElement {
                 className='gap-1.5 bg-primary font-medium'
               >
                 <Printer className='size-4' />
-                🖨️ In phiếu đối soát A4
+                {t('edu.doiSoat.printBtn')}
               </Button>
             </div>
           </div>
@@ -917,7 +954,7 @@ export default function DoiSoatPage(): ReactElement {
           ) : loadingDetail || !studentDetail ? (
             <div className='flex h-64 items-center justify-center text-sm text-muted-foreground'>
               <RefreshCw className='size-6 animate-spin mr-2 text-primary' />{' '}
-              Đang tải dữ liệu đối soát học viên...
+              {t('edu.doiSoat.loadingDetail')}
             </div>
           ) : (
             <div className='flex flex-col gap-6'>
@@ -925,69 +962,87 @@ export default function DoiSoatPage(): ReactElement {
               <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
                 <div className='rounded-xl border bg-card p-4 shadow-sm'>
                   <p className='text-xs font-medium text-muted-foreground'>
-                    Tổng số buổi đã nộp
+                    {t('edu.doiSoat.kpiD.paidSessions')}
                   </p>
                   <p className='mt-1 text-2xl font-bold text-primary'>
-                    {studentDetail.tongHop.tongSoBuoiDaMua} buổi
+                    {t('edu.doiSoat.sessionsN', {
+                      n: studentDetail.tongHop.tongSoBuoiDaMua,
+                    })}
                   </p>
                   <span className='text-[11px] text-muted-foreground'>
-                    {studentDetail.cacKyNop.length} kỳ học phí
+                    {t('edu.doiSoat.termsCount', {
+                      n: studentDetail.cacKyNop.length,
+                    })}
                   </span>
                 </div>
 
                 <div className='rounded-xl border bg-card p-4 shadow-sm'>
                   <p className='text-xs font-medium text-muted-foreground'>
-                    Tổng số buổi đã học
+                    {t('edu.doiSoat.kpiD.studied')}
                   </p>
                   <p className='mt-1 text-2xl font-bold text-foreground'>
-                    {studentDetail.tongHop.tongSoBuoiDaHoc} buổi
+                    {t('edu.doiSoat.sessionsN', {
+                      n: studentDetail.tongHop.tongSoBuoiDaHoc,
+                    })}
                   </p>
                   <span className='text-[11px] text-muted-foreground'>
-                    Đã ghi nhận điểm danh
+                    {t('edu.doiSoat.kpiD.recorded')}
                   </span>
                 </div>
 
                 <div className='rounded-xl border bg-card p-4 shadow-sm'>
                   <p className='text-xs font-medium text-muted-foreground'>
-                    Số buổi còn lại
+                    {t('edu.doiSoat.th.remaining')}
                   </p>
                   <p
                     className={`mt-1 text-2xl font-bold ${studentDetail.tongHop.soBuoiConLai < 0 ? 'text-destructive' : 'text-(--status-success)'}`}
                   >
                     {studentDetail.tongHop.soBuoiConLai < 0
-                      ? `Vượt ${studentDetail.tongHop.soBuoiVuotGoi} buổi`
-                      : `Còn ${studentDetail.tongHop.soBuoiConLai} buổi`}
+                      ? t('edu.doiSoat.overN', {
+                          n: studentDetail.tongHop.soBuoiVuotGoi,
+                        })
+                      : t('edu.doiSoat.leftN', {
+                          n: studentDetail.tongHop.soBuoiConLai,
+                        })}
                   </p>
                   <span className='text-[11px] text-muted-foreground'>
                     {studentDetail.tongHop.soBuoiConLai < 0
-                      ? 'Chưa đóng học phí kỳ mới'
-                      : 'Số dư khả dụng'}
+                      ? t('edu.doiSoat.kpiD.noNewTerm')
+                      : t('edu.doiSoat.kpiD.balance')}
                   </span>
                 </div>
 
                 <div className='rounded-xl border bg-card p-4 shadow-sm'>
                   <p className='text-xs font-medium text-muted-foreground'>
-                    Học phí & Quỹ sách
+                    {t('edu.doiSoat.kpiD.feesBooks')}
                   </p>
                   <p className='mt-1 text-sm font-semibold'>
-                    Học phí: {fmt(studentDetail.tongHop.tongDaThanhToan)} đ
+                    {t('edu.doiSoat.feeLine', {
+                      v: fmt(studentDetail.tongHop.tongDaThanhToan),
+                    })}
                     {studentDetail.tongHop.tongConNo > 0 ? (
                       <span className='text-destructive ml-1.5'>
-                        (Nợ: {fmt(studentDetail.tongHop.tongConNo)} đ)
+                        {t('edu.doiSoat.debtParen', {
+                          v: fmt(studentDetail.tongHop.tongConNo),
+                        })}
                       </span>
                     ) : null}
                   </p>
                   <p className='text-xs text-muted-foreground mt-0.5'>
-                    Sách đã nhận:{' '}
-                    {fmt(studentDetail.tongHop.tongTienSachDaPhat)} đ
+                    {t('edu.doiSoat.booksReceived', {
+                      v: fmt(studentDetail.tongHop.tongTienSachDaPhat),
+                    })}
                     {studentDetail.tongHop.tienSachTon < 0 ? (
                       <span className='text-destructive font-semibold ml-1.5'>
-                        (Nợ: {fmt(Math.abs(studentDetail.tongHop.tienSachTon))}{' '}
-                        đ)
+                        {t('edu.doiSoat.debtParen', {
+                          v: fmt(Math.abs(studentDetail.tongHop.tienSachTon)),
+                        })}
                       </span>
                     ) : studentDetail.tongHop.tienSachTon > 0 ? (
                       <span className='text-(--status-success) font-semibold ml-1.5'>
-                        (Tồn: {fmt(studentDetail.tongHop.tienSachTon)} đ)
+                        {t('edu.doiSoat.stockParen', {
+                          v: fmt(studentDetail.tongHop.tienSachTon),
+                        })}
                       </span>
                     ) : null}
                   </p>
@@ -1005,28 +1060,35 @@ export default function DoiSoatPage(): ReactElement {
                     value='overview'
                     className='gap-1.5 text-xs font-medium'
                   >
-                    <Layers className='size-3.5' /> Tổng quan tiến độ
+                    <Layers className='size-3.5' />{' '}
+                    {t('edu.doiSoat.tab.overview')}
                   </TabsTrigger>
                   <TabsTrigger
                     value='sessions'
                     className='gap-1.5 text-xs font-medium'
                   >
-                    <CalendarCheck className='size-3.5' /> Buổi học & Sửa nhanh
-                    ({studentDetail.danhSachBuoiHoc.length})
+                    <CalendarCheck className='size-3.5' />{' '}
+                    {t('edu.doiSoat.tab.sessions', {
+                      n: studentDetail.danhSachBuoiHoc.length,
+                    })}
                   </TabsTrigger>
                   <TabsTrigger
                     value='tuition'
                     className='gap-1.5 text-xs font-medium'
                   >
-                    <Wallet className='size-3.5' /> Kỳ học phí (
-                    {studentDetail.cacKyNop.length})
+                    <Wallet className='size-3.5' />{' '}
+                    {t('edu.doiSoat.tab.tuition', {
+                      n: studentDetail.cacKyNop.length,
+                    })}
                   </TabsTrigger>
                   <TabsTrigger
                     value='books'
                     className='gap-1.5 text-xs font-medium'
                   >
-                    <BookOpen className='size-3.5' /> Sách & Quỹ (
-                    {studentDetail.sachDaPhat.length})
+                    <BookOpen className='size-3.5' />{' '}
+                    {t('edu.doiSoat.tab.books', {
+                      n: studentDetail.sachDaPhat.length,
+                    })}
                   </TabsTrigger>
                 </TabsList>
 
@@ -1037,11 +1099,11 @@ export default function DoiSoatPage(): ReactElement {
                 >
                   <div>
                     <h3 className='text-base font-bold text-foreground mb-3 flex items-center gap-2'>
-                      <span>📊 Cột mốc phân bổ buổi học theo từng kỳ nộp</span>
+                      <span>{t('edu.doiSoat.milestones')}</span>
                     </h3>
                     {studentDetail.cacKyNop.length === 0 ? (
                       <div className='rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground'>
-                        Chưa có gói học phí nào được tạo cho học viên này.
+                        {t('edu.doiSoat.noPackagesYet')}
                       </div>
                     ) : (
                       <div className='flex flex-col gap-3'>
@@ -1056,13 +1118,17 @@ export default function DoiSoatPage(): ReactElement {
                                   {ky.tenKy}
                                 </span>
                                 <span className='text-xs text-muted-foreground font-mono'>
-                                  (Ngày nộp: {ky.ngayMua || 'Chưa cập nhật'})
+                                  {t('edu.doiSoat.paidOnLine', {
+                                    v:
+                                      ky.ngayMua || t('edu.doiSoat.notUpdated'),
+                                  })}
                                 </span>
                               </div>
                               <div className='flex items-center gap-2'>
                                 <span className='text-xs font-medium text-foreground'>
-                                  Đã học: <strong>{ky.daDung}</strong> /{' '}
-                                  {ky.soBuoi} buổi
+                                  {t('edu.doiSoat.studiedLabel')}{' '}
+                                  <strong>{ky.daDung}</strong> /{' '}
+                                  {t('edu.doiSoat.sessionsN', { n: ky.soBuoi })}
                                 </span>
                                 <StatusBadge
                                   tone={
@@ -1074,10 +1140,12 @@ export default function DoiSoatPage(): ReactElement {
                                   }
                                 >
                                   {ky.tienDo === 100
-                                    ? 'Đã hoàn thành'
+                                    ? t('edu.doiSoat.termDone')
                                     : ky.tienDo > 0
-                                      ? `Đang học (${ky.tienDo}%)`
-                                      : 'Chưa học'}
+                                      ? t('edu.doiSoat.termInProgress', {
+                                          n: ky.tienDo,
+                                        })
+                                      : t('edu.doiSoat.termNotStarted')}
                                 </StatusBadge>
                               </div>
                             </div>
@@ -1094,18 +1162,20 @@ export default function DoiSoatPage(): ReactElement {
 
                             <div className='flex flex-wrap items-center justify-between text-xs text-muted-foreground pt-1 border-t'>
                               <span>
-                                Học phí gói:{' '}
-                                <strong>{fmt(ky.thanhTien)} đ</strong> (
-                                {fmt(ky.donGia)} đ/buổi)
+                                {t('edu.doiSoat.packageFee')}{' '}
+                                <strong>{money(ky.thanhTien)}</strong>{' '}
+                                {t('edu.doiSoat.perSession', {
+                                  v: fmt(ky.donGia),
+                                })}
                               </span>
                               <span>
-                                Đã nộp:{' '}
+                                {t('edu.doiSoat.paidLabel')}{' '}
                                 <strong className='text-(--status-success)'>
-                                  {fmt(ky.daThanhToan)} đ
+                                  {money(ky.daThanhToan)}
                                 </strong>
                               </span>
                               <span>
-                                Còn nợ:{' '}
+                                {t('edu.doiSoat.owedLabel')}{' '}
                                 <strong
                                   className={
                                     ky.conNo > 0
@@ -1113,13 +1183,13 @@ export default function DoiSoatPage(): ReactElement {
                                       : 'text-foreground'
                                   }
                                 >
-                                  {fmt(ky.conNo)} đ
+                                  {money(ky.conNo)}
                                 </strong>
                               </span>
                               <span>
-                                Số buổi còn lại của kỳ:{' '}
+                                {t('edu.doiSoat.termLeftLabel')}{' '}
                                 <strong className='text-primary'>
-                                  {ky.conLai} buổi
+                                  {t('edu.doiSoat.sessionsN', { n: ky.conLai })}
                                 </strong>
                               </span>
                             </div>
@@ -1133,14 +1203,12 @@ export default function DoiSoatPage(): ReactElement {
                               <AlertTriangle className='size-6 shrink-0' />
                               <div>
                                 <p className='font-bold text-base'>
-                                  Học viên đã học vượt{' '}
-                                  {studentDetail.tongHop.soBuoiVuotGoi} buổi
-                                  ngoài các kỳ đã nộp!
+                                  {t('edu.doiSoat.overWarning', {
+                                    n: studentDetail.tongHop.soBuoiVuotGoi,
+                                  })}
                                 </p>
                                 <p className='text-xs opacity-90'>
-                                  Các buổi học gần nhất chưa được kết nối với kỳ
-                                  học phí mới. Vui lòng tạo gói buổi mới và ghi
-                                  nhận thanh toán.
+                                  {t('edu.doiSoat.overWarningHint')}
                                 </p>
                               </div>
                             </div>
@@ -1161,28 +1229,30 @@ export default function DoiSoatPage(): ReactElement {
                     <div className='flex flex-wrap items-center gap-3'>
                       <div className='flex items-center gap-1.5'>
                         <span className='text-xs text-muted-foreground'>
-                          Kỳ học:
+                          {t('edu.doiSoat.termFilter')}
                         </span>
                         <select
                           value={sessionKyFilter}
                           onChange={(e) => setSessionKyFilter(e.target.value)}
                           className='h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
                         >
-                          <option value='all'>Tất cả các kỳ</option>
+                          <option value='all'>
+                            {t('edu.doiSoat.allTerms')}
+                          </option>
                           {studentDetail.cacKyNop.map((ky) => (
                             <option key={ky.id} value={String(ky.id)}>
                               {ky.tenKy}
                             </option>
                           ))}
                           <option value='ngoai_goi'>
-                            Vượt gói / Chưa nộp kỳ mới
+                            {t('edu.doiSoat.ngoaiGoi')}
                           </option>
                         </select>
                       </div>
 
                       <div className='flex items-center gap-1.5'>
                         <span className='text-xs text-muted-foreground'>
-                          Trạng thái:
+                          {t('edu.doiSoat.statusFilter')}
                         </span>
                         <select
                           value={sessionStatusFilter}
@@ -1191,12 +1261,20 @@ export default function DoiSoatPage(): ReactElement {
                           }
                           className='h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
                         >
-                          <option value='all'>Tất cả trạng thái</option>
-                          <option value='co_mat'>Có mặt</option>
-                          <option value='hoc_bu'>Học bù</option>
-                          <option value='vang_co_phep'>Vắng có phép</option>
+                          <option value='all'>
+                            {t('edu.doiSoat.filterAll')}
+                          </option>
+                          <option value='co_mat'>
+                            {t('edu.diemDanh.s.co_mat')}
+                          </option>
+                          <option value='hoc_bu'>
+                            {t('edu.diemDanh.s.hoc_bu')}
+                          </option>
+                          <option value='vang_co_phep'>
+                            {t('edu.diemDanh.s.vang_co_phep')}
+                          </option>
                           <option value='vang_khong_phep'>
-                            Vắng không phép
+                            {t('edu.diemDanh.s.vang_khong_phep')}
                           </option>
                         </select>
                       </div>
@@ -1204,7 +1282,7 @@ export default function DoiSoatPage(): ReactElement {
                       <div className='flex items-center gap-1.5 min-w-[200px]'>
                         <Search className='size-3.5 text-muted-foreground' />
                         <Input
-                          placeholder='Tìm từ khóa nhận xét...'
+                          placeholder={t('edu.doiSoat.commentSearch')}
                           value={sessionSearchComment}
                           onChange={(e) =>
                             setSessionSearchComment(e.target.value)
@@ -1224,14 +1302,17 @@ export default function DoiSoatPage(): ReactElement {
                         className='h-8 text-xs gap-1'
                       >
                         {sessionSortOrder === 'desc'
-                          ? '⬇️ Mới nhất trước'
-                          : '⬆️ Cũ nhất trước'}
+                          ? t('edu.doiSoat.sortNewest')
+                          : t('edu.doiSoat.sortOldest')}
                       </Button>
                     </div>
 
                     <span className='text-xs text-muted-foreground'>
-                      Hiển thị <strong>{filteredSessions.length}</strong> /{' '}
-                      {studentDetail.danhSachBuoiHoc.length} buổi học
+                      {t('edu.doiSoat.showing')}{' '}
+                      <strong>{filteredSessions.length}</strong> /{' '}
+                      {t('edu.doiSoat.sessionsOfTotal', {
+                        n: studentDetail.danhSachBuoiHoc.length,
+                      })}
                     </span>
                   </div>
 
@@ -1241,30 +1322,34 @@ export default function DoiSoatPage(): ReactElement {
                       <TableHeader className='bg-muted/60 sticky top-0 z-10'>
                         <TableRow className='text-xs font-semibold'>
                           <TableHead className='w-12 text-center'>
-                            STT
+                            {t('edu.doiSoat.th.stt')}
                           </TableHead>
-                          <TableHead className='w-32'>Ngày & Giờ</TableHead>
-                          <TableHead className='w-20'>Lớp</TableHead>
+                          <TableHead className='w-32'>
+                            {t('edu.doiSoat.th.dateTime')}
+                          </TableHead>
+                          <TableHead className='w-20'>
+                            {t('edu.doiSoat.th.lop')}
+                          </TableHead>
                           <TableHead className='w-32 text-center'>
-                            Trạng thái
+                            {t('edu.doiSoat.th.status')}
                           </TableHead>
                           <TableHead className='w-14 text-center'>
-                            BTVN
+                            {t('edu.doiSoat.th.hw')}
                           </TableHead>
                           <TableHead className='w-14 text-center'>
-                            Ý thức
+                            {t('edu.doiSoat.th.awareness')}
                           </TableHead>
                           <TableHead className='min-w-[280px] max-w-[420px]'>
-                            Nhận xét giáo viên
+                            {t('edu.doiSoat.th.teacherComment')}
                           </TableHead>
                           <TableHead className='w-52 min-w-[200px]'>
-                            Thuộc kỳ nộp
+                            {t('edu.doiSoat.th.term')}
                           </TableHead>
                           <TableHead className='w-20 text-center'>
-                            Trừ buổi
+                            {t('edu.doiSoat.th.deducted')}
                           </TableHead>
                           <TableHead className='w-16 text-center'>
-                            Sửa
+                            {t('edu.doiSoat.th.edit')}
                           </TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1275,7 +1360,7 @@ export default function DoiSoatPage(): ReactElement {
                               colSpan={10}
                               className='h-28 text-center text-muted-foreground'
                             >
-                              Không có buổi học nào thỏa mãn bộ lọc đã chọn.
+                              {t('edu.doiSoat.noFilteredSessions')}
                             </TableCell>
                           </TableRow>
                         ) : (
@@ -1313,16 +1398,18 @@ export default function DoiSoatPage(): ReactElement {
                                   }
                                 >
                                   {buoi.trangThai === 'co_mat'
-                                    ? 'Có mặt'
+                                    ? t('edu.diemDanh.s.co_mat')
                                     : buoi.trangThai === 'hoc_bu'
-                                      ? 'Học bù'
+                                      ? t('edu.diemDanh.s.hoc_bu')
                                       : buoi.trangThai === 'vang_co_phep'
-                                        ? 'Vắng có phép'
-                                        : 'Vắng không phép'}
+                                        ? t('edu.diemDanh.s.vang_co_phep')
+                                        : t('edu.diemDanh.s.vang_khong_phep')}
                                 </StatusBadge>
                               </TableCell>
                               <TableCell className='text-center'>
-                                {buoi.daLamBtvn ? 'Đã làm' : 'Chưa làm'}
+                                {buoi.daLamBtvn
+                                  ? t('edu.doiSoat.hwDone')
+                                  : t('edu.doiSoat.hwNotDone')}
                               </TableCell>
                               <TableCell className='text-center font-bold'>
                                 {buoi.yThucDiem != null
@@ -1334,7 +1421,7 @@ export default function DoiSoatPage(): ReactElement {
                                   <span>{buoi.nhanXet}</span>
                                 ) : (
                                   <span className='text-muted-foreground italic'>
-                                    Chưa có nhận xét
+                                    {t('edu.doiSoat.noComment')}
                                   </span>
                                 )}
                               </TableCell>
@@ -1395,17 +1482,25 @@ export default function DoiSoatPage(): ReactElement {
                     <Table>
                       <TableHeader className='bg-muted/60'>
                         <TableRow className='text-xs font-semibold'>
-                          <TableHead>Tên gói / Kỳ nộp</TableHead>
-                          <TableHead>Ngày nộp</TableHead>
-                          <TableHead className='text-center'>Số buổi</TableHead>
-                          <TableHead className='text-right'>Đơn giá</TableHead>
-                          <TableHead className='text-right'>
-                            Thành tiền
-                          </TableHead>
-                          <TableHead className='text-right'>Đã nộp</TableHead>
-                          <TableHead className='text-right'>Còn nợ</TableHead>
+                          <TableHead>{t('edu.doiSoat.th.pkg')}</TableHead>
+                          <TableHead>{t('edu.doiSoat.th.paidOn')}</TableHead>
                           <TableHead className='text-center'>
-                            Trạng thái
+                            {t('edu.doiSoat.th.sessions')}
+                          </TableHead>
+                          <TableHead className='text-right'>
+                            {t('edu.doiSoat.th.unitPrice')}
+                          </TableHead>
+                          <TableHead className='text-right'>
+                            {t('edu.doiSoat.th.total')}
+                          </TableHead>
+                          <TableHead className='text-right'>
+                            {t('edu.doiSoat.th.paid')}
+                          </TableHead>
+                          <TableHead className='text-right'>
+                            {t('edu.doiSoat.th.owed')}
+                          </TableHead>
+                          <TableHead className='text-center'>
+                            {t('edu.doiSoat.th.status')}
                           </TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1416,7 +1511,7 @@ export default function DoiSoatPage(): ReactElement {
                               colSpan={8}
                               className='h-24 text-center text-muted-foreground'
                             >
-                              Chưa có gói học phí nào.
+                              {t('edu.doiSoat.noPackages')}
                             </TableCell>
                           </TableRow>
                         ) : (
@@ -1430,18 +1525,18 @@ export default function DoiSoatPage(): ReactElement {
                                 {ky.soBuoi}
                               </TableCell>
                               <TableCell className='text-right'>
-                                {fmt(ky.donGia)} đ
+                                {money(ky.donGia)}
                               </TableCell>
                               <TableCell className='text-right font-semibold'>
-                                {fmt(ky.thanhTien)} đ
+                                {money(ky.thanhTien)}
                               </TableCell>
                               <TableCell className='text-right text-(--status-success) font-bold'>
-                                {fmt(ky.daThanhToan)} đ
+                                {money(ky.daThanhToan)}
                               </TableCell>
                               <TableCell
                                 className={`text-right font-bold ${ky.conNo > 0 ? 'text-destructive' : 'text-muted-foreground'}`}
                               >
-                                {ky.conNo > 0 ? `${fmt(ky.conNo)} đ` : '0 đ'}
+                                {money(ky.conNo > 0 ? ky.conNo : 0)}
                               </TableCell>
                               <TableCell className='text-center'>
                                 <StatusBadge
@@ -1454,10 +1549,10 @@ export default function DoiSoatPage(): ReactElement {
                                   }
                                 >
                                   {ky.conNo === 0
-                                    ? 'Đã đóng đủ'
+                                    ? t('edu.doiSoat.payFull')
                                     : ky.daThanhToan > 0
-                                      ? 'Đóng một phần'
-                                      : 'Chưa đóng'}
+                                      ? t('edu.doiSoat.payPartial')
+                                      : t('edu.doiSoat.payNone')}
                                 </StatusBadge>
                               </TableCell>
                             </TableRow>
@@ -1474,17 +1569,21 @@ export default function DoiSoatPage(): ReactElement {
                     <Table>
                       <TableHeader className='bg-muted/60'>
                         <TableRow className='text-xs font-semibold'>
-                          <TableHead>Tên đầu sách / Giáo trình</TableHead>
-                          <TableHead>Ngày phát</TableHead>
+                          <TableHead>{t('edu.doiSoat.th.bookName')}</TableHead>
+                          <TableHead>{t('edu.doiSoat.th.givenOn')}</TableHead>
                           <TableHead className='text-center'>
-                            Số lượng
+                            {t('edu.doiSoat.th.qty')}
                           </TableHead>
-                          <TableHead className='text-right'>Giá bìa</TableHead>
-                          <TableHead className='text-right'>Ưu đãi</TableHead>
                           <TableHead className='text-right'>
-                            Thành tiền
+                            {t('edu.doiSoat.th.cover')}
                           </TableHead>
-                          <TableHead>Ghi chú</TableHead>
+                          <TableHead className='text-right'>
+                            {t('edu.doiSoat.th.discount')}
+                          </TableHead>
+                          <TableHead className='text-right'>
+                            {t('edu.doiSoat.th.total')}
+                          </TableHead>
+                          <TableHead>{t('edu.doiSoat.th.note')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody className='text-xs'>
@@ -1494,7 +1593,7 @@ export default function DoiSoatPage(): ReactElement {
                               colSpan={7}
                               className='h-24 text-center text-muted-foreground'
                             >
-                              Học viên chưa nhận đầu sách nào.
+                              {t('edu.doiSoat.noBooks')}
                             </TableCell>
                           </TableRow>
                         ) : (
@@ -1508,13 +1607,13 @@ export default function DoiSoatPage(): ReactElement {
                                 {sach.soLuong}
                               </TableCell>
                               <TableCell className='text-right'>
-                                {fmt(sach.giaBia)} đ
+                                {money(sach.giaBia)}
                               </TableCell>
                               <TableCell className='text-right text-(--status-success)'>
-                                {fmt(sach.uuDai)} đ
+                                {money(sach.uuDai)}
                               </TableCell>
                               <TableCell className='text-right font-bold'>
-                                {fmt(sach.thanhTien)} đ
+                                {money(sach.thanhTien)}
                               </TableCell>
                               <TableCell className='text-muted-foreground'>
                                 {sach.ghiChu || '—'}
@@ -1543,11 +1642,13 @@ export default function DoiSoatPage(): ReactElement {
               <DialogContent className='max-w-lg'>
                 <DialogHeader>
                   <DialogTitle className='text-lg font-bold flex items-center gap-2'>
-                    <Edit3 className='size-5 text-primary' /> Sửa thông tin buổi
-                    học
+                    <Edit3 className='size-5 text-primary' />{' '}
+                    {t('edu.doiSoat.editTitle')}
                   </DialogTitle>
                   <DialogDescription>
-                    Buổi học ngày: <strong>{editSession.ngay}</strong> · Lớp:{' '}
+                    {t('edu.doiSoat.sessionDateLabel')}{' '}
+                    <strong>{editSession.ngay}</strong> ·{' '}
+                    {t('edu.doiSoat.classColon')}{' '}
                     <strong>{editSession.lopTen}</strong>
                   </DialogDescription>
                 </DialogHeader>
@@ -1555,7 +1656,7 @@ export default function DoiSoatPage(): ReactElement {
                 <div className='flex flex-col gap-4 py-3 text-sm'>
                   <div className='flex flex-col gap-1.5'>
                     <label className='font-semibold text-xs text-foreground'>
-                      Trạng thái điểm danh
+                      {t('edu.doiSoat.attendanceStatus')}
                     </label>
                     <select
                       value={editSession.trangThai}
@@ -1602,19 +1703,19 @@ export default function DoiSoatPage(): ReactElement {
                       htmlFor='edit-btvn'
                       className='text-sm font-medium cursor-pointer'
                     >
-                      Đã làm bài tập về nhà (BTVN)
+                      {t('edu.doiSoat.hwChecked')}
                     </label>
                   </div>
 
                   <div className='flex flex-col gap-1.5'>
                     <label className='font-semibold text-xs text-foreground'>
-                      Điểm ý thức học tập (0 - 10)
+                      {t('edu.doiSoat.awarenessScore')}
                     </label>
                     <Input
                       type='number'
                       min={0}
                       max={10}
-                      placeholder='Ví dụ: 8 hoặc 10...'
+                      placeholder={t('edu.doiSoat.awarenessPlaceholder')}
                       value={editSession.yThucDiem}
                       onChange={(e) =>
                         setEditSession({
@@ -1629,11 +1730,11 @@ export default function DoiSoatPage(): ReactElement {
 
                   <div className='flex flex-col gap-1.5'>
                     <label className='font-semibold text-xs text-foreground'>
-                      Nhận xét của giáo viên
+                      {t('edu.doiSoat.th.teacherCommentLong')}
                     </label>
                     <textarea
                       rows={3}
-                      placeholder='Nhập nhận xét chi tiết về buổi học...'
+                      placeholder={t('edu.doiSoat.commentPlaceholder')}
                       value={editSession.nhanXet}
                       onChange={(e) =>
                         setEditSession({
@@ -1680,37 +1781,41 @@ export default function DoiSoatPage(): ReactElement {
             >
               <div className='text-center border-b-2 border-black pb-4 mb-4'>
                 <h1 className='text-2xl font-bold uppercase tracking-wider'>
-                  CLB CỜ VUA DƯƠNG SINH
+                  {t('edu.doiSoat.printout.club')}
                 </h1>
                 <p className='text-xs italic'>
-                  Hệ thống đào tạo cờ vua chuẩn thi đấu - Hotline: 0989.xxx.xxx
+                  {t('edu.doiSoat.printout.tagline')}
                 </p>
                 <h2 className='text-xl font-bold uppercase mt-3'>
-                  BẢNG KÊ ĐỐI SOÁT BUỔI HỌC & HỌC PHÍ
+                  {t('edu.doiSoat.printout.title')}
                 </h2>
               </div>
 
               <div className='grid grid-cols-2 gap-4 text-xs mb-4'>
                 <div>
                   <p>
-                    Học viên: <strong>{studentDetail.hocVien.hoTen}</strong>{' '}
-                    (Mã: {studentDetail.hocVien.ma})
+                    {t('edu.doiSoat.printout.student')}{' '}
+                    <strong>{studentDetail.hocVien.hoTen}</strong>{' '}
+                    {t('edu.doiSoat.printout.code', {
+                      ma: studentDetail.hocVien.ma,
+                    })}
                   </p>
                   <p>
-                    Lớp học:{' '}
-                    <strong>{studentDetail.hocVien.lopTen || '—'}</strong> · Cơ
-                    sở: <strong>{studentDetail.hocVien.coSoTen || '—'}</strong>
+                    {t('edu.doiSoat.printout.class')}{' '}
+                    <strong>{studentDetail.hocVien.lopTen || '—'}</strong>{' '}
+                    {t('edu.doiSoat.printout.branch')}{' '}
+                    <strong>{studentDetail.hocVien.coSoTen || '—'}</strong>
                   </p>
                 </div>
                 <div>
                   <p>
-                    Phụ huynh:{' '}
+                    {t('edu.doiSoat.printout.parent')}{' '}
                     <strong>
                       {studentDetail.hocVien.phuHuynh?.hoTen || '—'}
                     </strong>
                   </p>
                   <p>
-                    Số điện thoại:{' '}
+                    {t('edu.doiSoat.printout.phone')}{' '}
                     <strong>
                       {studentDetail.hocVien.phuHuynh?.soDienThoai || '—'}
                     </strong>
@@ -1720,66 +1825,76 @@ export default function DoiSoatPage(): ReactElement {
 
               <div className='border border-black p-3 mb-4 text-xs'>
                 <h3 className='font-bold uppercase mb-2'>
-                  TỔNG HỢP SỐ BUỔI & HỌC PHÍ
+                  {t('edu.doiSoat.printout.summary')}
                 </h3>
                 <div className='grid grid-cols-3 gap-2'>
                   <p>
-                    Tổng buổi nộp:{' '}
+                    {t('edu.doiSoat.printout.sessionsPaid')}{' '}
                     <strong>
-                      {studentDetail.tongHop.tongSoBuoiDaMua} buổi
+                      {t('edu.doiSoat.sessionsN', {
+                        n: studentDetail.tongHop.tongSoBuoiDaMua,
+                      })}
                     </strong>
                   </p>
                   <p>
-                    Tổng buổi đã học:{' '}
+                    {t('edu.doiSoat.printout.sessionsStudied')}{' '}
                     <strong>
-                      {studentDetail.tongHop.tongSoBuoiDaHoc} buổi
+                      {t('edu.doiSoat.sessionsN', {
+                        n: studentDetail.tongHop.tongSoBuoiDaHoc,
+                      })}
                     </strong>
                   </p>
                   <p>
-                    Số buổi còn lại:{' '}
-                    <strong>{studentDetail.tongHop.soBuoiConLai} buổi</strong>
-                  </p>
-                  <p>
-                    Học phí đã nộp:{' '}
+                    {t('edu.doiSoat.printout.sessionsLeft')}{' '}
                     <strong>
-                      {fmt(studentDetail.tongHop.tongDaThanhToan)} đ
+                      {t('edu.doiSoat.sessionsN', {
+                        n: studentDetail.tongHop.soBuoiConLai,
+                      })}
                     </strong>
                   </p>
                   <p>
-                    Học phí còn nợ:{' '}
-                    <strong>{fmt(studentDetail.tongHop.tongConNo)} đ</strong>
+                    {t('edu.doiSoat.printout.feePaid')}{' '}
+                    <strong>
+                      {money(studentDetail.tongHop.tongDaThanhToan)}
+                    </strong>
                   </p>
                   <p>
-                    Quỹ tiền sách:{' '}
-                    <strong>{fmt(studentDetail.tongHop.tienSachTon)} đ</strong>
+                    {t('edu.doiSoat.printout.feeOwed')}{' '}
+                    <strong>{money(studentDetail.tongHop.tongConNo)}</strong>
+                  </p>
+                  <p>
+                    {t('edu.doiSoat.printout.bookFund')}{' '}
+                    <strong>{money(studentDetail.tongHop.tienSachTon)}</strong>
                   </p>
                 </div>
               </div>
 
               <h3 className='font-bold uppercase text-xs mb-2'>
-                CHI TIẾT LỊCH SỬ CÁC BUỔI ĐIỂM DANH
+                {t('edu.doiSoat.printout.detailTitle')}
               </h3>
               <table className='w-full border-collapse border border-black text-[11px] mb-8'>
                 <thead>
                   <tr className='bg-muted'>
                     <th className='border border-black p-1 text-center w-8'>
-                      STT
+                      {t('edu.doiSoat.th.stt')}
                     </th>
                     <th className='border border-black p-1 text-left'>
-                      Ngày & Giờ
-                    </th>
-                    <th className='border border-black p-1 text-left'>Lớp</th>
-                    <th className='border border-black p-1 text-center'>
-                      Trạng thái
-                    </th>
-                    <th className='border border-black p-1 text-center'>
-                      Ý thức
+                      {t('edu.doiSoat.th.dateTime')}
                     </th>
                     <th className='border border-black p-1 text-left'>
-                      Nhận xét của giáo viên
+                      {t('edu.doiSoat.th.lop')}
                     </th>
                     <th className='border border-black p-1 text-center'>
-                      Trừ buổi
+                      {t('edu.doiSoat.th.status')}
+                    </th>
+                    <th className='border border-black p-1 text-center'>
+                      {t('edu.doiSoat.th.awareness')}
+                    </th>
+                    <th className='border border-black p-1 text-left'>
+                      {t('edu.doiSoat.th.teacherCommentLong')}
+                    </th>
+                    <th className='border border-black p-1 text-center'>
+                      {t('edu.doiSoat.th.deducted')}
                     </th>
                   </tr>
                 </thead>
@@ -1795,12 +1910,12 @@ export default function DoiSoatPage(): ReactElement {
                       <td className='border border-black p-1'>{b.lopTen}</td>
                       <td className='border border-black p-1 text-center'>
                         {b.trangThai === 'co_mat'
-                          ? 'Có mặt'
+                          ? t('edu.diemDanh.s.co_mat')
                           : b.trangThai === 'hoc_bu'
-                            ? 'Học bù'
+                            ? t('edu.diemDanh.s.hoc_bu')
                             : b.trangThai === 'vang_co_phep'
-                              ? 'Vắng có phép'
-                              : 'Vắng không phép'}
+                              ? t('edu.diemDanh.s.vang_co_phep')
+                              : t('edu.diemDanh.s.vang_khong_phep')}
                       </td>
                       <td className='border border-black p-1 text-center'>
                         {b.yThucDiem != null ? `${b.yThucDiem}/10` : '—'}
@@ -1818,16 +1933,20 @@ export default function DoiSoatPage(): ReactElement {
 
               <div className='grid grid-cols-2 text-center text-xs mt-8 pt-4'>
                 <div>
-                  <p className='font-bold uppercase'>ĐẠI DIỆN TRUNG TÂM</p>
+                  <p className='font-bold uppercase'>
+                    {t('edu.doiSoat.printout.center')}
+                  </p>
                   <p className='italic text-[10px]'>
-                    (Ký, đóng dấu và ghi rõ họ tên)
+                    {t('edu.doiSoat.printout.centerSign')}
                   </p>
                   <div className='h-20' />
                 </div>
                 <div>
-                  <p className='font-bold uppercase'>PHỤ HUYNH HỌC VIÊN</p>
+                  <p className='font-bold uppercase'>
+                    {t('edu.doiSoat.printout.parentSide')}
+                  </p>
                   <p className='italic text-[10px]'>
-                    (Ký và ghi rõ họ tên xác nhận đối soát)
+                    {t('edu.doiSoat.printout.parentSign')}
                   </p>
                   <div className='h-20' />
                 </div>

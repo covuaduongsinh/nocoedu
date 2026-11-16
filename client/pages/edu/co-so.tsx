@@ -7,6 +7,7 @@ import { Button } from '#components/ui/button';
 import { Checkbox } from '#components/ui/checkbox';
 import { StatusBadge } from '#components/status-badge';
 
+import { BranchManagersButton } from './co-so-quan-ly.js';
 import { FormDialog, TextField } from './form-parts.js';
 import { GenericImportDialog } from './generic-import-dialog.js';
 import { createOne, text, useListState, usePagedRows } from './kit.js';
@@ -46,7 +47,10 @@ export default function CoSoPage(): ReactElement {
         loaded={loaded}
         onRetry={reload}
         rowActions={(row) => (
-          <RowManage kind='coSo' row={row} onChanged={reload} />
+          <>
+            <BranchManagersButton branch={row} />
+            <RowManage kind='coSo' row={row} onChanged={reload} />
+          </>
         )}
         paging={{ page: list.page, total, onPage: list.setPage }}
         search={{

@@ -143,7 +143,7 @@ export default function TuyenSinhPage(): ReactElement {
   const kanbanColumns = [
     {
       id: 'moi',
-      title: '1. Mới tiếp nhận',
+      title: t('edu.tuyenSinh.col.moi'),
       count: moiRows.length,
       rows: moiRows,
       tone: 'border-primary/30 bg-primary/5',
@@ -151,7 +151,7 @@ export default function TuyenSinhPage(): ReactElement {
     },
     {
       id: 'dang_cham_soc',
-      title: '2. Đang tư vấn / Test',
+      title: t('edu.tuyenSinh.col.dangChamSoc'),
       count: dangChamSocRows.length,
       rows: dangChamSocRows,
       tone: 'border-(--status-warning)/30 bg-(--status-warning)/5',
@@ -159,7 +159,7 @@ export default function TuyenSinhPage(): ReactElement {
     },
     {
       id: 'da_chot',
-      title: '3. Đã chốt nhập học',
+      title: t('edu.tuyenSinh.col.daChot'),
       count: daChotRows.length,
       rows: daChotRows,
       tone: 'border-(--status-success)/30 bg-(--status-success)/5',
@@ -167,7 +167,7 @@ export default function TuyenSinhPage(): ReactElement {
     },
     {
       id: 'khong_chot',
-      title: '4. Tạm ngưng / Hẹn sau',
+      title: t('edu.tuyenSinh.col.khongChot'),
       count: khongChotRows.length,
       rows: khongChotRows,
       tone: 'border-muted bg-muted/20',
@@ -186,30 +186,30 @@ export default function TuyenSinhPage(): ReactElement {
         onRetry={reload}
         metrics={[
           {
-            label: 'Tổng Leads tiếp nhận',
+            label: t('edu.tuyenSinh.metric.total'),
             value: total,
-            sub: 'Khách hàng tiềm năng',
+            sub: t('edu.tuyenSinh.metric.totalSub'),
             icon: Users,
             tone: 'primary',
           },
           {
-            label: 'Chờ liên hệ',
+            label: t('edu.tuyenSinh.metric.waiting'),
             value: moiRows.length,
-            sub: 'Chưa bắt đầu tư vấn',
+            sub: t('edu.tuyenSinh.metric.waitingSub'),
             icon: Clock,
             tone: 'info',
           },
           {
-            label: 'Đang theo sát',
+            label: t('edu.tuyenSinh.metric.following'),
             value: dangChamSocRows.length,
-            sub: 'Hẹn test & cân nhắc',
+            sub: t('edu.tuyenSinh.metric.followingSub'),
             icon: MessageCircle,
             tone: 'warning',
           },
           {
-            label: 'Đã nhập học',
+            label: t('edu.tuyenSinh.metric.enrolled'),
             value: daChotRows.length,
-            sub: 'Ghi danh thành công',
+            sub: t('edu.tuyenSinh.metric.enrolledSub'),
             icon: CheckCircle2,
             tone: 'success',
           },
@@ -223,7 +223,7 @@ export default function TuyenSinhPage(): ReactElement {
               onClick={() => setViewMode('kanban')}
             >
               <Kanban className='h-3.5 w-3.5' />
-              <span>Bảng Kanban</span>
+              <span>{t('edu.tuyenSinh.view.kanban')}</span>
             </Button>
             <Button
               size='sm'
@@ -232,7 +232,7 @@ export default function TuyenSinhPage(): ReactElement {
               onClick={() => setViewMode('table')}
             >
               <LayoutList className='h-3.5 w-3.5' />
-              <span>Dạng bảng</span>
+              <span>{t('edu.tuyenSinh.view.table')}</span>
             </Button>
           </div>
         }
@@ -247,7 +247,7 @@ export default function TuyenSinhPage(): ReactElement {
                   onClick={() => setCrmOpen(true)}
                   className='gap-1.5 border-primary/30 text-primary hover:bg-primary/8'
                 >
-                  🔗 Kết nối NocoCRM
+                  {t('edu.tuyenSinh.crm.connect')}
                 </Button>
                 <Button
                   variant='outline'
@@ -397,7 +397,7 @@ export default function TuyenSinhPage(): ReactElement {
                 <div className='flex flex-1 flex-col gap-3'>
                   {col.rows.length === 0 ? (
                     <div className='flex flex-1 items-center justify-center rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground'>
-                      Chưa có liên hệ nào
+                      {t('edu.tuyenSinh.empty')}
                     </div>
                   ) : (
                     col.rows.map((row) => {
@@ -439,7 +439,7 @@ export default function TuyenSinhPage(): ReactElement {
                                     <a
                                       href={`tel:${phone}`}
                                       className='rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-primary'
-                                      title='Gọi điện thoại'
+                                      title={t('edu.tuyenSinh.call')}
                                     >
                                       <Phone className='h-3.5 w-3.5' />
                                     </a>
@@ -448,7 +448,7 @@ export default function TuyenSinhPage(): ReactElement {
                                       target='_blank'
                                       rel='noopener noreferrer'
                                       className='rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-primary'
-                                      title='Nhắn tin Zalo'
+                                      title={t('edu.tuyenSinh.zalo')}
                                     >
                                       <MessageCircle className='h-3.5 w-3.5' />
                                     </a>
@@ -459,7 +459,10 @@ export default function TuyenSinhPage(): ReactElement {
 
                             {/* Campus and Reminder Date */}
                             <div className='flex items-center justify-between text-xs text-muted-foreground'>
-                              <span>{branchName(row.coSoId) || 'Cơ sở'}</span>
+                              <span>
+                                {branchName(row.coSoId) ||
+                                  t('edu.tuyenSinh.coSo')}
+                              </span>
                               {text(row.ngayNhac) ? (
                                 <span
                                   className={
@@ -499,7 +502,7 @@ export default function TuyenSinhPage(): ReactElement {
                                     );
                                   }}
                                 >
-                                  + Ghi danh
+                                  {t('edu.tuyenSinh.quickEnroll')}
                                 </Button>
 
                                 <div className='flex items-center gap-1'>
@@ -515,7 +518,7 @@ export default function TuyenSinhPage(): ReactElement {
                                         )
                                       }
                                     >
-                                      Tư vấn →
+                                      {t('edu.tuyenSinh.advise')}
                                     </Button>
                                   ) : col.id === 'dang_cham_soc' ? (
                                     <>
@@ -530,7 +533,7 @@ export default function TuyenSinhPage(): ReactElement {
                                           )
                                         }
                                       >
-                                        Chốt ✓
+                                        {t('edu.tuyenSinh.close')}
                                       </Button>
                                       <Button
                                         size='sm'
@@ -543,7 +546,7 @@ export default function TuyenSinhPage(): ReactElement {
                                           )
                                         }
                                       >
-                                        Hẹn sau
+                                        {t('edu.tuyenSinh.later')}
                                       </Button>
                                     </>
                                   ) : (
@@ -558,7 +561,7 @@ export default function TuyenSinhPage(): ReactElement {
                                         )
                                       }
                                     >
-                                      Mở lại
+                                      {t('edu.tuyenSinh.reopen')}
                                     </Button>
                                   )}
                                 </div>
