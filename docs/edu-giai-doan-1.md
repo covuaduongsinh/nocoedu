@@ -86,11 +86,11 @@ Tài khoản Quản trị là tài khoản quản trị ban đầu của ứng d
 
 ## Nhắc thu học phí tự động
 
-Mỗi ngày lúc 08:00 (giờ Việt Nam) hệ thống gửi vào **Hộp thư** của từng người thu học phí một thông báo: số học viên đã hết buổi, sắp hết buổi và còn nợ học phí, kèm **mã học viên** (tối đa 15 mã mỗi dòng), không có họ tên hay số tiền. Bấm vào thông báo là mở mục Học phí › Cần thu.
+Mỗi ngày lúc 08:00 (giờ Việt Nam) hệ thống gửi vào **Hộp thư** của từng người thu học phí một thông báo: học viên đã hết buổi, sắp hết buổi (kèm **mã học viên**, tối đa 15 mã mỗi dòng) và số học viên còn nợ học phí, không có họ tên hay số tiền. Bấm vào thông báo là mở mục Học phí › Cần thu.
 
 - **Ai nhận:** tài khoản đang hoạt động, đã được gán bộ quyền, được xem cả Thanh toán lẫn Học viên (Quản trị, Kế toán, Quản lý cơ sở). Mỗi người chỉ thấy học viên trong phạm vi của mình. Huấn luyện viên không nhận.
 - **Một lần mỗi tuần** cho cùng một nội dung; danh sách đổi thì có thông báo mới.
-- **Ngưỡng "sắp hết buổi"** đặt ở từng cơ sở: trang Cơ sở, ô "Nhắc khi còn (buổi)" (mặc định 2; chỉ Quản trị sửa). Ngưỡng này cũng quyết định cảnh báo ở điểm danh, trang chủ, báo cáo "Sắp hết buổi" và mục Cần thu.
+- **Ngưỡng "sắp hết buổi"** đặt ở từng cơ sở: trang Cơ sở, ô "Nhắc khi còn (buổi)" (mặc định 2, từ 0 đến 50; chỉ Quản trị sửa). Ngưỡng này cũng quyết định cảnh báo ở điểm danh, trang chủ, báo cáo "Sắp hết buổi" và mục Cần thu.
 - **Điều kiện để job chạy:** phải có kênh thông báo kiểu trong ứng dụng. Trong `config.yml` (mẫu ở `config.example.yml`):
 
 ```yaml

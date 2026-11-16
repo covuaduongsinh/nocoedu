@@ -14,6 +14,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
 import { asText } from '../edu/names.js';
+import { reminderThresholds } from '../edu/nguong-nhac.js';
 import {
   allocateFifo,
   fromLedger,
@@ -26,7 +27,6 @@ import {
   saveAttendance,
   sellPackage,
 } from '../edu/ghi-so-du.js';
-import { reminderThresholds } from '../edu/nguong-nhac.js';
 import {
   ATTENDANCE_STATUSES,
   datesBetween,
@@ -821,10 +821,9 @@ export default [
       declare('Students with few sessions left', 'lowBalance'),
       needs('edu.hocVien', 'view'),
       async (c) => {
-        // Each branch sets its own threshold (`eduCoSo.nguongNhacBuoi`): read the students up to the highest one,
-        // then keep those that are low for their own branch.
+        // Each branch says at which balance it starts reminding; the query asks up to the highest of them.
         const thresholds = await reminderThresholds(database.connection());
-        const candidates = await database
+        const rows = await database
           .repository('eduHocVien')
           .withPolicy(policyOf(c, 'eduHocVien'))
           .findMany({
@@ -834,21 +833,18 @@ export default [
                 f.number('soBuoiConLai').lte(thresholds.highest),
               ]),
             sort: (s) => s.field('soBuoiConLai').asc(),
-            limit: 1000,
+            limit: 200,
           });
-        const rows = candidates
-          .filter((row) =>
-            thresholds.isLow(row.coSoId, Number(row.soBuoiConLai)),
-          )
-          .slice(0, 200);
         return c.json({
-          data: rows.map((row) => ({
-            id: Number(row.id),
-            ma: asText(row.ma),
-            hoTen: asText(row.hoTen),
-            lopId: row.lopId == null ? null : Number(row.lopId),
-            soBuoiConLai: Number(row.soBuoiConLai),
-          })),
+          data: rows
+            .filter((row) => thresholds.isLow(row))
+            .map((row) => ({
+              id: Number(row.id),
+              ma: asText(row.ma),
+              hoTen: asText(row.hoTen),
+              lopId: row.lopId == null ? null : Number(row.lopId),
+              soBuoiConLai: Number(row.soBuoiConLai),
+            })),
         });
       },
     );

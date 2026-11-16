@@ -6,317 +6,255 @@ import type { DatabaseManager, RepositoryPolicy } from '@nocobase/db';
 
 import { asText } from './names.js';
 import { reminderThresholds } from './nguong-nhac.js';
-import { todayVn } from './so-du.js';
 
 /**
  * The daily tuition reminder.
  *
- * Who is told: every active account that holds a permission set and is allowed `view` of both `edu.thanhToan` and
- * `edu.hocVien` (the administrator, the accountant and a branch manager; a coach holds neither). What each person is
- * told comes only from what that person's own policies let through, so a branch manager hears about their branches
- * and nobody learns of a student they may not see.
- *
- * What the message holds: counts and student codes, never a name, a phone number or an amount (a notification is kept
- * in the inbox and may be seen on a phone's lock screen). The language is Vietnamese only.
+ * Who gets one: every active user who may view payments (accountants, branch managers, administrators), found by
+ * asking the authorization service for that person's own decision; no role name is written here. What it lists: the
+ * students that person may see, read through that person's own policies, so a branch manager is told about their
+ * branches only. What it says: counts and student codes; never a name, a parent, a phone number or an amount, because
+ * an inbox message is read on any screen.
  */
+export const TUITION_REMINDER_ID = 'edu.nhac-hoc-phi';
+/** Where a reminder leads: the list of who to collect from. */
+export const TUITION_REMINDER_ROUTE = '/hoc-phi?tab=can-thu';
+/** Codes written out per group; the rest are counted. */
+const LISTED = 15;
 
-/** Most student codes one line of the message lists; the rest are counted. */
-export const MAX_CODES = 15;
-
-/** Where the message leads: the "cần thu" tab of the tuition page. */
-export const REMINDER_ROUTE = '/hoc-phi?tab=can-thu';
-
-export interface ReminderPart {
-  /** A number, or a placeholder such as `{{count}}` in the template directory's definition. */
-  readonly count: number | string;
-  readonly codes: readonly string[];
+export interface TuitionReminderInput {
+  /** Codes of active students with no session left, or fewer than none. */
+  readonly hetBuoi: readonly string[];
+  /** Codes of active students at or below their branch's reminder threshold, with at least one session left. */
+  readonly sapHet: readonly string[];
+  /** How many students have a package that is not paid in full. */
+  readonly conNo: number;
 }
 
-export interface ReminderParts {
-  /** Sessions ran out (balance 0 or below). */
-  readonly hetBuoi: ReminderPart;
-  /** At or below the branch's threshold, but not yet out. */
-  readonly sapHet: ReminderPart;
-  /** A package not paid in full. */
-  readonly conNo: ReminderPart;
-}
+const listed = (codes: readonly string[]): string =>
+  codes.length <= LISTED
+    ? codes.join(', ')
+    : `${codes.slice(0, LISTED).join(', ')} và ${codes.length - LISTED} học viên khác`;
 
-export const partOf = (codes: readonly string[]): ReminderPart => ({
-  count: codes.length,
-  codes,
-});
-
-const isEmpty = (part: ReminderPart): boolean =>
-  typeof part.count === 'number' && part.count === 0;
-
-function line(label: string, part: ReminderPart): string | undefined {
-  if (isEmpty(part)) return undefined;
-  const shown = part.codes.slice(0, MAX_CODES);
-  const more =
-    typeof part.count === 'number' && part.count > shown.length
-      ? ` và ${part.count - shown.length} học viên khác`
-      : '';
-  return `${label} (${part.count}): ${shown.join(', ')}${more}`;
-}
-
-/** The title and body of the reminder, or `undefined` when there is nothing to remind of. */
-export function renderTuitionReminder(
-  parts: ReminderParts,
-): { title: string; body: string } | undefined {
-  const lines = [
-    line('Hết buổi', parts.hetBuoi),
-    line('Sắp hết buổi', parts.sapHet),
-    line('Còn nợ học phí', parts.conNo),
-  ].filter((value): value is string => value !== undefined);
-  if (lines.length === 0) return undefined;
-  const all = [parts.hetBuoi, parts.sapHet, parts.conNo];
-  const numeric = all.every((part) => typeof part.count === 'number');
-  const total = numeric
-    ? new Set(all.flatMap((part) => part.codes)).size
-    : undefined;
+/**
+ * The words of a reminder. The one builder of the real message and of the preview in the template directory.
+ * Vietnamese only: it is the club's working language, whatever language a recipient's screen uses.
+ */
+export function renderTuitionReminder(input: TuitionReminderInput): {
+  title: string;
+  body: string;
+} {
+  const parts: string[] = [];
+  const lines: string[] = [];
+  if (input.hetBuoi.length > 0) {
+    parts.push(`${input.hetBuoi.length} hết buổi`);
+    lines.push(
+      `Hết buổi hoặc âm buổi (${input.hetBuoi.length}): ${listed(input.hetBuoi)}.`,
+    );
+  }
+  if (input.sapHet.length > 0) {
+    parts.push(`${input.sapHet.length} sắp hết buổi`);
+    lines.push(
+      `Sắp hết buổi (${input.sapHet.length}): ${listed(input.sapHet)}.`,
+    );
+  }
+  if (input.conNo > 0) {
+    parts.push(`${input.conNo} còn nợ học phí`);
+    lines.push(`Còn nợ học phí: ${input.conNo} học viên.`);
+  }
+  lines.push('Mở Học phí › Cần thu để xem danh sách và liên hệ phụ huynh.');
   return {
-    title:
-      total === undefined
-        ? 'Nhắc thu học phí: {{count}} học viên cần chú ý'
-        : `Nhắc thu học phí: ${total} học viên cần chú ý`,
-    body: [...lines, 'Mở mục Học phí › Cần thu để thu.'].join('\n'),
+    title: `Nhắc thu học phí: ${parts.join(', ')}`,
+    body: lines.join('\n'),
   };
 }
 
-/** An ISO week as `YYYY-Www`, from a calendar day `YYYY-MM-DD`. */
-export function isoWeekOf(day: string): string {
-  const date = new Date(`${day}T00:00:00Z`);
-  // The Thursday of the week decides the ISO year.
-  const weekday = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - weekday);
-  const year = date.getUTCFullYear();
-  const start = new Date(Date.UTC(year, 0, 1));
-  const week = Math.ceil(
-    ((date.getTime() - start.getTime()) / 86_400_000 + 1) / 7,
-  );
-  return `${year}-W${String(week).padStart(2, '0')}`;
-}
+/** Whether there is anything to remind about. */
+export const hasReminder = (input: TuitionReminderInput): boolean =>
+  input.hetBuoi.length + input.sapHet.length + input.conNo > 0;
 
-/** One message per person per week for the same content: a changed list is a new message, an unchanged one is not. */
-export function reminderKey(
-  userId: string,
-  day: string,
-  content: { title: string; body: string },
-): string {
-  const digest = createHash('sha256')
-    .update(`${content.title}\n${content.body}`)
-    .digest('hex')
-    .slice(0, 12);
-  return `edu.nhac-hoc-phi:${userId}:${isoWeekOf(day)}:${digest}`;
-}
-
-export interface ReminderDeps {
+interface Deps {
   readonly database: DatabaseManager;
-  readonly authz: Pick<AppAuthorization, 'for' | 'permissionSets'>;
+  readonly authz: AppAuthorization;
 }
 
-export interface Reminder {
-  readonly userId: string;
-  readonly parts: ReminderParts;
-}
+type Rows = readonly Record<string, unknown>[];
 
-type Row = Record<string, unknown>;
-type Policies = Readonly<Record<string, RepositoryPolicy>>;
-
-const PAGE = 100;
-/** A safety stop: more rows than this would not fit one message anyway. */
-const MAX_ROWS = 50_000;
-
+/** Reads every page of a query; a Repository query is awaited like a promise. */
 async function readAll(
-  database: DatabaseManager,
-  collection: string,
-  policy: RepositoryPolicy,
-  filter?: unknown,
-): Promise<Row[]> {
-  const repository = database
-    .repository(collection)
-    .withPolicy(policy) as unknown as {
-    findMany(input: unknown): Promise<Row[]>;
-  };
-  const rows: Row[] = [];
-  for (let offset = 0; offset < MAX_ROWS; offset += PAGE) {
-    const page = await repository.findMany({
-      ...(filter ? { filter } : {}),
-      sort: (s: { field: (n: string) => { asc: () => unknown } }) =>
-        s.field('id').asc(),
-      limit: PAGE,
-      offset,
-    });
-    rows.push(...page);
-    if (page.length < PAGE) break;
+  page: (limit: number, offset: number) => PromiseLike<Rows>,
+): Promise<Record<string, unknown>[]> {
+  const rows: Record<string, unknown>[] = [];
+  for (let offset = 0; offset < 20_000; offset += 100) {
+    const batch = await page(100, offset);
+    rows.push(...batch);
+    if (batch.length < 100) break;
   }
   return rows;
 }
 
-/** The database policies an identity holds for a composite action, or `undefined` when it is not allowed. */
-async function policiesFor(
-  context: ReturnType<ReminderDeps['authz']['for']>,
-  resource: string,
-  action: string,
-): Promise<Policies | undefined> {
-  const decision = await context.authorize({
-    resource: { type: 'composite', id: resource },
-    action,
-  });
-  const policies = decision.conditions?.database;
-  return decision.effect === 'deny' || !policies ? undefined : policies;
+/** What each recipient is reminded about today; a person with nothing to collect is left out. */
+export async function collectTuitionReminders(
+  deps: Deps,
+): Promise<{ userId: string; input: TuitionReminderInput }[]> {
+  const { database, authz } = deps;
+  const connection = database.connection();
+  const thresholds = await reminderThresholds(connection);
+  // Only a person who was given a permission set can hold the payment action, so those are the candidates.
+  const assigned = new Set(
+    (await authz.permissionSets.listAssignments())
+      .filter((assignment) => assignment.subject.type === 'user')
+      .map((assignment) => assignment.subject.id),
+  );
+  if (assigned.size === 0) return [];
+  const users = await connection.query
+    .selectFrom('user')
+    .select(['id', 'disabledAt', 'deletedAt'])
+    .where('id', 'in', [...assigned])
+    .execute();
+  const result: { userId: string; input: TuitionReminderInput }[] = [];
+  for (const user of users) {
+    if (user.disabledAt != null || user.deletedAt != null) continue;
+    const userId = asText(user.id);
+    // The identity is built here, from the database: the user and what every signed-in user is.
+    const context = authz.for({
+      principal: { type: 'user', id: userId },
+      subjects: [{ type: 'authenticated', id: '*' }],
+    });
+    const policyOf = async (
+      resource: string,
+      collection: string,
+    ): Promise<RepositoryPolicy | undefined> => {
+      const decision = await context.authorize({
+        resource: { type: 'composite', id: resource },
+        action: 'view',
+      });
+      if (decision.effect === 'deny') return undefined;
+      const policies = (
+        decision.conditions as
+          { database?: Readonly<Record<string, RepositoryPolicy>> } | undefined
+      )?.database;
+      return policies?.[collection];
+    };
+    const paymentPolicy = await policyOf('edu.thanhToan', 'eduThanhToan');
+    const studentPolicy = await policyOf('edu.hocVien', 'eduHocVien');
+    if (!paymentPolicy || !studentPolicy) continue;
+    const packagePolicy = await policyOf('edu.goiHoc', 'eduGoiHoc');
+
+    const low = (
+      await readAll((limit, offset) =>
+        database
+          .repository('eduHocVien')
+          .withPolicy(studentPolicy)
+          .findMany({
+            filter: (f) =>
+              f.and([
+                f.string('trangThai').eq('dang_hoc'),
+                f.number('soBuoiConLai').lte(thresholds.highest),
+              ]),
+            sort: (s) => s.field('id').asc(),
+            limit,
+            offset,
+          }),
+      )
+    ).filter((student) => thresholds.isLow(student));
+    const codes = (rows: Rows): string[] =>
+      rows.map((row) => asText(row.ma)).sort((a, b) => a.localeCompare(b));
+
+    let conNo = 0;
+    if (packagePolicy) {
+      const paid = new Map<number, number>();
+      for (const payment of await readAll((limit, offset) =>
+        database
+          .repository('eduThanhToan')
+          .withPolicy(paymentPolicy)
+          .findMany({ sort: (s) => s.field('id').asc(), limit, offset }),
+      )) {
+        if (payment.goiHocId == null) continue;
+        const id = Number(payment.goiHocId);
+        paid.set(id, (paid.get(id) ?? 0) + Number(payment.soTien));
+      }
+      const owing = new Set<number>();
+      for (const pack of await readAll((limit, offset) =>
+        database
+          .repository('eduGoiHoc')
+          .withPolicy(packagePolicy)
+          .findMany({ sort: (s) => s.field('id').asc(), limit, offset }),
+      )) {
+        if (Number(pack.thanhTien) > (paid.get(Number(pack.id)) ?? 0))
+          owing.add(Number(pack.hocVienId));
+      }
+      conNo = owing.size;
+    }
+
+    const input: TuitionReminderInput = {
+      hetBuoi: codes(low.filter((row) => Number(row.soBuoiConLai) <= 0)),
+      sapHet: codes(low.filter((row) => Number(row.soBuoiConLai) > 0)),
+      conNo,
+    };
+    if (hasReminder(input)) result.push({ userId, input });
+  }
+  return result;
 }
 
-/** Active accounts that hold at least one permission set. */
-async function candidateUsers(deps: ReminderDeps): Promise<string[]> {
-  const assignments = await deps.authz.permissionSets.listAssignments();
-  const ids = [
-    ...new Set(
-      assignments
-        .filter((assignment) => assignment.subject.type === 'user')
-        .map((assignment) => assignment.subject.id),
-    ),
-  ];
-  const active: string[] = [];
-  const q = deps.database.connection().query;
-  for (let i = 0; i < ids.length; i += 200) {
-    const rows = await q
-      .selectFrom('user')
-      .select(['id', 'kind', 'disabledAt', 'deletedAt'])
-      .where('id', 'in', ids.slice(i, i + 200))
-      .execute();
-    for (const row of rows) {
-      if (
-        asText(row.kind || 'person') === 'person' &&
-        row.disabledAt == null &&
-        row.deletedAt == null
-      )
-        active.push(asText(row.id));
-    }
-  }
-  return active.sort();
+/** `2026-W47`: the ISO week of a calendar day. */
+export function isoWeek(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  const weekday = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - weekday + 3);
+  const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+  const week =
+    1 +
+    Math.round(
+      ((date.getTime() - firstThursday.getTime()) / 86_400_000 -
+        3 +
+        ((firstThursday.getUTCDay() + 6) % 7)) /
+        7,
+    );
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
 /**
- * What one person would be told, from their own permissions; `undefined` when they may not see tuition and students,
- * and a reminder with nothing in it is `undefined` too.
+ * Sends today's reminders through the in-app channel.
+ *
+ * A reminder is one logical message per person, week and content: the same list is told once a week, and again as
+ * soon as it changes (somebody ran out, somebody paid). So the job can run every morning without filling an inbox
+ * with the same words, and running it twice writes nothing twice.
  */
-export async function reminderFor(
-  deps: ReminderDeps,
-  userId: string,
-): Promise<Reminder | undefined> {
-  const context = deps.authz.for({
-    principal: { type: 'user', id: userId },
-    subjects: [{ type: 'authenticated', id: '*' }],
-  });
-  const payments = await policiesFor(context, 'edu.thanhToan', 'view');
-  const students = await policiesFor(context, 'edu.hocVien', 'view');
-  if (!payments?.eduThanhToan || !students?.eduHocVien) return undefined;
-
-  const rows = await readAll(
-    deps.database,
-    'eduHocVien',
-    students.eduHocVien,
-    (f: {
-      and: (n: unknown[]) => unknown;
-      string: (n: string) => { eq: (v: string) => unknown };
-    }) => f.string('trangThai').eq('dang_hoc'),
-  );
-  const thresholds = await reminderThresholds(deps.database.connection());
-  const hetBuoi: string[] = [];
-  const sapHet: string[] = [];
-  const byId = new Map<number, string>();
-  for (const row of rows) {
-    const code = asText(row.ma);
-    byId.set(Number(row.id), code);
-    const balance = Number(row.soBuoiConLai);
-    if (balance <= 0) hetBuoi.push(code);
-    else if (thresholds.isLow(row.coSoId, balance)) sapHet.push(code);
-  }
-
-  // Debt needs the packages as well: only a person who may see them is told of it.
-  const packages = await policiesFor(context, 'edu.goiHoc', 'view');
-  const conNo = new Set<string>();
-  if (packages?.eduGoiHoc) {
-    const paid = new Map<number, number>();
-    for (const payment of await readAll(
-      deps.database,
-      'eduThanhToan',
-      payments.eduThanhToan,
-    )) {
-      if (payment.goiHocId == null) continue;
-      const id = Number(payment.goiHocId);
-      paid.set(id, (paid.get(id) ?? 0) + Number(payment.soTien));
-    }
-    for (const pack of await readAll(
-      deps.database,
-      'eduGoiHoc',
-      packages.eduGoiHoc,
-    )) {
-      const code = byId.get(Number(pack.hocVienId));
-      if (code === undefined) continue;
-      if (Number(pack.thanhTien) - (paid.get(Number(pack.id)) ?? 0) > 0)
-        conNo.add(code);
-    }
-  }
-
-  const byCode = (a: string, b: string): number => a.localeCompare(b);
-  const parts: ReminderParts = {
-    hetBuoi: partOf(hetBuoi.sort(byCode)),
-    sapHet: partOf(sapHet.sort(byCode)),
-    conNo: partOf([...conNo].sort(byCode)),
-  };
-  return renderTuitionReminder(parts) ? { userId, parts } : undefined;
-}
-
-/** Every reminder due today, one per person. */
-export async function collectTuitionReminders(
-  deps: ReminderDeps,
-): Promise<Reminder[]> {
-  const reminders: Reminder[] = [];
-  for (const userId of await candidateUsers(deps)) {
-    const reminder = await reminderFor(deps, userId);
-    if (reminder) reminders.push(reminder);
-  }
-  return reminders;
-}
-
-export interface SendResult {
-  readonly people: number;
-  readonly sent: number;
-  readonly repeated: number;
-}
-
-/** Sends today's reminders to the inbox. Running it again the same day, or the same week with the same lists, sends nothing new. */
 export async function sendTuitionReminders(
-  deps: ReminderDeps & {
-    readonly notification: Pick<NotificationService, 'send'>;
-    /** The name of the in-app channel. */
+  deps: Deps & {
+    readonly notification: NotificationService;
+    /** The name of the configured in-app channel. */
     readonly channel: string;
-    readonly now?: Date;
   },
-): Promise<SendResult> {
-  const day = todayVn(deps.now);
+  today: string,
+): Promise<{ sent: number; unchanged: number }> {
   let sent = 0;
-  let repeated = 0;
-  const reminders = await collectTuitionReminders(deps);
-  for (const reminder of reminders) {
-    const content = renderTuitionReminder(reminder.parts);
-    if (!content) continue;
-    const result = await deps.notification.send({
-      idempotencyKey: reminderKey(reminder.userId, day, content),
-      source: { type: 'edu.nhac-hoc-phi', referenceId: reminder.userId },
+  let unchanged = 0;
+  for (const { userId, input } of await collectTuitionReminders(deps)) {
+    const content = renderTuitionReminder(input);
+    const digest = createHash('sha256')
+      .update(`${content.title}\n${content.body}`)
+      .digest('hex')
+      .slice(0, 24);
+    const idempotencyKey = `${TUITION_REMINDER_ID}:${userId}:${isoWeek(today)}:${digest}`;
+    if (await deps.notification.getByIdempotencyKey(idempotencyKey)) {
+      unchanged += 1;
+      continue;
+    }
+    await deps.notification.send({
+      idempotencyKey,
+      source: { type: TUITION_REMINDER_ID, referenceId: today },
       messages: {
         [deps.channel]: {
-          to: reminder.userId,
+          to: userId,
           title: content.title,
           body: content.body,
-          target: { type: 'route', path: REMINDER_ROUTE },
+          target: { type: 'route', path: TUITION_REMINDER_ROUTE },
         },
       },
     });
-    if (result.deduplicated) repeated += 1;
-    else sent += 1;
+    sent += 1;
   }
-  return { people: reminders.length, sent, repeated };
+  return { sent, unchanged };
 }

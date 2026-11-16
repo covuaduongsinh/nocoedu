@@ -163,9 +163,9 @@ export const EDU_HOC_PHI_ROWS: readonly (readonly [
   ],
   [
     'coSo.nguongNhacHint',
-    'Học viên còn từng này buổi trở xuống được nhắc thu học phí. Số nguyên từ 0 đến 30.',
-    'A student with this many sessions left or fewer is reminded about tuition. A whole number from 0 to 30.',
-    '剩余课时不超过此数的学员会被提醒续费。0 到 30 的整数。',
+    'Học viên còn từng này buổi trở xuống được nhắc thu học phí. Số nguyên từ 0 đến 50.',
+    'A student with this many sessions left or fewer is reminded about tuition. A whole number from 0 to 50.',
+    '剩余课时不超过此数的学员会被提醒续费。0 到 50 的整数。',
   ],
   [
     'hocPhi.lowNone',

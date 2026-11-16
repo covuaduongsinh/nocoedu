@@ -107,7 +107,7 @@ test('every branch starts at 2 and the warning list, the report and the register
   });
 });
 
-test('only the administrator sets the threshold, and only a whole number from 0 to 30', async ({
+test('only the administrator sets the threshold, and only a whole number from 0 to 50', async ({
   testApp,
   connection,
 }) => {
@@ -131,7 +131,7 @@ test('only the administrator sets the threshold, and only a whole number from 0 
   expect((await set(hlvA.session, 5)).status).toBe(403);
   expect((await set(managerA.session, 5)).status).toBe(403);
   expect(await read()).toBe(2);
-  for (const bad of [-1, 31, 1.5, '3', null]) {
+  for (const bad of [-1, 51, 1.5, '3', null]) {
     expect([400, 422].includes((await set(quanTri.session, bad)).status)).toBe(
       true,
     );

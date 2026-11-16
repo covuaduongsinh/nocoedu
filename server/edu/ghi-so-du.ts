@@ -11,7 +11,6 @@ import type { DatabaseConnection, RepositoryPolicy } from '@nocobase/db';
 
 import { eduError } from './errors.js';
 import { asText } from './names.js';
-import { reminderThresholds } from './nguong-nhac.js';
 import {
   asBoolean,
   type AttendanceStatus,
@@ -19,6 +18,7 @@ import {
   todayVn,
   unexcusedAbsenceDeducts,
 } from './so-du.js';
+import { asThreshold } from './nguong-nhac.js';
 
 type Queryable = Pick<DatabaseConnection, 'query'>;
 
@@ -191,9 +191,10 @@ export async function saveAttendance(
     .executeTakeFirstOrThrow();
   const branch = await connection.query
     .selectFrom('eduCoSo')
-    .select('truBuoiVangCoPhep')
+    .select(['truBuoiVangCoPhep', 'nguongNhacBuoi'])
     .where('id', '=', Number(lop.coSoId))
     .executeTakeFirstOrThrow();
+  const lowAt = asThreshold(branch.nguongNhacBuoi);
   // The rule in force is fixed on the session the first time its register is saved. A later change of the
   // branch setting applies to the next sessions only, so saving an old register again never moves a balance.
   const stored = await connection.query
@@ -238,7 +239,6 @@ export async function saveAttendance(
     ? connection.repository('eduHocVien').withPolicy(policies.student)
     : null;
   const rows: AttendanceResultRow[] = [];
-  const thresholds = await reminderThresholds(connection);
 
   for (const entry of input.danhSach) {
     const student = students
@@ -341,7 +341,7 @@ export async function saveAttendance(
       diemDanhId,
       soBuoiDaTru: target,
       soBuoiConLai: after,
-      canhBao: thresholds.isLow(student.coSoId, after),
+      canhBao: after <= lowAt,
     });
   }
   await connection.query
