@@ -82,14 +82,17 @@ export function SessionBalanceBadge({
     return <span className='text-muted-foreground'>–</span>;
   }
 
-  let style = 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+  let style =
+    'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
   let dotColor = 'bg-emerald-500';
 
   if (balance <= 0) {
-    style = 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 font-semibold';
+    style =
+      'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 font-semibold';
     dotColor = 'bg-rose-500';
   } else if (balance <= 3) {
-    style = 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium';
+    style =
+      'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium';
     dotColor = 'bg-amber-500';
   }
 
@@ -105,7 +108,9 @@ export function SessionBalanceBadge({
       )}
     >
       <span className={cn('h-1.5 w-1.5 rounded-full', dotColor)} />
-      <span>{balance} {t('edu.home.sessionsLeft', { count: balance })}</span>
+      <span>
+        {balance} {t('edu.home.sessionsLeft', { count: balance })}
+      </span>
     </Badge>
   );
 }
@@ -196,7 +201,8 @@ export function MetricCard({
   readonly badgeText?: string;
   readonly onClick?: () => void;
   readonly className?: string;
-  readonly tone?: 'neutral' | 'primary' | 'warning' | 'success' | 'destructive' | 'info';
+  readonly tone?:
+    'neutral' | 'primary' | 'warning' | 'success' | 'destructive' | 'info';
 }): ReactElement {
   const toneClasses = {
     neutral: 'hover:border-border',
@@ -276,7 +282,8 @@ export function CapacityProgressBar({
   readonly label?: string;
   readonly className?: string;
 }): ReactElement {
-  const percent = max > 0 ? Math.min(Math.round((current / max) * 100), 100) : 0;
+  const percent =
+    max > 0 ? Math.min(Math.round((current / max) * 100), 100) : 0;
   let barColor = 'bg-emerald-500';
   if (percent >= 100) {
     barColor = 'bg-rose-500';
