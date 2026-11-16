@@ -174,6 +174,25 @@ const api = vi.fn(({ method, path, json }: ApiCall) => {
       ],
     };
   if (path === 'goiHoc/count') return { data: 1 };
+  if (path === 'goiHoc/cuaHocVien')
+    return {
+      data: {
+        goi: [
+          {
+            id: 41,
+            ngayMua: '2026-10-01',
+            soBuoi: 12,
+            donGia: 150000,
+            thanhTien: 1800000,
+            trangThai: 'hieu_luc',
+            loai: 'mua',
+            daThu: 1800000,
+            conNo: 0,
+          },
+        ],
+        thanhToan: [],
+      },
+    };
   if (path === 'goiHoc/chiTiet')
     return {
       data: {
@@ -297,8 +316,14 @@ describe('student file', () => {
     });
 
     await userEvent.click(screen.getByRole('tab', { name: 'Gói học' }));
+    // The tuition block of the tuition page is worked from the student's file too.
+    expect(
+      await screen.findByRole('button', { name: 'Bán gói buổi' }),
+    ).toBeInTheDocument();
+    expect(callsTo('goiHoc/cuaHocVien')[0]?.json).toEqual({ hocVienId: 7 });
     expect(await screen.findByText('Còn hiệu lực')).toBeInTheDocument();
-    expect(screen.getByText('1.800.000')).toBeInTheDocument();
+    // The amount is in the tuition block and in the list of deducted sessions.
+    expect(screen.getAllByText('1.800.000').length).toBeGreaterThan(0);
     // A package opens the sessions the server deducted from it.
     await userEvent.click(
       screen.getByRole('button', { name: 'Xem buổi đã trừ' }),

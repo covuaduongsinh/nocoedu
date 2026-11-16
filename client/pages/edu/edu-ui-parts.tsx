@@ -17,12 +17,12 @@ const CHESS_ICONS: Record<string, string> = {
 };
 
 const LEVEL_STYLES: Record<string, string> = {
-  tot: 'border-slate-500/20 bg-slate-500/10 text-slate-700 dark:text-slate-300',
-  ma: 'border-cyan-500/20 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
-  tuong: 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300',
-  xe: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  hau: 'border-purple-500/20 bg-purple-500/10 text-purple-700 dark:text-purple-300',
-  vua: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  tot: 'border-border bg-muted text-foreground',
+  ma: 'border-(--chart-1)/30 bg-(--chart-1)/10 text-foreground',
+  tuong: 'border-(--chart-2)/30 bg-(--chart-2)/10 text-foreground',
+  xe: 'border-(--status-warning)/20 bg-(--status-warning)/10 text-(--status-warning)',
+  hau: 'border-(--chart-4)/30 bg-(--chart-4)/10 text-foreground',
+  vua: 'border-(--status-success)/20 bg-(--status-success)/10 text-(--status-success)',
 };
 
 /**
@@ -83,17 +83,17 @@ export function SessionBalanceBadge({
   }
 
   let style =
-    'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
-  let dotColor = 'bg-emerald-500';
+    'border-(--status-success)/20 bg-(--status-success)/10 text-(--status-success)';
+  let dotColor = 'bg-(--status-success)';
 
   if (balance <= 0) {
     style =
-      'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 font-semibold';
-    dotColor = 'bg-rose-500';
+      'border-destructive/20 bg-destructive/10 text-destructive font-semibold';
+    dotColor = 'bg-destructive';
   } else if (balance <= 3) {
     style =
-      'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium';
-    dotColor = 'bg-amber-500';
+      'border-(--status-warning)/20 bg-(--status-warning)/10 text-(--status-warning) font-medium';
+    dotColor = 'bg-(--status-warning)';
   }
 
   return (
@@ -120,13 +120,13 @@ export function SessionBalanceBadge({
 }
 
 const AVATAR_BG_COLORS = [
-  'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/20',
-  'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20',
-  'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/20',
-  'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/20',
-  'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/20',
-  'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/20',
-  'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/20',
+  'bg-primary/15 text-primary border-primary/20',
+  'bg-(--status-success)/15 text-(--status-success) border-(--status-success)/20',
+  'bg-(--chart-2)/15 text-foreground border-(--chart-2)/30',
+  'bg-(--status-warning)/15 text-(--status-warning) border-(--status-warning)/20',
+  'bg-destructive/15 text-destructive border-destructive/20',
+  'bg-(--chart-1)/15 text-foreground border-(--chart-1)/30',
+  'bg-(--chart-4)/15 text-foreground border-(--chart-4)/30',
 ];
 
 function getInitials(name: string): string {
@@ -211,19 +211,19 @@ export function MetricCard({
   const toneClasses = {
     neutral: 'hover:border-border',
     primary: 'border-primary/20 hover:border-primary/40',
-    warning: 'border-amber-500/20 hover:border-amber-500/40',
-    success: 'border-emerald-500/20 hover:border-emerald-500/40',
-    destructive: 'border-rose-500/20 hover:border-rose-500/40',
-    info: 'border-cyan-500/20 hover:border-cyan-500/40',
+    warning: 'border-(--status-warning)/20 hover:border-(--status-warning)/40',
+    success: 'border-(--status-success)/20 hover:border-(--status-success)/40',
+    destructive: 'border-destructive/20 hover:border-destructive/40',
+    info: 'border-primary/20 hover:border-primary/40',
   }[tone];
 
   const iconBgClasses = {
     neutral: 'bg-muted text-muted-foreground',
     primary: 'bg-primary/10 text-primary',
-    warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-    success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-    destructive: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
-    info: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+    warning: 'bg-(--status-warning)/10 text-(--status-warning)',
+    success: 'bg-(--status-success)/10 text-(--status-success)',
+    destructive: 'bg-destructive/10 text-destructive',
+    info: 'bg-primary/10 text-primary',
   }[tone];
 
   return (
@@ -288,11 +288,11 @@ export function CapacityProgressBar({
 }): ReactElement {
   const percent =
     max > 0 ? Math.min(Math.round((current / max) * 100), 100) : 0;
-  let barColor = 'bg-emerald-500';
+  let barColor = 'bg-(--status-success)';
   if (percent >= 100) {
-    barColor = 'bg-rose-500';
+    barColor = 'bg-destructive';
   } else if (percent >= 80) {
-    barColor = 'bg-amber-500';
+    barColor = 'bg-(--status-warning)';
   }
 
   return (

@@ -48,6 +48,7 @@ Không có kênh này, ứng dụng vẫn chạy nhưng **không có thông báo
 
 - Chưa có tệp logo Dương Sinh trong repo: phiếu thu in chữ "Cờ vua Dương Sinh". Gửi tệp logo (PNG hoặc SVG) để đưa vào phiếu thu và trang phụ huynh.
 - Trên điện thoại, các bảng ở trang Học phí cuộn ngang trong khung.
-- Khung ứng dụng (menu, trang người dùng và phân quyền, Hộp thư) còn tiếng Anh và chữ "NocoBase": thuộc Giai đoạn 4, chưa làm.
+- Khung ứng dụng đã có tiếng Việt và tên Dương Sinh, nhưng **hình logo** vẫn là của NocoBase cho tới khi có tệp logo. Trên máy chủ, mở `config.yml` và kiểm `client.app.title` (nếu còn `NocoBase` thì đổi thành `NocoEdu - Cờ vua Dương Sinh`).
+- Chưa làm: menu chia nhóm (Vận hành, Danh mục), chuyển chữ ghi cứng còn lại của trang Đối soát, Tuyển sinh, Nhận xét sang bản dịch (khoảng 300 dòng), và `DatePicker`/`DataTable` của mẫu cho các trang edu.
 - Chạy nhiều bản ứng dụng cùng lúc thì job nhắc thu cần Redis (`jobs.default`); một bản thì không cần.
 - Phiếu đối soát in ra còn chữ ghi cứng và số hotline mẫu (`client/pages/edu/doi-soat.tsx`).

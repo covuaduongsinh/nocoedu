@@ -26,6 +26,7 @@ import {
   LevelBadge,
   SessionBalanceBadge,
 } from './edu-ui-parts.js';
+import { StudentTuition } from './hoc-phi/student-tuition.js';
 import { StudentComments } from './hoc-vien-nhan-xet.js';
 import {
   post,
@@ -305,7 +306,20 @@ function StudentFile({
         ) : null}
         {canPackages ? (
           <TabsContent value='packages' className='pt-4'>
-            <Packages studentId={student.id} />
+            {/* The student's tuition is worked from here: the same block as the tuition page (sell, collect, print the
+                receipt, adjust the balance), then which sessions were deducted from which package. */}
+            <div className='flex flex-col gap-8'>
+              <StudentTuition student={student} onChanged={onChanged} />
+              <section className='flex flex-col gap-2'>
+                <h3 className='text-sm font-medium'>
+                  {t('edu.hocVien.deductedTitle')}
+                </h3>
+                <p className='text-sm text-muted-foreground'>
+                  {t('edu.hocVien.deductedHint')}
+                </p>
+                <Packages studentId={student.id} />
+              </section>
+            </div>
           </TabsContent>
         ) : null}
         {canBooks ? (
@@ -383,7 +397,7 @@ function Books({ studentId }: { readonly studentId: number }): ReactElement {
               className={`text-lg font-semibold ${
                 myFund.conLai < 0
                   ? 'text-destructive'
-                  : 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-(--status-success)'
               }`}
             >
               {fmt(myFund.conLai)}
@@ -486,6 +500,12 @@ function Parents({ studentId }: { readonly studentId: number }): ReactElement {
   const portal = useParentLinks(studentId);
   return (
     <div className='flex flex-col gap-6'>
+      <Link
+        to='/phu-huynh'
+        className='self-start text-sm font-medium text-primary underline-offset-2 hover:underline'
+      >
+        {t('edu.hocVien.allParents')}
+      </Link>
       <RowsTable
         loaded={links.loaded}
         onRetry={links.reload}

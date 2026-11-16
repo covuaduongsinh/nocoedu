@@ -45,3 +45,7 @@ Keep the identity-keyed `SessionPreparation` boundary: mounted private list cond
 ## Page data freshness
 
 Follow the synchronized [page data freshness rules](../skills/nocobase-app-development/references/frontend/references/page-freshness.md): ordinary pages have no persistent Refresh action. Preserve contextual read retries, write invalidation and live progress updates. Dependency upgrades do not rewrite application-owned pages or installed Registry source; reconcile them through the template upgrade workflow.
+
+## Vietnamese shell and the club's brand
+
+`client/locales/vi-VN.ts` spreads `./system/vi-VN.ts` (the Vietnamese copy of the template's shell, with `settings-vi-VN.ts`), which also carries the club's brand in place of the template's: `app.title` NocoEdu, `navigation.brandHome`, `shell.brandPartnership` "Cờ vua Dương Sinh" (**without** a `<brand>` tag on purpose: the sidebar footer links tagged text to nocobase.com) and `shell.buildReliableSystems` "Vui trí tuệ". A template upgrade replaces `./system/`; re-apply these when merging, and keep the key set equal to `system/en-US.ts` (`tests/client/app-locale-coverage.test.ts`). `index.html` (title, `lang`, `theme-color` #2b3990) and `config.example.yml` (`client.app.title`) carry the same name; a deployed `config.yml` written from an older example may still say `NocoBase` under `client.app.title`: change it there. The logo image (`/assets/logo-mark*.png`) is still the template's until the club's logo file is added.

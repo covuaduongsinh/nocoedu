@@ -227,11 +227,11 @@ export default function EduHome(): ReactElement {
               {/* Unmarked Sessions Requiring Attention */}
               {summary.result.state === 'ready' &&
               unmarkedSessions.length > 0 ? (
-                <Card className='border-amber-500/20 shadow-xs'>
+                <Card className='border-(--status-warning)/20 shadow-xs'>
                   <CardHeader className='pb-3'>
                     <div className='flex items-center justify-between'>
                       <div>
-                        <CardTitle className='text-base font-semibold text-amber-700 dark:text-amber-400 sm:text-lg'>
+                        <CardTitle className='text-base font-semibold text-(--status-warning) sm:text-lg'>
                           {t('edu.home.unmarked')}
                         </CardTitle>
                         <CardDescription>
@@ -240,7 +240,7 @@ export default function EduHome(): ReactElement {
                       </div>
                       <Badge
                         variant='outline'
-                        className='border-amber-500/30 bg-amber-500/10 text-amber-600'
+                        className='border-(--status-warning)/30 bg-(--status-warning)/10 text-(--status-warning)'
                       >
                         {unmarkedSessions.length} buổi cần xử lý
                       </Badge>
@@ -320,7 +320,7 @@ export default function EduHome(): ReactElement {
                   <CardContent>
                     {lowStudents.length === 0 ? (
                       <div className='flex items-center gap-2 py-4 text-sm text-muted-foreground'>
-                        <CheckCircle2 className='h-4 w-4 text-emerald-500' />
+                        <CheckCircle2 className='h-4 w-4 text-(--status-success)' />
                         <span>{t('edu.home.lowEmpty')}</span>
                       </div>
                     ) : (
@@ -493,7 +493,7 @@ function CallBacks(): ReactElement | null {
       <CardContent className='space-y-3'>
         {due.length === 0 ? (
           <div className='flex items-center gap-2 py-3 text-sm text-muted-foreground'>
-            <CheckCircle2 className='h-4 w-4 text-emerald-500' />
+            <CheckCircle2 className='h-4 w-4 text-(--status-success)' />
             <span>{t('edu.home.callBackEmpty')}</span>
           </div>
         ) : (
@@ -537,7 +537,7 @@ function SessionList(props: {
   if (props.sessions.length === 0) {
     return (
       <div className='flex items-center gap-2 py-4 text-sm text-muted-foreground'>
-        <CheckCircle2 className='h-4 w-4 text-emerald-500' />
+        <CheckCircle2 className='h-4 w-4 text-(--status-success)' />
         <span>{props.empty}</span>
       </div>
     );

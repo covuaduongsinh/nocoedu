@@ -168,6 +168,24 @@ export const EDU_HOC_PHI_ROWS: readonly (readonly [
     '剩余课时不超过此数的学员会被提醒续费。0 到 50 的整数。',
   ],
   [
+    'hocVien.deductedTitle',
+    'Các buổi đã trừ theo gói',
+    'Sessions deducted from each package',
+    '各课时包已扣课时',
+  ],
+  [
+    'hocVien.deductedHint',
+    'Mỗi gói cho biết buổi học nào đã trừ vào nó, theo thứ tự mua.',
+    'Each package shows which sessions were deducted from it, in the order they were bought.',
+    '每个课时包显示从中扣除的课程，按购买顺序。',
+  ],
+  [
+    'hocVien.allParents',
+    'Mở danh sách phụ huynh',
+    'Open the list of parents',
+    '打开家长列表',
+  ],
+  [
     'hocPhi.lowNone',
     'Không có học viên nào sắp hết buổi.',
     'No student is running out of sessions.',

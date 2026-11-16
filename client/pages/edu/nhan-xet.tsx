@@ -334,8 +334,8 @@ export default function NhanXetPage(): ReactElement {
                       {t('edu.common.save')}
                     </Button>
                     {status[student.id] === 'saved' ? (
-                      <span className='text-xs font-medium text-emerald-600 flex items-center gap-1'>
-                        ✅ Đã lưu nhận xét
+                      <span className='text-xs font-medium text-(--status-success) flex items-center gap-1'>
+                        Đã lưu nhận xét
                       </span>
                     ) : null}
                     {status[student.id] === 'error' ? (
@@ -427,7 +427,7 @@ export default function NhanXetPage(): ReactElement {
                     Số buổi vắng
                   </span>
                   <span
-                    className={`font-bold text-sm ${historyModal.data.thongKe.soBuoiVang > 0 ? 'text-destructive' : 'text-emerald-600'}`}
+                    className={`font-bold text-sm ${historyModal.data.thongKe.soBuoiVang > 0 ? 'text-destructive' : 'text-(--status-success)'}`}
                   >
                     {historyModal.data.thongKe.soBuoiVang} buổi
                   </span>
@@ -444,7 +444,7 @@ export default function NhanXetPage(): ReactElement {
                   <span className='block text-[11px] text-muted-foreground'>
                     Điểm ý thức TB
                   </span>
-                  <span className='font-bold text-sm text-amber-600'>
+                  <span className='font-bold text-sm text-(--status-warning)'>
                     {historyModal.data.thongKe.diemYThucTb != null
                       ? `${historyModal.data.thongKe.diemYThucTb}/10`
                       : '—'}
@@ -470,14 +470,14 @@ export default function NhanXetPage(): ReactElement {
                       >
                         <div className='flex items-center justify-between font-medium'>
                           <span className='text-foreground font-semibold'>
-                            📅 {buoi.ngay} ({buoi.gioBatDau?.slice(0, 5)}) ·{' '}
+                            {buoi.ngay} ({buoi.gioBatDau?.slice(0, 5)}) ·{' '}
                             {buoi.lopTen}
                           </span>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
                               buoi.trangThai === 'co_mat' ||
                               buoi.trangThai === 'hoc_bu'
-                                ? 'bg-emerald-100 text-emerald-800'
+                                ? 'bg-(--status-success-background) text-(--status-success)'
                                 : 'bg-destructive/10 text-destructive'
                             }`}
                           >
@@ -490,7 +490,7 @@ export default function NhanXetPage(): ReactElement {
                         </div>
                         <div className='flex items-center gap-3 text-muted-foreground text-[11px]'>
                           <span>
-                            BTVN: {buoi.daLamBtvn ? '✅ Đã làm' : '❌ Chưa làm'}
+                            BTVN: {buoi.daLamBtvn ? 'Đã làm' : 'Chưa làm'}
                           </span>
                           {buoi.yThucDiem != null ? (
                             <span>

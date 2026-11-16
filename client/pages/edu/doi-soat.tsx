@@ -463,12 +463,12 @@ export default function DoiSoatPage(): ReactElement {
 
               <div
                 onClick={() => handleFilterStatus('sap_het')}
-                className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-amber-500 ${filterStatus === 'sap_het' ? 'ring-2 ring-amber-500 bg-amber-50/50 dark:bg-amber-950/20' : 'bg-card'}`}
+                className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-(--status-warning) ${filterStatus === 'sap_het' ? 'ring-2 ring-(--status-warning) bg-(--status-warning-background)' : 'bg-card'}`}
               >
-                <p className='text-xs font-medium text-amber-600 dark:text-amber-400'>
+                <p className='text-xs font-medium text-(--status-warning)'>
                   Sắp hết buổi
                 </p>
-                <p className='mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400'>
+                <p className='mt-1 text-2xl font-bold text-(--status-warning)'>
                   {overviewData.thongKe.soHocVienSapHet}
                 </p>
                 <span className='text-[11px] text-muted-foreground'>
@@ -478,12 +478,12 @@ export default function DoiSoatPage(): ReactElement {
 
               <div
                 onClick={() => handleFilterStatus('binh_thuong')}
-                className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-emerald-500 ${filterStatus === 'binh_thuong' ? 'ring-2 ring-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' : 'bg-card'}`}
+                className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-(--status-success) ${filterStatus === 'binh_thuong' ? 'ring-2 ring-(--status-success) bg-(--status-success-background)' : 'bg-card'}`}
               >
-                <p className='text-xs font-medium text-emerald-600 dark:text-emerald-400'>
+                <p className='text-xs font-medium text-(--status-success)'>
                   Đang an toàn
                 </p>
-                <p className='mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400'>
+                <p className='mt-1 text-2xl font-bold text-(--status-success)'>
                   {overviewData.thongKe.soHocVienBinhThuong}
                 </p>
                 <span className='text-[11px] text-muted-foreground'>
@@ -576,9 +576,9 @@ export default function DoiSoatPage(): ReactElement {
                 className='h-9 rounded-md border border-input bg-background px-3 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
               >
                 <option value='tat_ca'>Tất cả trạng thái</option>
-                <option value='vuot_goi'>🔴 Học viên vượt buổi (Âm)</option>
-                <option value='sap_het'>🟡 Sắp hết buổi (0 - 2)</option>
-                <option value='binh_thuong'>🟢 Còn nhiều buổi (≥ 3)</option>
+                <option value='vuot_goi'>Học viên vượt buổi (Âm)</option>
+                <option value='sap_het'>Sắp hết buổi (0 - 2)</option>
+                <option value='binh_thuong'>Còn nhiều buổi (≥ 3)</option>
                 <option value='no_hoc_phi'>💳 Còn nợ học phí</option>
                 <option value='no_sach'>📚 Còn nợ tiền sách</option>
               </select>
@@ -665,7 +665,7 @@ export default function DoiSoatPage(): ReactElement {
                     >
                       <div className='flex flex-col items-center justify-center gap-2'>
                         <span className='font-medium text-xs'>
-                          ⚠️ {overviewError}
+                          {overviewError}
                         </span>
                         <Button
                           size='sm'
@@ -754,19 +754,19 @@ export default function DoiSoatPage(): ReactElement {
                             tone='neutral'
                             className='border-destructive/30 bg-destructive/10 text-destructive font-bold'
                           >
-                            🔴 Vượt {Math.abs(row.soBuoiConLai)} buổi
+                            Vượt {Math.abs(row.soBuoiConLai)} buổi
                           </StatusBadge>
                         ) : row.soBuoiConLai === 0 ? (
                           <StatusBadge tone='warning' className='font-semibold'>
-                            🟡 Hết buổi (0)
+                            Hết buổi (0)
                           </StatusBadge>
                         ) : row.soBuoiConLai <= 2 ? (
                           <StatusBadge tone='warning' className='font-semibold'>
-                            🟡 Còn {row.soBuoiConLai} buổi
+                            Còn {row.soBuoiConLai} buổi
                           </StatusBadge>
                         ) : (
                           <StatusBadge tone='success' className='font-semibold'>
-                            🟢 Còn {row.soBuoiConLai} buổi
+                            Còn {row.soBuoiConLai} buổi
                           </StatusBadge>
                         )}
                       </TableCell>
@@ -789,7 +789,7 @@ export default function DoiSoatPage(): ReactElement {
                             Nợ sách: {fmt(Math.abs(row.tienSachTon))} đ
                           </span>
                         ) : row.tienSachTon > 0 ? (
-                          <span className='block text-[11px] text-emerald-600 font-medium'>
+                          <span className='block text-[11px] text-(--status-success) font-medium'>
                             Quỹ dư: {fmt(row.tienSachTon)} đ
                           </span>
                         ) : null}
@@ -952,11 +952,11 @@ export default function DoiSoatPage(): ReactElement {
                     Số buổi còn lại
                   </p>
                   <p
-                    className={`mt-1 text-2xl font-bold ${studentDetail.tongHop.soBuoiConLai < 0 ? 'text-destructive' : 'text-emerald-600'}`}
+                    className={`mt-1 text-2xl font-bold ${studentDetail.tongHop.soBuoiConLai < 0 ? 'text-destructive' : 'text-(--status-success)'}`}
                   >
                     {studentDetail.tongHop.soBuoiConLai < 0
-                      ? `🔴 Vượt ${studentDetail.tongHop.soBuoiVuotGoi} buổi`
-                      : `🟢 Còn ${studentDetail.tongHop.soBuoiConLai} buổi`}
+                      ? `Vượt ${studentDetail.tongHop.soBuoiVuotGoi} buổi`
+                      : `Còn ${studentDetail.tongHop.soBuoiConLai} buổi`}
                   </p>
                   <span className='text-[11px] text-muted-foreground'>
                     {studentDetail.tongHop.soBuoiConLai < 0
@@ -986,7 +986,7 @@ export default function DoiSoatPage(): ReactElement {
                         đ)
                       </span>
                     ) : studentDetail.tongHop.tienSachTon > 0 ? (
-                      <span className='text-emerald-600 font-semibold ml-1.5'>
+                      <span className='text-(--status-success) font-semibold ml-1.5'>
                         (Tồn: {fmt(studentDetail.tongHop.tienSachTon)} đ)
                       </span>
                     ) : null}
@@ -1074,7 +1074,7 @@ export default function DoiSoatPage(): ReactElement {
                                   }
                                 >
                                   {ky.tienDo === 100
-                                    ? '✅ Đã hoàn thành'
+                                    ? 'Đã hoàn thành'
                                     : ky.tienDo > 0
                                       ? `Đang học (${ky.tienDo}%)`
                                       : 'Chưa học'}
@@ -1085,7 +1085,7 @@ export default function DoiSoatPage(): ReactElement {
                             {/* Thanh tiến độ (Progress bar) */}
                             <div className='w-full bg-muted rounded-full h-2.5 overflow-hidden'>
                               <div
-                                className={`h-2.5 rounded-full transition-all ${ky.tienDo === 100 ? 'bg-emerald-600' : 'bg-primary'}`}
+                                className={`h-2.5 rounded-full transition-all ${ky.tienDo === 100 ? 'bg-(--status-success)' : 'bg-primary'}`}
                                 style={{
                                   width: `${Math.min(100, ky.tienDo)}%`,
                                 }}
@@ -1100,7 +1100,7 @@ export default function DoiSoatPage(): ReactElement {
                               </span>
                               <span>
                                 Đã nộp:{' '}
-                                <strong className='text-emerald-600'>
+                                <strong className='text-(--status-success)'>
                                   {fmt(ky.daThanhToan)} đ
                                 </strong>
                               </span>
@@ -1175,7 +1175,7 @@ export default function DoiSoatPage(): ReactElement {
                             </option>
                           ))}
                           <option value='ngoai_goi'>
-                            🔴 Vượt gói / Chưa nộp kỳ mới
+                            Vượt gói / Chưa nộp kỳ mới
                           </option>
                         </select>
                       </div>
@@ -1322,7 +1322,7 @@ export default function DoiSoatPage(): ReactElement {
                                 </StatusBadge>
                               </TableCell>
                               <TableCell className='text-center'>
-                                {buoi.daLamBtvn ? '✅' : '❌'}
+                                {buoi.daLamBtvn ? 'Đã làm' : 'Chưa làm'}
                               </TableCell>
                               <TableCell className='text-center font-bold'>
                                 {buoi.yThucDiem != null
@@ -1341,11 +1341,11 @@ export default function DoiSoatPage(): ReactElement {
                               <TableCell className='w-52 min-w-[200px]'>
                                 {buoi.ngoaiGoi ? (
                                   <div className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-destructive/10 text-destructive border border-destructive/20 whitespace-normal leading-tight'>
-                                    🔴 {buoi.kyTen}
+                                    {buoi.kyTen}
                                   </div>
                                 ) : (
                                   <div className='inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-foreground border border-border whitespace-normal leading-tight'>
-                                    🟢 {buoi.kyTen}
+                                    {buoi.kyTen}
                                   </div>
                                 )}
                               </TableCell>
@@ -1435,7 +1435,7 @@ export default function DoiSoatPage(): ReactElement {
                               <TableCell className='text-right font-semibold'>
                                 {fmt(ky.thanhTien)} đ
                               </TableCell>
-                              <TableCell className='text-right text-emerald-600 font-bold'>
+                              <TableCell className='text-right text-(--status-success) font-bold'>
                                 {fmt(ky.daThanhToan)} đ
                               </TableCell>
                               <TableCell
@@ -1510,7 +1510,7 @@ export default function DoiSoatPage(): ReactElement {
                               <TableCell className='text-right'>
                                 {fmt(sach.giaBia)} đ
                               </TableCell>
-                              <TableCell className='text-right text-emerald-600'>
+                              <TableCell className='text-right text-(--status-success)'>
                                 {fmt(sach.uuDai)} đ
                               </TableCell>
                               <TableCell className='text-right font-bold'>
@@ -1761,7 +1761,7 @@ export default function DoiSoatPage(): ReactElement {
               </h3>
               <table className='w-full border-collapse border border-black text-[11px] mb-8'>
                 <thead>
-                  <tr className='bg-gray-100'>
+                  <tr className='bg-muted'>
                     <th className='border border-black p-1 text-center w-8'>
                       STT
                     </th>

@@ -58,16 +58,14 @@ interface Form {
 }
 
 const CHANNEL_COLORS: Record<string, string> = {
-  facebook:
-    'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300',
-  fb: 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300',
-  zalo: 'border-cyan-500/20 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
-  gioi_thieu:
-    'border-purple-500/20 bg-purple-500/10 text-purple-700 dark:text-purple-300',
+  facebook: 'border-primary/20 bg-primary/10 text-primary',
+  fb: 'border-primary/20 bg-primary/10 text-primary',
+  zalo: 'border-primary/20 bg-primary/10 text-primary',
+  gioi_thieu: 'border-primary/20 bg-primary/10 text-primary',
   vang_lai:
-    'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    'border-(--status-warning)/20 bg-(--status-warning)/10 text-(--status-warning)',
   website:
-    'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    'border-(--status-success)/20 bg-(--status-success)/10 text-(--status-success)',
 };
 
 function channelBadge(channel: string): ReactElement {
@@ -148,24 +146,24 @@ export default function TuyenSinhPage(): ReactElement {
       title: '1. Mới tiếp nhận',
       count: moiRows.length,
       rows: moiRows,
-      tone: 'border-blue-500/30 bg-blue-500/5',
-      badgeTone: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
+      tone: 'border-primary/30 bg-primary/5',
+      badgeTone: 'bg-primary/10 text-primary',
     },
     {
       id: 'dang_cham_soc',
       title: '2. Đang tư vấn / Test',
       count: dangChamSocRows.length,
       rows: dangChamSocRows,
-      tone: 'border-amber-500/30 bg-amber-500/5',
-      badgeTone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+      tone: 'border-(--status-warning)/30 bg-(--status-warning)/5',
+      badgeTone: 'bg-(--status-warning)/10 text-(--status-warning)',
     },
     {
       id: 'da_chot',
       title: '3. Đã chốt nhập học',
       count: daChotRows.length,
       rows: daChotRows,
-      tone: 'border-emerald-500/30 bg-emerald-500/5',
-      badgeTone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+      tone: 'border-(--status-success)/30 bg-(--status-success)/5',
+      badgeTone: 'bg-(--status-success)/10 text-(--status-success)',
     },
     {
       id: 'khong_chot',
@@ -247,7 +245,7 @@ export default function TuyenSinhPage(): ReactElement {
                   variant='outline'
                   size='sm'
                   onClick={() => setCrmOpen(true)}
-                  className='gap-1.5 border-violet-500/30 text-violet-700 hover:bg-violet-50 dark:text-violet-300'
+                  className='gap-1.5 border-primary/30 text-primary hover:bg-primary/8'
                 >
                   🔗 Kết nối NocoCRM
                 </Button>
@@ -449,7 +447,7 @@ export default function TuyenSinhPage(): ReactElement {
                                       href={`https://zalo.me/${cleanPhone}`}
                                       target='_blank'
                                       rel='noopener noreferrer'
-                                      className='rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-cyan-600'
+                                      className='rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-primary'
                                       title='Nhắn tin Zalo'
                                     >
                                       <MessageCircle className='h-3.5 w-3.5' />
@@ -466,11 +464,11 @@ export default function TuyenSinhPage(): ReactElement {
                                 <span
                                   className={
                                     isReminderDue
-                                      ? 'font-medium text-amber-600 dark:text-amber-400'
+                                      ? 'font-medium text-(--status-warning)'
                                       : ''
                                   }
                                 >
-                                  📅 {text(row.ngayNhac)}
+                                  {text(row.ngayNhac)}
                                 </span>
                               ) : null}
                             </div>
@@ -524,7 +522,7 @@ export default function TuyenSinhPage(): ReactElement {
                                       <Button
                                         size='sm'
                                         variant='outline'
-                                        className='h-6 px-2 text-[11px] text-emerald-600'
+                                        className='h-6 px-2 text-[11px] text-(--status-success)'
                                         onClick={() =>
                                           void updateLeadStatus(
                                             row.id,
