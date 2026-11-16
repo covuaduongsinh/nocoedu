@@ -188,6 +188,8 @@ describe('app client routes', () => {
       // The student file and the class page open with the grant of their list.
       { name: 'edu-lop-chi-tiet', authorizedAs: 'edu.lop' },
       { name: 'edu-hocVien-chi-tiet', authorizedAs: 'edu.hocVien' },
+      // A receipt opens with the grant of the tuition page.
+      { name: 'edu-hocPhi-phieu-thu', authorizedAs: 'edu.hocPhi' },
       { name: 'edu-phuHuynh', authorizedAs: 'edu.phuHuynh' },
       { name: 'inbox', authorizedAs: null },
       { name: 'edu-diemDanh', authorizedAs: 'edu.diemDanh' },

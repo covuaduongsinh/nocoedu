@@ -1674,7 +1674,10 @@ export default function DoiSoatPage(): ReactElement {
               MẪU IN PHIẾU ĐỐI SOÁT CHUẨN KHỔ A4 (DÀNH CHO @MEDIA PRINT)
              ========================================================================= */}
           {studentDetail ? (
-            <div className='hidden print:block font-serif text-black p-6'>
+            <div
+              data-print-area=''
+              className='hidden print:block font-serif text-black p-6'
+            >
               <div className='text-center border-b-2 border-black pb-4 mb-4'>
                 <h1 className='text-2xl font-bold uppercase tracking-wider'>
                   CLB CỜ VUA DƯƠNG SINH

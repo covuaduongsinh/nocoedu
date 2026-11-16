@@ -39,8 +39,10 @@ import {
   currentUserId,
   eduError,
   needs,
+  optionalPoliciesOf,
   policiesOf,
   policyOf,
+  writeOnce,
   type EduEnv,
 } from './edu-support.js';
 
@@ -113,6 +115,7 @@ const AdjustInput = z.object({
 const ReceiptInput = z.object({ thanhToanId: Id });
 const QrInput = z.object({ goiHocId: Id });
 const DetailInput = z.object({ goiHocId: Id });
+const StudentInput = z.object({ hocVienId: Id });
 
 const declare = (summary: string, operationId: string) =>
   describeRoute({
@@ -141,6 +144,7 @@ export default [
       '/diemDanh/luu',
       '/goiHoc/taoMoi',
       '/goiHoc/chiTiet',
+      '/goiHoc/cuaHocVien',
       '/thanhToan/ghiNhan',
       '/thanhToan/vietQr',
       '/thanhToan/phieuThu',
@@ -350,16 +354,28 @@ export default [
         const packagePolicy = policyOf(c, 'eduGoiHoc');
         const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view'))
           .eduHocVien;
-        const result = await database.transaction((connection) =>
-          sellPackage(connection, {
-            hocVienId: input.hocVienId,
-            soBuoi: input.soBuoi,
-            donGia: input.donGia,
-            ngayMua: input.ngayMua,
-            userId,
-            policies: { package: packagePolicy, student: studentPolicy },
-          }),
-        );
+        const result = await writeOnce(c, {
+          database,
+          appName: app.appName,
+          operation: `edu/goiHoc/taoMoi/${input.hocVienId}`,
+          input,
+          execute: (connection) =>
+            sellPackage(connection, {
+              hocVienId: input.hocVienId,
+              soBuoi: input.soBuoi,
+              donGia: input.donGia,
+              ngayMua: input.ngayMua,
+              userId,
+              policies: { package: packagePolicy, student: studentPolicy },
+            }),
+          stillVisible: async (sold) =>
+            Boolean(
+              await database
+                .repository('eduGoiHoc')
+                .withPolicy(packagePolicy)
+                .findOne({ filter: { id: sold.id } }),
+            ),
+        });
         return c.json({ data: result }, 201);
       },
     );
@@ -375,17 +391,29 @@ export default [
         const paymentPolicy = policyOf(c, 'eduThanhToan');
         const packagePolicy = (await policiesOf(c, 'edu.goiHoc', 'view'))
           .eduGoiHoc;
-        const result = await database.transaction((connection) =>
-          recordPayment(connection, {
-            goiHocId: input.goiHocId,
-            soTien: input.soTien,
-            hinhThuc: input.hinhThuc,
-            ngay: input.ngay,
-            noiDungCk: input.noiDungCk ?? null,
-            userId,
-            policies: { payment: paymentPolicy, package: packagePolicy },
-          }),
-        );
+        const result = await writeOnce(c, {
+          database,
+          appName: app.appName,
+          operation: `edu/thanhToan/ghiNhan/${input.goiHocId}`,
+          input,
+          execute: (connection) =>
+            recordPayment(connection, {
+              goiHocId: input.goiHocId,
+              soTien: input.soTien,
+              hinhThuc: input.hinhThuc,
+              ngay: input.ngay,
+              noiDungCk: input.noiDungCk ?? null,
+              userId,
+              policies: { payment: paymentPolicy, package: packagePolicy },
+            }),
+          stillVisible: async (paid) =>
+            Boolean(
+              await database
+                .repository('eduThanhToan')
+                .withPolicy(paymentPolicy)
+                .findOne({ filter: { id: paid.id } }),
+            ),
+        });
         return c.json({ data: result }, 201);
       },
     );
@@ -523,6 +551,91 @@ export default [
                   daThu,
                   conNo: Math.max(0, Number(pack.thanhTien) - daThu),
                 }
+              : null,
+          },
+        });
+      },
+    );
+
+    // --- The packages of one student with what was paid for each ------------------------------------------------
+    // Packages come through the caller's package policy, so a student outside the scope simply has none. Amounts
+    // paid and the payments themselves are added only for a caller who may view payments.
+    router.post(
+      '/goiHoc/cuaHocVien',
+      declare(
+        'The packages of a student, what was paid for each and the payments',
+        'studentPackages',
+      ),
+      needs('edu.goiHoc', 'view'),
+      apiValidator('json', StudentInput),
+      async (c) => {
+        const { hocVienId } = c.req.valid('json');
+        const packagePolicy = policyOf(c, 'eduGoiHoc');
+        const paymentPolicy = (
+          await optionalPoliciesOf(c, 'edu.thanhToan', 'view')
+        )?.eduThanhToan;
+        const packs = await readAll(async (limit, offset) =>
+          database
+            .repository('eduGoiHoc')
+            .withPolicy(packagePolicy)
+            .findMany({
+              filter: (f) => f.number('hocVienId').eq(hocVienId),
+              sort: (s) => s.field('id').desc(),
+              limit,
+              offset,
+            }),
+        );
+        const payments = paymentPolicy
+          ? await readAll(async (limit, offset) =>
+              database
+                .repository('eduThanhToan')
+                .withPolicy(paymentPolicy)
+                .findMany({
+                  filter: (f) => f.number('hocVienId').eq(hocVienId),
+                  sort: (s) => s.field('id').desc(),
+                  limit,
+                  offset,
+                }),
+            )
+          : null;
+        const paid = new Map<number, number>();
+        for (const payment of payments ?? []) {
+          if (payment.goiHocId == null) continue;
+          const id = Number(payment.goiHocId);
+          paid.set(id, (paid.get(id) ?? 0) + Number(payment.soTien));
+        }
+        return c.json({
+          data: {
+            goi: packs.map((pack) => {
+              const daThu = payments ? (paid.get(Number(pack.id)) ?? 0) : null;
+              return {
+                id: Number(pack.id),
+                ngayMua: asText(pack.ngayMua),
+                soBuoi: Number(pack.soBuoi),
+                donGia: Number(pack.donGia),
+                thanhTien: Number(pack.thanhTien),
+                trangThai: asText(pack.trangThai),
+                loai: asText(pack.loai),
+                daThu,
+                conNo:
+                  daThu === null
+                    ? null
+                    : Math.max(0, Number(pack.thanhTien) - daThu),
+              };
+            }),
+            thanhToan: payments
+              ? payments.map((payment) => ({
+                  id: Number(payment.id),
+                  goiHocId:
+                    payment.goiHocId == null ? null : Number(payment.goiHocId),
+                  soPhieu: payment.soPhieu ? asText(payment.soPhieu) : null,
+                  ngay: asText(payment.ngay),
+                  soTien: Number(payment.soTien),
+                  hinhThuc: asText(payment.hinhThuc),
+                  noiDungCk: payment.noiDungCk
+                    ? asText(payment.noiDungCk)
+                    : null,
+                }))
               : null,
           },
         });
@@ -675,16 +788,29 @@ export default [
         const userId = currentUserId(c);
         const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view'))
           .eduHocVien;
-        const result = await database.transaction((connection) =>
-          adjustBalance(connection, {
-            hocVienId: input.hocVienId,
-            soDuHienTai: input.soDuHienTai,
-            soDuMoi: input.soDuMoi,
-            lyDo: input.lyDo,
-            userId,
-            policies: { student: studentPolicy },
-          }),
-        );
+        const result = await writeOnce(c, {
+          database,
+          appName: app.appName,
+          operation: `edu/soDu/dieuChinh/${input.hocVienId}`,
+          input,
+          execute: (connection) =>
+            adjustBalance(connection, {
+              hocVienId: input.hocVienId,
+              soDuHienTai: input.soDuHienTai,
+              soDuMoi: input.soDuMoi,
+              lyDo: input.lyDo,
+              userId,
+              policies: { student: studentPolicy },
+            }),
+          stillVisible: async () =>
+            Boolean(
+              studentPolicy &&
+              (await database
+                .repository('eduHocVien')
+                .withPolicy(studentPolicy)
+                .findOne({ filter: { id: input.hocVienId } })),
+            ),
+        });
         return c.json({ data: result });
       },
     );

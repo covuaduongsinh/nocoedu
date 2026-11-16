@@ -120,7 +120,7 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     '/hoc-phi',
     Wallet,
     3,
-    () => import('./pages/edu/hoc-phi.js'),
+    () => import('./pages/edu/hoc-phi/index.js'),
   ),
   ...eduPage(
     'nhanXet',
@@ -211,6 +211,19 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     '/hoc-vien/:id',
     () => import('./pages/edu/hoc-vien-chi-tiet.js'),
   ),
+  {
+    // The receipt of one payment, printed from the browser. It shares the tuition page's grant; the payment itself
+    // comes through the caller's payment policy, so a receipt outside the scope is "not found".
+    auth: 'required' as const,
+    authz: {
+      resource: { type: 'page' as const, id: 'edu.hocPhi' },
+      action: 'access',
+    },
+    breadcrumb: { title: 'edu.phieuThu.detail' },
+    componentLoader: () => import('./pages/edu/hoc-phi/phieu-thu.js'),
+    name: 'edu-hocPhi-phieu-thu',
+    path: '/hoc-phi/phieu-thu/:id',
+  },
   {
     auth: 'required' as const,
     authz: {

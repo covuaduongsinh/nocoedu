@@ -323,12 +323,33 @@ export function normalizePhone(value: string): string {
   return plain.replace(/\D/gu, '');
 }
 
+/** One attempt of a form's operation: the key every attempt of it shares, and the signal that ends the wait. */
+export interface Operation {
+  readonly key: string;
+  readonly signal: AbortSignal;
+}
+
+/**
+ * POSTs a business route. A route that writes money or a balance takes the `operation` of the form (`FormDialog`
+ * hands it to `onSubmit`): the server then writes once however often the request arrives.
+ */
 export function post(
   api: ApiClient,
   path: string,
   json: unknown,
+  operation?: Operation,
 ): Promise<unknown> {
-  return api.request({ path, method: 'POST', json });
+  return api.request({
+    path,
+    method: 'POST',
+    json,
+    ...(operation
+      ? {
+          headers: { 'Idempotency-Key': operation.key },
+          signal: operation.signal,
+        }
+      : {}),
+  });
 }
 
 /** A row value as text: strings and numbers only, anything else is empty. */
@@ -343,6 +364,8 @@ export type Result<T> =
   | {
       readonly state: 'error';
       readonly forbidden: boolean;
+      /** The server answered 404: the record is not there, or not in the person's scope. */
+      readonly notFound: boolean;
       readonly reason?: string;
     }
   | { readonly state: 'ready'; readonly data: T };
@@ -382,6 +405,9 @@ export function useRequest<T>(
               forbidden:
                 error instanceof ApiClientError &&
                 (error as { status?: number }).status === 403,
+              notFound:
+                error instanceof ApiClientError &&
+                (error as { status?: number }).status === 404,
               ...(error instanceof ApiClientError &&
               (error as { reason?: string }).reason
                 ? { reason: (error as { reason: string }).reason }

@@ -109,7 +109,11 @@ export function SessionBalanceBadge({
     >
       <span className={cn('h-1.5 w-1.5 rounded-full', dotColor)} />
       <span>
-        {balance} {t('edu.home.sessionsLeft', { count: balance })}
+        {balance < 0
+          ? t('edu.hocPhi.balanceOut', { count: -balance })
+          : balance === 0
+            ? t('edu.hocPhi.balanceZero')
+            : t('edu.home.sessionsLeft', { count: balance })}
       </span>
     </Badge>
   );

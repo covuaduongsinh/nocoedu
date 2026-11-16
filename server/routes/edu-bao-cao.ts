@@ -750,6 +750,8 @@ export default [
             .map(([hocVienId, row]) => {
               const student = byId.get(hocVienId);
               return {
+                // Not a column: the page opens the student from it. A CSV carries the columns only.
+                hocVienId,
                 ma: asText(student?.ma),
                 hoTen: asText(student?.hoTen),
                 lop:

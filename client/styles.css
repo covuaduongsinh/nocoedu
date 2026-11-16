@@ -614,3 +614,59 @@ label:has(> .sr-only:focus-visible),
       transparent;
   }
 }
+
+/* Printing one document out of a page (a tuition receipt, a statement).
+   A page marks the subtree with `data-print-area` (`#components/print-area`). On paper only that subtree remains:
+   everything beside it is removed, and its ancestors stop clipping, offsetting or decorating it. The area is pinned to
+   the light paper palette, because a person on the dark theme still prints black on white. These are the only literal
+   colors of the application outside the theme files: paper has no theme. */
+@media print {
+  html:has([data-print-area])
+    body
+    *:not(:has([data-print-area])):not([data-print-area]):not(
+      [data-print-area] *
+    ) {
+    display: none !important;
+  }
+  html:has([data-print-area]),
+  html:has([data-print-area]) body,
+  html:has([data-print-area]) body :has([data-print-area]) {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+  [data-print-area] {
+    --background: #fff;
+    --card: #fff;
+    --foreground: #111;
+    --card-foreground: #111;
+    --muted: #f2f2f2;
+    --muted-foreground: #555;
+    --border: #999;
+    --primary: #2b3990;
+    --primary-foreground: #fff;
+    color: var(--foreground);
+    background: #fff;
+    border: 0 !important;
+    box-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  /* Buttons and hints a page keeps inside the area for the screen only. */
+  [data-print-area] [data-print-hidden] {
+    display: none !important;
+  }
+}
+@page {
+  margin: 14mm;
+}

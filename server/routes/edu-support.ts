@@ -1,7 +1,14 @@
 import type { AuthorizationEnv } from '@nocobase/app-plugin-authorization';
 import { AuthorizationDeniedError } from '@nocobase/authorization/core';
-import { ApiError } from '@nocobase/app-server/router';
-import type { RepositoryPolicy } from '@nocobase/db';
+import {
+  ApiError,
+  executeIdempotentMutation,
+} from '@nocobase/app-server/router';
+import type {
+  DatabaseConnection,
+  DatabaseManager,
+  RepositoryPolicy,
+} from '@nocobase/db';
 import type { Context, MiddlewareHandler } from 'hono';
 
 import { DOMAIN, eduError } from '../edu/errors.js';
@@ -76,6 +83,58 @@ export function policyOf(
     });
   }
   return policy;
+}
+
+/**
+ * Runs a write that moves money or a balance once per operation key.
+ *
+ * The request must carry `Idempotency-Key`, as a standard write does (the forms send one through `useSubmission`). It
+ * joins the receipt contract: a second request with the same key — a double click, Enter and the button together, a
+ * retry after a lost answer — is answered with the first result and writes nothing again. The route's middleware has
+ * authorized the action for this very request, replays included, before this runs; `stillVisible` then checks that
+ * the caller still sees what the first attempt produced.
+ */
+export async function writeOnce<T>(
+  c: Context<EduEnv>,
+  options: {
+    readonly database: DatabaseManager;
+    readonly appName: string;
+    /** The action and its target, the same for every attempt of one operation. */
+    readonly operation: string;
+    readonly input: unknown;
+    readonly execute: (transaction: DatabaseConnection) => Promise<T>;
+    readonly stillVisible: (result: T) => Promise<boolean>;
+  },
+): Promise<T> {
+  const key = c.req.header('idempotency-key');
+  if (!key) {
+    throw eduError(
+      'INVALID_ARGUMENT',
+      'OPERATION_KEY_REQUIRED',
+      'This write requires an Idempotency-Key header.',
+    );
+  }
+  const userId = currentUserId(c);
+  const result = await executeIdempotentMutation<T>({
+    connection: options.database.connection(),
+    key,
+    principal: `${options.appName}:${userId}`,
+    operation: options.operation,
+    input: options.input,
+    authorize: () => undefined,
+    authorizeReplay: async (data) => {
+      if (!(await options.stillVisible(data))) {
+        throw eduError(
+          'PERMISSION_DENIED',
+          'EDU_PERMISSION_DENIED',
+          'This action is not allowed.',
+        );
+      }
+    },
+    execute: options.execute,
+  });
+  c.header('Idempotency-Replayed', String(result.replayed));
+  return result.data;
 }
 
 export function currentUserId(c: Context<EduEnv>): string {

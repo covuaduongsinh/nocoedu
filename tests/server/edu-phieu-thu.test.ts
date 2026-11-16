@@ -191,4 +191,40 @@ test('a receipt shows the payment, the student, the package and what is still ow
     ).json()) as any
   ).data;
   expect(later.goiHoc).toMatchObject({ daThu: 940000, conNo: 500000 });
+
+  // The packages of one student with what was paid for each, newest first.
+  expect(
+    (
+      await post(hlvA.session, '/goiHoc/cuaHocVien', {
+        hocVienId: ids.hocVienA,
+      })
+    ).status,
+  ).toBe(403);
+  const packagesOf = async (session: any, hocVienId: number) =>
+    (
+      (await (
+        await post(session, '/goiHoc/cuaHocVien', { hocVienId })
+      ).json()) as any
+    ).data;
+  const own = await packagesOf(managerA.session, ids.hocVienA);
+  expect(own.goi).toEqual([
+    expect.objectContaining({
+      id: packA.id,
+      soBuoi: 12,
+      thanhTien: 1440000,
+      daThu: 940000,
+      conNo: 500000,
+    }),
+  ]);
+  expect(
+    own.thanhToan.map((row: any) => [row.soPhieu, row.soTien, row.hinhThuc]),
+  ).toEqual([
+    [paidA2.soPhieu, 500000, 'tien_mat'],
+    [paidA1.soPhieu, 440000, 'chuyen_khoan'],
+  ]);
+  // A student of another branch has nothing to show to this manager.
+  expect(await packagesOf(managerA.session, ids.hocVienB)).toEqual({
+    goi: [],
+    thanhToan: [],
+  });
 });
