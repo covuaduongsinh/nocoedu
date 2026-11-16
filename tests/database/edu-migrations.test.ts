@@ -409,3 +409,34 @@ describeMigration('202611140007_create_edu_sach_hoc', {
     await expectCollection('eduSachHoc').not.toExist();
   },
 });
+
+describeMigration('202611160003_edu_phieu_thu', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduThanhToan').toHaveField('soPhieu', {
+      nullable: true,
+    });
+    await expectCollection('eduThanhToan').toHaveIndex(['soPhieu'], {
+      unique: true,
+    });
+    await expectCollection('eduSoPhieu').toHaveField('soCuoi', {
+      nullable: false,
+    });
+    await expectCollection('eduSoPhieu').toHaveIndex(['nam'], {
+      unique: true,
+    });
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduSoPhieu').not.toExist();
+    await expectCollection('eduThanhToan').toExist();
+    await expectCollection('eduThanhToan').not.toHaveField('soPhieu');
+  },
+});

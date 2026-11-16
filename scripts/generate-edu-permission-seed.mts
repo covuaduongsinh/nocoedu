@@ -23,14 +23,19 @@ const withoutLaterActions = (grants: readonly unknown[]): unknown[] =>
       resource: { type: string; id: string };
       actions: { action: string }[];
     };
-    return g.resource.type === 'composite' && g.resource.id === 'edu.hocVien'
-      ? {
-          ...g,
-          actions: g.actions.filter(
-            (a) => !['import', 'export'].includes(a.action),
-          ),
-        }
-      : g;
+    if (g.resource.type === 'composite' && g.resource.id === 'edu.hocVien') {
+      return {
+        ...g,
+        actions: g.actions.filter(
+          (a) => !['import', 'export'].includes(a.action),
+        ),
+      };
+    }
+    // `adjust` of `edu.soDu` is granted by `202611160002_edu_so_du_adjust_grant`.
+    if (g.resource.type === 'composite' && g.resource.id === 'edu.soDu') {
+      return { ...g, actions: g.actions.filter((a) => a.action !== 'adjust') };
+    }
+    return g;
   });
 // The books page and the `edu.sach` grant were added later still: `202611130003_edu_sach_grant`.
 const withoutSach = (grants: readonly unknown[]): unknown[] =>

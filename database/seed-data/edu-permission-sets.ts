@@ -121,7 +121,8 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .grant(
     thanhToan.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
   )
-  .grant(soDu.reference().grant({ view: { data: ALL } }))
+  // `adjust` came later: `202611160002_edu_so_du_adjust_grant` adds it to the grant that is already there.
+  .grant(soDu.reference().grant({ view: { data: ALL }, adjust: { data: ALL } }))
   .grant(
     nhanXet.reference().grant({ view: { data: ALL }, write: { data: ALL } }),
   )
@@ -310,7 +311,8 @@ export const eduKeToan = definePermissionSet('edu_ke_toan')
   .grant(
     thanhToan.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
   )
-  .grant(soDu.reference().grant({ view: { data: ALL } }))
+  // `adjust` came later: `202611160002_edu_so_du_adjust_grant` adds it to the grant that is already there.
+  .grant(soDu.reference().grant({ view: { data: ALL }, adjust: { data: ALL } }))
   .grant(baoCao.reference().grant({ export: { data: ALL } }))
   .grant(sachPage)
   .grant(sach.reference().grant({ view: { data: ALL } }))

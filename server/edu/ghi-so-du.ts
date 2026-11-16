@@ -78,6 +78,11 @@ export async function moveBalance(
     diemDanhId?: number;
     goiHocId?: number;
     ghiChu?: string | null;
+    /**
+     * The balance the ledger last recorded, when it differs from `before`: the row then says how far the new balance
+     * is from the ledger, so the ledger adds up again. Only a hand adjustment settles such a difference.
+     */
+    ledgerBefore?: number;
     userId: string;
   },
 ): Promise<void> {
@@ -92,7 +97,7 @@ export async function moveBalance(
     .insertInto('eduSoDuNhatKy')
     .values({
       hocVienId: change.hocVienId,
-      thayDoi: change.after - change.before,
+      thayDoi: change.after - (change.ledgerBefore ?? change.before),
       soDuSau: change.after,
       lyDo: change.reason,
       goiHocId: change.goiHocId ?? null,
@@ -423,7 +428,7 @@ export async function recordPayment(
       readonly package: RepositoryPolicy | undefined;
     };
   },
-): Promise<{ id: number; conNo: number }> {
+): Promise<{ id: number; conNo: number; soPhieu: string }> {
   if (!input.policies.package) {
     throw outOfScope('You may not record a payment here.');
   }
@@ -475,5 +480,131 @@ export async function recordPayment(
   if (!(await payments.findOne({ filter: { id } }))) {
     throw outOfScope('You may not record a payment here.');
   }
-  return { id, conNo: due - input.soTien };
+  // The receipt number is not a field a caller may write: it is given here, in the same transaction.
+  const soPhieu = await nextReceiptNumber(connection, date.slice(0, 4));
+  await connection.query
+    .updateTable('eduThanhToan')
+    .set({ soPhieu })
+    .where('id', '=', id)
+    .execute();
+  return { id, conNo: due - input.soTien, soPhieu };
+}
+
+/** `PT-2026-000123`: receipts are counted per year of the payment's day. */
+export const receiptNumber = (year: string, order: number): string =>
+  `PT-${year}-${String(order).padStart(6, '0')}`;
+
+/**
+ * Takes the next receipt number of a year. The year's last number is moved with a guard on the number it was read
+ * with, so two payments recorded at the same moment never share one: the one that loses reads again. The first
+ * receipt of a year creates the year's row inside a savepoint, because a refused insert would otherwise end the
+ * caller's transaction on PostgreSQL.
+ */
+async function nextReceiptNumber(
+  connection: DatabaseConnection,
+  year: string,
+): Promise<string> {
+  const nam = Number(year);
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const row = await connection.query
+      .selectFrom('eduSoPhieu')
+      .select(['id', 'soCuoi'])
+      .where('nam', '=', nam)
+      .executeTakeFirst();
+    if (!row) {
+      try {
+        await connection.transaction((savepoint) =>
+          savepoint.query
+            .insertInto('eduSoPhieu')
+            .values({ nam, soCuoi: 1 })
+            .execute(),
+        );
+        return receiptNumber(year, 1);
+      } catch (error) {
+        if (error instanceof Error && /unique|duplicate/iu.test(error.message))
+          continue;
+        throw error;
+      }
+    }
+    const last = Number(row.soCuoi);
+    const moved = await connection.query
+      .updateTable('eduSoPhieu')
+      .set({ soCuoi: last + 1 })
+      .where('id', '=', Number(row.id))
+      .where('soCuoi', '=', last)
+      .execute();
+    if (moved.updatedCount === 1) return receiptNumber(year, last + 1);
+  }
+  throw eduError(
+    'FAILED_PRECONDITION',
+    'EDU_RECEIPT_BUSY',
+    'Another payment is being recorded. Try again.',
+  );
+}
+
+/** The balance on the student's last ledger row; zero when the ledger has none. */
+export async function ledgerBalanceOf(
+  connection: Queryable,
+  hocVienId: number,
+): Promise<number> {
+  const last = await connection.query
+    .selectFrom('eduSoDuNhatKy')
+    .select('soDuSau')
+    .where('hocVienId', '=', hocVienId)
+    .orderBy('id', 'desc')
+    .limit(1)
+    .executeTakeFirst();
+  return last ? Number(last.soDuSau) : 0;
+}
+
+/**
+ * Sets the balance of a student the caller sees to `soDuMoi` by hand, with a reason, in the caller's transaction.
+ *
+ * `soDuHienTai` is the balance the person looked at: when it is no longer the balance, somebody changed it meanwhile
+ * and nothing is written. The ledger row says how far the new balance is from what the ledger last recorded, so a
+ * balance that was once written beside the ledger is settled by the same row. Confirming the current balance as right
+ * (`soDuMoi === soDuHienTai`) is allowed only for that: without a difference to settle there is nothing to record.
+ */
+export async function adjustBalance(
+  connection: DatabaseConnection,
+  input: {
+    readonly hocVienId: number;
+    readonly soDuHienTai: number;
+    readonly soDuMoi: number;
+    readonly lyDo: string;
+    readonly userId: string;
+    readonly policies: { readonly student: RepositoryPolicy | undefined };
+  },
+): Promise<{ soBuoiConLai: number; thayDoi: number }> {
+  const student = input.policies.student
+    ? await connection
+        .repository('eduHocVien')
+        .withPolicy(input.policies.student)
+        .findOne({ filter: { id: input.hocVienId } })
+    : null;
+  if (!student) throw notFound('EDU_STUDENT_NOT_FOUND', 'Student not found.');
+  const before = await balanceOf(connection, input.hocVienId);
+  if (before !== input.soDuHienTai) throw balanceConflict();
+  const ledgerBefore = await ledgerBalanceOf(connection, input.hocVienId);
+  if (input.soDuMoi === ledgerBefore && input.soDuMoi === before) {
+    throw eduError(
+      'INVALID_ARGUMENT',
+      'EDU_NO_CHANGE',
+      'The balance is already this number and the ledger agrees.',
+      'soDuMoi',
+    );
+  }
+  await moveBalance(connection, {
+    hocVienId: input.hocVienId,
+    before,
+    after: input.soDuMoi,
+    reason: 'dieu_chinh',
+    ghiChu: input.lyDo,
+    ledgerBefore,
+    userId: input.userId,
+  });
+  return {
+    soBuoiConLai: input.soDuMoi,
+    thayDoi: input.soDuMoi - ledgerBefore,
+  };
 }

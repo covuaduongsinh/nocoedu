@@ -20,6 +20,7 @@ import {
   type PackageInput,
 } from '../edu/phan-bo-goi.js';
 import {
+  adjustBalance,
   paidFor,
   recordPayment,
   saveAttendance,
@@ -101,6 +102,15 @@ const PaymentInput = z.object({
 /** `huy: true` calls a session off; `false` opens it again. */
 const CancelInput = z.object({ buoiHocId: Id, huy: z.boolean() });
 
+/** A balance set by hand: what the person saw, what it should be, and why. */
+const AdjustInput = z.object({
+  hocVienId: Id,
+  soDuHienTai: z.number().int().min(-10_000).max(10_000),
+  soDuMoi: z.number().int().min(-1000).max(5000),
+  lyDo: z.string().trim().min(3).max(500),
+});
+
+const ReceiptInput = z.object({ thanhToanId: Id });
 const QrInput = z.object({ goiHocId: Id });
 const DetailInput = z.object({ goiHocId: Id });
 
@@ -133,8 +143,9 @@ export default [
       '/goiHoc/chiTiet',
       '/thanhToan/ghiNhan',
       '/thanhToan/vietQr',
+      '/thanhToan/phieuThu',
       '/soDu/canhBao',
-      '/hocVien/doiSoatTongThe',
+      '/soDu/dieuChinh',
     ]) {
       router.use(
         path,
@@ -420,6 +431,104 @@ export default [
       },
     );
 
+    // --- What a receipt shows ----------------------------------------------------------------------------------
+    // The payment comes through the caller's payment policy; the student, the package and the branch it names are
+    // then read for exactly that payment. A payment outside the scope is "not found".
+    router.post(
+      '/thanhToan/phieuThu',
+      declare('What the receipt of a payment shows', 'paymentReceipt'),
+      needs('edu.thanhToan', 'view'),
+      apiValidator('json', ReceiptInput),
+      async (c) => {
+        const { thanhToanId } = c.req.valid('json');
+        const payment = await database
+          .repository('eduThanhToan')
+          .withPolicy(policyOf(c, 'eduThanhToan'))
+          .findOne({ filter: { id: thanhToanId } });
+        if (!payment)
+          throw notFound('EDU_PAYMENT_NOT_FOUND', 'Payment not found.');
+        const q = database.connection().query;
+        const [student, branch, pack, collector] = await Promise.all([
+          q
+            .selectFrom('eduHocVien')
+            .select(['ma', 'hoTen', 'lopId'])
+            .where('id', '=', Number(payment.hocVienId))
+            .executeTakeFirst(),
+          q
+            .selectFrom('eduCoSo')
+            .select(['ten', 'diaChi'])
+            .where('id', '=', Number(payment.coSoId))
+            .executeTakeFirst(),
+          payment.goiHocId == null
+            ? undefined
+            : q
+                .selectFrom('eduGoiHoc')
+                .select(['id', 'soBuoi', 'donGia', 'thanhTien', 'ngayMua'])
+                .where('id', '=', Number(payment.goiHocId))
+                .executeTakeFirst(),
+          q
+            .selectFrom('user')
+            .select('name')
+            .where('id', '=', asText(payment.nguoiGhiNhanId))
+            .executeTakeFirst(),
+        ]);
+        const lop =
+          student?.lopId == null
+            ? undefined
+            : await q
+                .selectFrom('eduLop')
+                .select('ten')
+                .where('id', '=', Number(student.lopId))
+                .executeTakeFirst();
+        // What was paid for the package up to and including this payment, and what is still owed after it.
+        const earlier = pack
+          ? await q
+              .selectFrom('eduThanhToan')
+              .select(['id', 'soTien'])
+              .where('goiHocId', '=', Number(pack.id))
+              .execute()
+          : [];
+        const daThu = earlier
+          .filter((row) => Number(row.id) <= thanhToanId)
+          .reduce((sum, row) => sum + Number(row.soTien), 0);
+        return c.json({
+          data: {
+            id: thanhToanId,
+            soPhieu: payment.soPhieu ? asText(payment.soPhieu) : null,
+            ngay: asText(payment.ngay),
+            soTien: Number(payment.soTien),
+            hinhThuc: asText(payment.hinhThuc),
+            noiDungCk: payment.noiDungCk ? asText(payment.noiDungCk) : null,
+            nguoiThu: collector ? asText(collector.name) : null,
+            coSo: branch
+              ? {
+                  ten: asText(branch.ten),
+                  diaChi: branch.diaChi ? asText(branch.diaChi) : null,
+                }
+              : null,
+            hocVien: student
+              ? {
+                  ma: asText(student.ma),
+                  hoTen: asText(student.hoTen),
+                  lop: lop ? asText(lop.ten) : null,
+                }
+              : null,
+            goiHoc: pack
+              ? {
+                  id: Number(pack.id),
+                  soBuoi: Number(pack.soBuoi),
+                  donGia: Number(pack.donGia),
+                  thanhTien: Number(pack.thanhTien),
+                  ngayMua: asText(pack.ngayMua),
+                  daThu,
+                  conNo: Math.max(0, Number(pack.thanhTien) - daThu),
+                }
+              : null,
+          },
+        });
+      },
+    );
+
     // --- Which sessions were deducted from a package (first in, first out), worked out when read ------------------
     router.post(
       '/goiHoc/chiTiet',
@@ -550,6 +659,33 @@ export default [
             ),
           },
         });
+      },
+    );
+
+    // --- A balance set by hand, with a reason -----------------------------------------------------------------
+    // Its own action (`edu.soDu` `adjust`): it is how a refund of sessions, a correction and a balance that
+    // disagrees with the ledger are settled, and every one leaves a ledger row with the reason and who did it.
+    router.post(
+      '/soDu/dieuChinh',
+      declare('Set a balance by hand, with a reason', 'adjustBalance'),
+      needs('edu.soDu', 'adjust'),
+      apiValidator('json', AdjustInput),
+      async (c) => {
+        const input = c.req.valid('json');
+        const userId = currentUserId(c);
+        const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view'))
+          .eduHocVien;
+        const result = await database.transaction((connection) =>
+          adjustBalance(connection, {
+            hocVienId: input.hocVienId,
+            soDuHienTai: input.soDuHienTai,
+            soDuMoi: input.soDuMoi,
+            lyDo: input.lyDo,
+            userId,
+            policies: { student: studentPolicy },
+          }),
+        );
+        return c.json({ data: result });
       },
     );
 

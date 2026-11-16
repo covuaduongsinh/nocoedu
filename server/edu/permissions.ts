@@ -245,6 +245,8 @@ export const FIELDS = {
       'thang',
       'noiDungCk',
       'nguoiGhiNhanId',
+      // Read only: the receipt number is given by the server when a payment is recorded (`ghi-so-du.ts`).
+      'soPhieu',
     ],
     write: [
       'goiHocId',
@@ -635,11 +637,18 @@ export const phatSach = defineCompositeResource('edu.phatSach', (r) =>
     ),
 );
 
-/** The balance ledger of a student. Rows are written only by the services that change a balance. */
+/**
+ * The balance ledger of a student. Rows are written only by the services that change a balance. `adjust` is the one
+ * action that sets a balance by hand (a correction, a refund of sessions, settling a balance that disagrees with the
+ * ledger): the route writes the ledger row itself, with the reason the person typed.
+ */
 export const soDu = defineCompositeResource('edu.soDu', (r) =>
   r
     .title('Nhật ký số dư buổi')
-    .action('view', (a) => a.title('Xem').grant('data', soDuRead)),
+    .action('view', (a) => a.title('Xem').grant('data', soDuRead))
+    .action('adjust', (a) =>
+      a.title('Điều chỉnh số dư buổi (có ghi lý do)').grant('data', soDuRead),
+    ),
 );
 
 const nhanXetRead = perm('nhanXetThang', FIELDS.nhanXetThang);
