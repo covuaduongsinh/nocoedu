@@ -84,3 +84,4 @@ jobs:
           tests/server/edu-cong-phu-huynh.test.ts
           tests/server/edu-co-so-quan-ly.test.ts
           tests/server/edu-permission-sets.test.ts
+          tests/server/edu-nhap-csv.test.ts
