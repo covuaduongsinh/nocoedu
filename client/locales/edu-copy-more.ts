@@ -12,7 +12,7 @@ export const EDU_MORE_ROWS: readonly (readonly [
   ['nav.hocPhi', 'Học phí', 'Tuition', '学费'],
   ['nav.nhanXet', 'Nhận xét', 'Comments', '评语'],
   ['nav.baoCao', 'Báo cáo', 'Reports', '报表'],
-  ['nav.saoLuu', 'Sao lưu dữ liệu', 'Backup & Restore', '备份与恢复'],
+  ['nav.saoLuu', 'Sao lưu dữ liệu', 'Data backup', '数据备份'],
 
   ['home.today', 'Hôm nay có lớp', 'Classes today', '今日课程'],
   [

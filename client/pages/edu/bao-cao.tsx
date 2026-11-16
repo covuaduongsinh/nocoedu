@@ -17,7 +17,7 @@ import {
 } from '#components/ui/table';
 
 import { SelectField, TextField } from './form-parts.js';
-import { text, useRequest, useRows } from './kit.js';
+import { downloadReport, text, useRequest, useRows } from './kit.js';
 
 interface Report {
   columns: { key: string }[];
@@ -54,9 +54,7 @@ function BarChart(props: {
   return (
     <figure className='mb-4 rounded-lg border p-4'>
       <div className='mb-3 flex items-center justify-between'>
-        <figcaption className='text-sm font-medium'>
-          {props.title}
-        </figcaption>
+        <figcaption className='text-sm font-medium'>{props.title}</figcaption>
         {props.selected ? (
           <button
             type='button'
@@ -186,13 +184,24 @@ export default function BaoCaoPage(): ReactElement {
     resource: { type: 'composite', id: 'edu.baoCao' },
     action: 'export',
   });
+  const { can: canPackages } = useCan({
+    resource: { type: 'composite', id: 'edu.goiHoc' },
+    action: 'view',
+  });
+  const { can: canLedger } = useCan({
+    resource: { type: 'composite', id: 'edu.soDu' },
+    action: 'view',
+  });
   const kinds = [
     'siSo',
     'sapHetBuoi',
     'soDuAm',
     'thieuDongY',
-    ...(canAttendance ? ['chuyenCan', 'nghiDai'] : []),
+    ...(canAttendance ? ['chuyenCan', 'nghiDai', 'diemDanhChiTiet'] : []),
     ...(canRevenue ? ['doanhThu'] : []),
+    ...(canPackages ? ['goiHocChiTiet'] : []),
+    // Balances that disagree with the ledger: for whoever may read the ledger.
+    ...(canLedger ? ['lechSoDu'] : []),
   ];
   const [kind, setKind] = useState('siSo');
   const [coSoId, setCoSoId] = useState('');
@@ -233,8 +242,8 @@ export default function BaoCaoPage(): ReactElement {
 
   const hasFilters = Boolean(
     coSoId ||
-      lopId ||
-      (kind === 'doanhThu' ? tuThang || denThang : tuNgay || denNgay),
+    lopId ||
+    (kind === 'doanhThu' ? tuThang || denThang : tuNgay || denNgay),
   );
 
   const requestParams = {
@@ -257,19 +266,7 @@ export default function BaoCaoPage(): ReactElement {
   const download = async (): Promise<void> => {
     setFailed(false);
     try {
-      const stream = await api.stream({
-        path: '/baoCao/xuatCsv',
-        method: 'POST',
-        json: requestParams,
-      });
-      const blob = await new Response(stream).blob();
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(
-        new Blob([blob], { type: 'text/csv;charset=utf-8' }),
-      );
-      link.download = `bao-cao-${kind}.csv`;
-      link.click();
-      URL.revokeObjectURL(link.href);
+      await downloadReport(api, requestParams, `bao-cao-${kind}.csv`);
     } catch {
       setFailed(true);
     }
@@ -330,6 +327,11 @@ export default function BaoCaoPage(): ReactElement {
           ) : null
         }
       />
+      {kind === 'lechSoDu' ? (
+        <p className='mb-4 max-w-3xl text-sm text-muted-foreground'>
+          {t('edu.baoCao.lechSoDuHint')}
+        </p>
+      ) : null}
       <div className='mb-6 flex flex-wrap items-end gap-3'>
         <div className='w-56'>
           <SelectField

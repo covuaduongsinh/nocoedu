@@ -46,12 +46,13 @@ import {
 import { FormDialog, SelectField, TextField } from './form-parts.js';
 import { GenericImportDialog } from './generic-import-dialog.js';
 import {
+  downloadReport,
   post,
+  type Row,
   text,
   todayVn,
   useErrorMessage,
   useRows,
-  type Row,
 } from './kit.js';
 
 const fmt = (value: unknown): string =>
@@ -68,6 +69,11 @@ export default function HocPhiPage(): ReactElement {
   const navigate = useNavigate();
   const api = useApiClient();
   const message = useErrorMessage();
+  const { can: canExport } = useCan({
+    resource: { type: 'composite', id: 'edu.baoCao' },
+    action: 'export',
+  });
+  const [exportError, setExportError] = useState<string>();
 
   const { can: canSell } = useCan({
     resource: { type: 'composite', id: 'edu.goiHoc' },
@@ -295,25 +301,17 @@ export default function HocPhiPage(): ReactElement {
     }
   };
 
-  // Xuất CSV học phí
+  // Xuất CSV học phí: qua báo cáo `goiHocChiTiet`, có kiểm quyền xuất và ghi nhật ký
   const exportTuitionCsv = async (): Promise<void> => {
+    setExportError(undefined);
     try {
-      const res = await api.request({
-        path: '/hocPhi/xuatCsv',
-        method: 'POST',
-        json: {},
-      });
-      const blob = new Blob([res as unknown as string], {
-        type: 'text/csv;charset=utf-8',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `hoc-phi-${todayVn()}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error(err);
+      await downloadReport(
+        api,
+        { loai: 'goiHocChiTiet' },
+        `hoc-phi-${todayVn()}.csv`,
+      );
+    } catch (cause) {
+      setExportError(message(cause));
     }
   };
 
@@ -337,15 +335,22 @@ export default function HocPhiPage(): ReactElement {
                 if (activeTab === 'ledger') loadPayments();
               }}
             />
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => void exportTuitionCsv()}
-              className='gap-1.5'
-            >
-              <Download className='h-4 w-4' />
-              Xuất CSV
-            </Button>
+            {canExport ? (
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => void exportTuitionCsv()}
+                className='gap-1.5'
+              >
+                <Download className='h-4 w-4' />
+                Xuất CSV
+              </Button>
+            ) : null}
+            {exportError ? (
+              <span role='alert' className='text-xs text-destructive'>
+                {exportError}
+              </span>
+            ) : null}
           </div>
         }
       />

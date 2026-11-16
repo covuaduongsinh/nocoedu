@@ -36,12 +36,13 @@ import {
 import { Field, FormDialog, SelectField, TextField } from './form-parts.js';
 import { GenericImportDialog } from './generic-import-dialog.js';
 import {
+  downloadReport,
   post,
+  type Row,
   text,
   todayVn,
   useErrorMessage,
   useRows,
-  type Row,
 } from './kit.js';
 
 const STATUSES = [
@@ -90,6 +91,10 @@ export default function DiemDanhPage(): ReactElement {
   const { can: canRecord } = useCan({
     resource: { type: 'composite', id: 'edu.diemDanh' },
     action: 'record',
+  });
+  const { can: canExport } = useCan({
+    resource: { type: 'composite', id: 'edu.baoCao' },
+    action: 'export',
   });
   const { can: canGenerate } = useCan({
     resource: { type: 'composite', id: 'edu.buoiHoc' },
@@ -341,25 +346,18 @@ export default function DiemDanhPage(): ReactElement {
   };
 
   const exportCsv = async (): Promise<void> => {
+    setError(undefined);
     try {
-      const res = await api.request({
-        path: '/diemDanh/xuatCsv',
-        method: 'POST',
-        json: {
-          lopId: filterLop !== 'all' ? Number(filterLop) : undefined,
+      await downloadReport(
+        api,
+        {
+          loai: 'diemDanhChiTiet',
+          ...(filterLop !== 'all' ? { lopId: Number(filterLop) } : {}),
         },
-      });
-      const blob = new Blob([res as unknown as string], {
-        type: 'text/csv;charset=utf-8',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `diem-danh-${todayVn()}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error(err);
+        `diem-danh-${todayVn()}.csv`,
+      );
+    } catch (cause) {
+      setError(message(cause));
     }
   };
 
@@ -410,15 +408,17 @@ export default function DiemDanhPage(): ReactElement {
               variant='outline'
               onSuccess={() => sessions.reload()}
             />
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => void exportCsv()}
-              className='gap-1.5'
-            >
-              <Download className='h-4 w-4' />
-              Xuất CSV
-            </Button>
+            {canExport ? (
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => void exportCsv()}
+                className='gap-1.5'
+              >
+                <Download className='h-4 w-4' />
+                {t('edu.baoCao.csv')}
+              </Button>
+            ) : null}
             {canGenerate ? (
               <Button
                 size='sm'

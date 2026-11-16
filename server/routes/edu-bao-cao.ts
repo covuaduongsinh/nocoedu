@@ -15,11 +15,17 @@ import { z } from 'zod';
 
 import { toCsv } from '../edu/csv.js';
 import { asText } from '../edu/names.js';
-import { LOW_BALANCE_THRESHOLD, addDays, todayVn } from '../edu/so-du.js';
+import {
+  LOW_BALANCE_THRESHOLD,
+  addDays,
+  asBoolean,
+  todayVn,
+} from '../edu/so-du.js';
 import {
   currentUserId,
   eduError,
   needs,
+  optionalPoliciesOf,
   policiesOf,
   type EduEnv,
 } from './edu-support.js';
@@ -41,6 +47,11 @@ const REPORTS = [
   'thieuDongY',
   'nghiDai',
   'doanhThu',
+  // Row-level lists, mostly taken as a file: every attendance mark, every package, and the balances that disagree
+  // with the ledger.
+  'diemDanhChiTiet',
+  'goiHocChiTiet',
+  'lechSoDu',
 ] as const;
 type ReportKind = (typeof REPORTS)[number];
 
@@ -53,6 +64,8 @@ const ReportInput = z.object({
   denThang: Month.optional(),
   coSoId: z.coerce.number().int().positive().optional(),
   lopId: z.coerce.number().int().positive().optional(),
+  /** `diemDanhChiTiet` only: the whole history of one student. */
+  hocVienId: z.coerce.number().int().positive().optional(),
 });
 type ReportInputType = z.infer<typeof ReportInput>;
 
@@ -72,6 +85,16 @@ const GATE: Record<ReportKind, string> = {
   thieuDongY: 'edu.hocVien',
   nghiDai: 'edu.diemDanh',
   doanhThu: 'edu.thanhToan',
+  diemDanhChiTiet: 'edu.diemDanh',
+  goiHocChiTiet: 'edu.goiHoc',
+  lechSoDu: 'edu.soDu',
+};
+
+const STATUS_LABEL: Readonly<Record<string, string>> = {
+  co_mat: 'Có mặt',
+  hoc_bu: 'Học bù',
+  vang_co_phep: 'Vắng có phép',
+  vang_khong_phep: 'Vắng không phép',
 };
 
 const PAGE = 100;
@@ -474,6 +497,248 @@ export default [
             rows,
           };
         }
+        case 'diemDanhChiTiet': {
+          // Every mark of the students the caller sees, in a date range; the whole history when one student is named.
+          const one = input.hocVienId;
+          const listed = one
+            ? students.filter((s) => num(s.id) === one)
+            : students;
+          if (one && listed.length === 0) {
+            throw eduError(
+              'NOT_FOUND',
+              'EDU_STUDENT_NOT_FOUND',
+              'Student not found.',
+            );
+          }
+          const from = input.tuNgay ?? (one ? '' : addDays(today, -30));
+          const to = input.denNgay ?? today;
+          const byId = new Map(listed.map((s) => [num(s.id), s]));
+          const found: {
+            mark: Row;
+            ngay: string;
+            gioBatDau: string;
+            lopId: number;
+          }[] = [];
+          for (const part of chunks([...byId.keys()], 400)) {
+            // The awareness score is not a permission field: it is read for the students the policy returned.
+            const marks = await q()
+              .selectFrom('eduDiemDanh')
+              .select([
+                'id',
+                'buoiHocId',
+                'hocVienId',
+                'trangThai',
+                'daLamBtvn',
+                'nhanXet',
+                'yThucDiem',
+                'soBuoiDaTru',
+              ])
+              .where('hocVienId', 'in', part)
+              .execute();
+            const sessions = new Map<number, Row>();
+            for (const ids of chunks(
+              [...new Set(marks.map((m) => num(m.buoiHocId)))],
+              400,
+            )) {
+              const rows = await q()
+                .selectFrom('eduBuoiHoc')
+                .select(['id', 'lopId', 'ngay', 'gioBatDau'])
+                .where('id', 'in', ids)
+                .where('ngay', '>=', from)
+                .where('ngay', '<=', to)
+                .execute();
+              for (const r of rows) {
+                if (input.lopId && num(r.lopId) !== input.lopId) continue;
+                sessions.set(num(r.id), r);
+              }
+            }
+            for (const mark of marks) {
+              const session = sessions.get(num(mark.buoiHocId));
+              if (!session) continue;
+              found.push({
+                mark,
+                ngay: asText(session.ngay),
+                gioBatDau: asText(session.gioBatDau),
+                lopId: num(session.lopId),
+              });
+            }
+            if (found.length > MAX_ROWS) {
+              throw eduError(
+                'FAILED_PRECONDITION',
+                'EDU_REPORT_TOO_LARGE',
+                'The report covers too many records. Narrow it to one branch or class.',
+              );
+            }
+          }
+          const classNames = await nameMap(
+            'eduLop',
+            found.map((entry) => entry.lopId),
+          );
+          const rows = found
+            .sort(
+              (a, b) =>
+                `${b.ngay} ${b.gioBatDau}`.localeCompare(
+                  `${a.ngay} ${a.gioBatDau}`,
+                ) || num(a.mark.id) - num(b.mark.id),
+            )
+            .map(({ mark, ngay, gioBatDau, lopId }) => {
+              const student = byId.get(num(mark.hocVienId));
+              const status = asText(mark.trangThai);
+              return {
+                ngay,
+                gio: gioBatDau,
+                lop: classNames.get(lopId) ?? '',
+                ma: asText(student?.ma),
+                hoTen: asText(student?.hoTen),
+                trangThai: STATUS_LABEL[status] ?? status,
+                btvn: asBoolean(mark.daLamBtvn) ? 'Đã làm' : 'Chưa làm',
+                yThuc: mark.yThucDiem == null ? null : num(mark.yThucDiem),
+                nhanXet: mark.nhanXet == null ? '' : asText(mark.nhanXet),
+                soBuoiDaTru: num(mark.soBuoiDaTru),
+              };
+            });
+          return {
+            columns: [
+              { key: 'ngay', label: 'Ngày' },
+              { key: 'gio', label: 'Giờ' },
+              { key: 'lop', label: 'Lớp' },
+              { key: 'ma', label: 'Mã' },
+              { key: 'hoTen', label: 'Họ tên' },
+              { key: 'trangThai', label: 'Trạng thái' },
+              { key: 'btvn', label: 'BTVN' },
+              { key: 'yThuc', label: 'Ý thức (0-10)' },
+              { key: 'nhanXet', label: 'Nhận xét' },
+              { key: 'soBuoiDaTru', label: 'Số buổi trừ' },
+            ],
+            rows,
+          };
+        }
+        case 'goiHocChiTiet': {
+          // Every package of the students in the filter, through the package policy; what was paid for each only to
+          // a person who may also see payments.
+          const policy = gate.eduGoiHoc;
+          if (!policy) throw denied();
+          const byId = new Map(students.map((s) => [num(s.id), s]));
+          const packs = (await readAll('eduGoiHoc', policy)).filter((pack) =>
+            byId.has(num(pack.hocVienId)),
+          );
+          const paymentPolicy = (
+            await optionalPoliciesOf(c, 'edu.thanhToan', 'view')
+          )?.eduThanhToan;
+          const paid = new Map<number, number>();
+          if (paymentPolicy) {
+            for (const payment of await readAll(
+              'eduThanhToan',
+              paymentPolicy,
+            )) {
+              if (payment.goiHocId == null) continue;
+              const id = num(payment.goiHocId);
+              paid.set(id, (paid.get(id) ?? 0) + num(payment.soTien));
+            }
+          }
+          const rows = packs
+            .sort(
+              (a, b) =>
+                asText(b.ngayMua).localeCompare(asText(a.ngayMua)) ||
+                num(b.id) - num(a.id),
+            )
+            .map((pack) => {
+              const student = byId.get(num(pack.hocVienId));
+              const daThu = paid.get(num(pack.id)) ?? 0;
+              return {
+                ma: asText(student?.ma),
+                hoTen: asText(student?.hoTen),
+                lop:
+                  student?.lopId == null
+                    ? ''
+                    : (lops.get(num(student.lopId)) ?? ''),
+                coSo: branches.get(num(student?.coSoId)) ?? '',
+                ngayMua: asText(pack.ngayMua),
+                soBuoi: num(pack.soBuoi),
+                donGia: num(pack.donGia),
+                thanhTien: num(pack.thanhTien),
+                ...(paymentPolicy
+                  ? {
+                      daThu,
+                      conNo: Math.max(0, num(pack.thanhTien) - daThu),
+                    }
+                  : {}),
+                soBuoiConLai: num(student?.soBuoiConLai),
+              };
+            });
+          return {
+            columns: [
+              { key: 'ma', label: 'Mã' },
+              { key: 'hoTen', label: 'Họ tên' },
+              { key: 'lop', label: 'Lớp' },
+              { key: 'coSo', label: 'Cơ sở' },
+              { key: 'ngayMua', label: 'Ngày mua' },
+              { key: 'soBuoi', label: 'Số buổi' },
+              { key: 'donGia', label: 'Đơn giá (đồng)' },
+              { key: 'thanhTien', label: 'Thành tiền (đồng)' },
+              ...(paymentPolicy
+                ? [
+                    { key: 'daThu', label: 'Đã thu (đồng)' },
+                    { key: 'conNo', label: 'Còn nợ (đồng)' },
+                  ]
+                : []),
+              { key: 'soBuoiConLai', label: 'Số buổi còn lại' },
+            ],
+            rows,
+          };
+        }
+        case 'lechSoDu': {
+          // A balance moves only together with a ledger row, so it must equal the balance written on the student's
+          // last ledger row (zero when there is none). A student listed here had the balance written some other way:
+          // it is checked by hand and settled with a recorded adjustment.
+          if (!gate.eduSoDuNhatKy) throw denied();
+          const last = new Map<number, { id: number; soDuSau: number }>();
+          for (const part of chunks(studentIds, 400)) {
+            const entries = await q()
+              .selectFrom('eduSoDuNhatKy')
+              .select(['id', 'hocVienId', 'soDuSau'])
+              .where('hocVienId', 'in', part)
+              .execute();
+            for (const entry of entries) {
+              const id = num(entry.hocVienId);
+              const known = last.get(id);
+              if (!known || num(entry.id) > known.id)
+                last.set(id, {
+                  id: num(entry.id),
+                  soDuSau: num(entry.soDuSau),
+                });
+            }
+          }
+          const rows = students
+            .map((s) => {
+              const theoSo = last.get(num(s.id))?.soDuSau ?? 0;
+              return {
+                ma: asText(s.ma),
+                hoTen: asText(s.hoTen),
+                lop: s.lopId == null ? '' : (lops.get(num(s.lopId)) ?? ''),
+                soBuoiConLai: num(s.soBuoiConLai),
+                soDuTheoSo: theoSo,
+                chenhLech: num(s.soBuoiConLai) - theoSo,
+              };
+            })
+            .filter((row) => row.chenhLech !== 0)
+            .sort(
+              (a, b) =>
+                Math.abs(b.chenhLech) - Math.abs(a.chenhLech) ||
+                a.ma.localeCompare(b.ma),
+            );
+          return {
+            columns: [
+              { key: 'ma', label: 'Mã' },
+              { key: 'hoTen', label: 'Họ tên' },
+              { key: 'lop', label: 'Lớp' },
+              { key: 'soBuoiConLai', label: 'Số buổi còn lại' },
+              { key: 'soDuTheoSo', label: 'Số dư theo nhật ký' },
+              { key: 'chenhLech', label: 'Chênh lệch' },
+            ],
+            rows,
+          };
+        }
         case 'nghiDai': {
           const cutoff = addDays(today, -14);
           const active = students.filter(
@@ -572,11 +837,15 @@ export default [
           .values({
             userId,
             loai: `bao_cao_${input.loai}`,
+            // Ids and dates only, never a name.
             boLoc: {
               tuNgay: input.tuNgay ?? null,
               denNgay: input.denNgay ?? null,
               tuThang: input.tuThang ?? null,
               denThang: input.denThang ?? null,
+              coSoId: input.coSoId ?? null,
+              lopId: input.lopId ?? null,
+              hocVienId: input.hocVienId ?? null,
             },
             soDong: report.rows.length,
             createdAt: new Date(),

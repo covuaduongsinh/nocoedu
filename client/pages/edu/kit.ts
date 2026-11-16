@@ -400,6 +400,30 @@ export function useRequest<T>(
   return { result, reload, lastData };
 }
 
+/**
+ * Downloads a report as a CSV file through `/baoCao/xuatCsv`: the server asks for `edu.baoCao` `export`, reads through
+ * the caller's policies and writes the export log. A page never builds a CSV of students in the browser.
+ */
+export async function downloadReport(
+  api: ApiClient,
+  json: Record<string, unknown>,
+  fileName: string,
+): Promise<void> {
+  const stream = await api.stream({
+    path: '/baoCao/xuatCsv',
+    method: 'POST',
+    json,
+  });
+  const blob = await new Response(stream).blob();
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(
+    new Blob([blob], { type: 'text/csv;charset=utf-8' }),
+  );
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 /** Today in Vietnam as `YYYY-MM-DD`, the club's calendar day. */
 export function todayVn(): string {
   return new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);

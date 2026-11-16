@@ -62,4 +62,30 @@ export const EDU_TUYEN_SINH_ROWS: readonly (readonly [
     'Transfer parent info to create a new student.',
     '转入新增学员流程。',
   ],
+  [
+    'tuyenSinh.crm.title',
+    'Nhận liên hệ từ NocoCRM',
+    'Leads from NocoCRM',
+    '接收来自 NocoCRM 的线索',
+  ],
+  [
+    'tuyenSinh.crm.hint',
+    'NocoCRM gửi một liên hệ mới vào danh sách tuyển sinh này. Liên hệ trùng số điện thoại trong cùng cơ sở không bị tạo lần hai.',
+    'NocoCRM sends a new contact into this admissions list. A contact with the same phone number in the same branch is not created twice.',
+    'NocoCRM 会将新联系人发送到此招生列表。同一分校内电话相同的联系人不会重复创建。',
+  ],
+  ['tuyenSinh.crm.address', 'Địa chỉ nhận', 'Receiving address', '接收地址'],
+  [
+    'tuyenSinh.crm.token',
+    'Mã bí mật (header x-crm-token)',
+    'Secret (header x-crm-token)',
+    '密钥（请求头 x-crm-token）',
+  ],
+  [
+    'tuyenSinh.crm.tokenHint',
+    'Do quản trị máy chủ đặt trong biến EDU_CRM_WEBHOOK_TOKEN (ít nhất 24 ký tự) và nhập cùng giá trị bên NocoCRM. Mã không hiển thị ở đây; chưa đặt thì đường nhận này tắt.',
+    'Set by the server administrator in EDU_CRM_WEBHOOK_TOKEN (at least 24 characters), with the same value entered in NocoCRM. It is never shown here; while it is not set, this address is off.',
+    '由服务器管理员在 EDU_CRM_WEBHOOK_TOKEN 中设置（至少 24 个字符），并在 NocoCRM 中填写相同的值。此处不会显示；未设置时该地址处于关闭状态。',
+  ],
+  ['tuyenSinh.crm.fields', 'Các trường nhận', 'Accepted fields', '接受的字段'],
 ];

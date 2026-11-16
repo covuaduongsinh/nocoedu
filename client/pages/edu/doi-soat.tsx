@@ -1,4 +1,5 @@
 import { useApiClient } from '@nocobase/app-client';
+import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useEffect, useState, useMemo, type ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
@@ -40,7 +41,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '#components/ui/dialog';
-import { text, useErrorMessage, useRequest, useRows } from './kit.js';
+import {
+  downloadReport,
+  text,
+  useErrorMessage,
+  useRequest,
+  useRows,
+} from './kit.js';
 
 const fmt = (value: unknown): string =>
   Number(value || 0).toLocaleString('vi-VN');
@@ -170,6 +177,10 @@ export default function DoiSoatPage(): ReactElement {
   const { t } = useTranslation();
   const api = useApiClient();
   const errorMessage = useErrorMessage();
+  const { can: canExport } = useCan({
+    resource: { type: 'composite', id: 'edu.baoCao' },
+    action: 'export',
+  });
   const [searchParams, setSearchParams] = useSearchParams();
 
   const selectedStudentId = searchParams.get('hocVienId');
@@ -368,49 +379,20 @@ export default function DoiSoatPage(): ReactElement {
     sessionSortOrder,
   ]);
 
-  // Xuất CSV học viên hiện tại
-  const exportStudentCsv = (): void => {
+  // Xuất bảng kê buổi học của học viên: qua báo cáo `diemDanhChiTiet`, có kiểm quyền xuất và ghi nhật ký
+  const [exportError, setExportError] = useState<string | null>(null);
+  const exportStudentCsv = async (): Promise<void> => {
     if (!studentDetail) return;
-    const headers = [
-      'STT',
-      'Ngày',
-      'Giờ',
-      'Lớp',
-      'Trạng thái',
-      'BTVN',
-      'Ý thức',
-      'Nhận xét',
-      'Trừ buổi',
-      'Kỳ nộp',
-    ];
-    const rows = studentDetail.danhSachBuoiHoc.map((s, idx) => [
-      idx + 1,
-      s.ngay,
-      s.gioBatDau?.slice(0, 5),
-      `"${s.lopTen}"`,
-      s.trangThai === 'co_mat'
-        ? 'Có mặt'
-        : s.trangThai === 'hoc_bu'
-          ? 'Học bù'
-          : s.trangThai === 'vang_co_phep'
-            ? 'Vắng có phép'
-            : 'Vắng không phép',
-      s.daLamBtvn ? 'Đã làm' : 'Chưa',
-      s.yThucDiem != null ? s.yThucDiem : '',
-      `"${(s.nhanXet || '').replace(/"/g, '""')}"`,
-      s.soBuoiDaTru,
-      `"${s.kyTen}"`,
-    ]);
-    const csvContent =
-      '\uFEFF' +
-      [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `doi-soat-${studentDetail.hocVien.ma}-${studentDetail.hocVien.hoTen}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    setExportError(null);
+    try {
+      await downloadReport(
+        api,
+        { loai: 'diemDanhChiTiet', hocVienId: studentDetail.hocVien.id },
+        `doi-soat-${studentDetail.hocVien.ma}.csv`,
+      );
+    } catch (cause) {
+      setExportError(errorMessage(cause));
+    }
   };
 
   return (
@@ -895,8 +877,8 @@ export default function DoiSoatPage(): ReactElement {
               <Button
                 variant='outline'
                 size='sm'
-                onClick={exportStudentCsv}
-                disabled={!studentDetail}
+                onClick={() => void exportStudentCsv()}
+                disabled={!studentDetail || !canExport}
                 className='gap-1.5'
               >
                 <Download className='size-4' />
@@ -913,6 +895,12 @@ export default function DoiSoatPage(): ReactElement {
               </Button>
             </div>
           </div>
+
+          {exportError ? (
+            <p role='alert' className='text-sm text-destructive'>
+              {exportError}
+            </p>
+          ) : null}
 
           {detailError ? (
             <div

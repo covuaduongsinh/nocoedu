@@ -23,6 +23,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '#components/ui/dialog';
@@ -108,31 +109,7 @@ export default function TuyenSinhPage(): ReactElement {
   const [removing, setRemoving] = useState<number>();
   const [purging, setPurging] = useState(false);
   const [crmOpen, setCrmOpen] = useState(false);
-  const [crmTesting, setCrmTesting] = useState(false);
-  const [crmResult, setCrmResult] = useState<string>();
   const today = todayVn();
-
-  const testCrmSync = async (): Promise<void> => {
-    setCrmTesting(true);
-    setCrmResult(undefined);
-    try {
-      const res = (await post(api, '/edu/crm/lead-sync', {
-        hoTen: 'Phụ huynh Test NocoCRM',
-        soDienThoai: '0988776655',
-        coSoId: branchRows[0]?.id ? Number(branchRows[0].id) : 1,
-        kenhTiepNhan: 'nococrm',
-        ghiChu: 'Khách hàng quan tâm khóa học cờ vua tiểu học (Test sync)',
-      })) as { data: { thongBao: string } };
-      setCrmResult(`✅ ${res.data.thongBao}`);
-      reload();
-    } catch (err) {
-      setCrmResult(
-        `❌ Lỗi đồng bộ: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    } finally {
-      setCrmTesting(false);
-    }
-  };
 
   const blank = (): Form => ({
     hoTen: '',
@@ -706,7 +683,7 @@ export default function TuyenSinhPage(): ReactElement {
           description={t('edu.tuyenSinh.purgeHint')}
           onClose={() => setPurging(false)}
           onSubmit={async () => {
-            await post(api, '/lienHe/donDep', {});
+            await post(api, '/lienHe/donQuaHan', {});
             reload();
           }}
         >
@@ -719,78 +696,45 @@ export default function TuyenSinhPage(): ReactElement {
       <Dialog open={crmOpen} onOpenChange={setCrmOpen}>
         <DialogContent className='max-w-lg'>
           <DialogHeader>
-            <DialogTitle className='flex items-center gap-2 text-lg font-bold'>
-              🔗 Tích Hợp Đồng Bộ Lead NocoCRM
-            </DialogTitle>
-            <DialogDescription>
-              Khi có khách hàng tiềm năng mới trên NocoCRM, webhook tự động đẩy
-              hồ sơ về phễu tuyển sinh NocoEdu.
-            </DialogDescription>
+            <DialogTitle>{t('edu.tuyenSinh.crm.title')}</DialogTitle>
+            <DialogDescription>{t('edu.tuyenSinh.crm.hint')}</DialogDescription>
           </DialogHeader>
-
-          <div className='flex flex-col gap-4 py-3 text-sm'>
-            <div className='rounded-lg border bg-muted/30 p-3 flex flex-col gap-1.5'>
-              <span className='text-xs font-semibold uppercase text-muted-foreground'>
-                Webhook Endpoint
-              </span>
-              <code className='rounded bg-muted px-2 py-1 font-mono text-xs text-primary select-all break-all'>
-                https://nocoedu.dsc.edu.vn/api/edu/crm/lead-sync
-              </code>
+          <dl className='flex flex-col gap-3 text-sm'>
+            <div className='flex flex-col gap-1'>
+              <dt className='text-xs font-medium text-muted-foreground'>
+                {t('edu.tuyenSinh.crm.address')}
+              </dt>
+              <dd>
+                <code className='rounded bg-muted px-2 py-1 font-mono text-xs break-all select-all'>
+                  POST …/api/edu/crm/lead-sync
+                </code>
+              </dd>
             </div>
-
-            <div className='rounded-lg border bg-muted/30 p-3 flex flex-col gap-1.5'>
-              <span className='text-xs font-semibold uppercase text-muted-foreground'>
-                X-CRM-Token (Header)
-              </span>
-              <code className='rounded bg-muted px-2 py-1 font-mono text-xs text-foreground select-all'>
-                nocoedu-crm-secret
-              </code>
+            <div className='flex flex-col gap-1'>
+              <dt className='text-xs font-medium text-muted-foreground'>
+                {t('edu.tuyenSinh.crm.token')}
+              </dt>
+              <dd className='text-muted-foreground'>
+                {t('edu.tuyenSinh.crm.tokenHint')}
+              </dd>
             </div>
-
-            <div className='rounded-lg border p-3 text-xs text-muted-foreground space-y-1.5'>
-              <p className='font-semibold text-foreground'>
-                📋 Các trường dữ liệu nhận từ CRM:
-              </p>
-              <ul className='list-disc pl-4 space-y-0.5'>
-                <li>
-                  <code>hoTen</code>: Tên phụ huynh hoặc học viên (bắt buộc)
-                </li>
-                <li>
-                  <code>soDienThoai</code>: Số điện thoại liên hệ (bắt buộc)
-                </li>
-                <li>
-                  <code>coSoId</code>: ID cơ sở muốn đăng ký (tùy chọn)
-                </li>
-                <li>
-                  <code>ghiChu</code>: Ghi chú nhu cầu từ CRM
-                </li>
-                <li>
-                  <code>ngayHenHocThu</code>: Ngày hẹn học thử (YYYY-MM-DD)
-                </li>
-              </ul>
+            <div className='flex flex-col gap-1'>
+              <dt className='text-xs font-medium text-muted-foreground'>
+                {t('edu.tuyenSinh.crm.fields')}
+              </dt>
+              <dd>
+                <code className='font-mono text-xs break-words'>
+                  hoTen, soDienThoai, coSoId, kenhTiepNhan, ghiChu,
+                  ngayHenHocThu
+                </code>
+              </dd>
             </div>
-
-            {crmResult ? (
-              <div className='rounded-md border p-2.5 text-xs font-medium bg-muted/50'>
-                {crmResult}
-              </div>
-            ) : null}
-
-            <div className='flex items-center justify-between pt-2 border-t'>
-              <Button
-                variant='outline'
-                size='sm'
-                disabled={crmTesting}
-                onClick={() => void testCrmSync()}
-                className='text-xs font-medium'
-              >
-                {crmTesting ? 'Đang gửi...' : '🚀 Bắn thử 1 Lead mẫu từ CRM'}
-              </Button>
-              <Button size='sm' onClick={() => setCrmOpen(false)}>
-                Đóng
-              </Button>
-            </div>
-          </div>
+          </dl>
+          <DialogFooter>
+            <Button onClick={() => setCrmOpen(false)}>
+              {t('edu.import.close')}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
