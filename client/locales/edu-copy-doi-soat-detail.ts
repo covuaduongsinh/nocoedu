@@ -460,9 +460,9 @@ export const EDU_DOI_SOAT_DETAIL_ROWS: readonly Row[] = [
   ],
   [
     'doiSoat.printout.tagline',
-    'Hệ thống đào tạo cờ vua chuẩn thi đấu - Hotline: 0989.xxx.xxx',
-    'Competition-standard chess training - Hotline: 0989.xxx.xxx',
-    '竞技标准国际象棋培训体系 - 热线：0989.xxx.xxx',
+    'Hệ thống đào tạo cờ vua chuẩn thi đấu - Hotline: 0983 119 819',
+    'Competition-standard chess training - Hotline: 0983 119 819',
+    '竞技标准国际象棋培训体系 - 热线：0983 119 819',
   ],
   [
     'doiSoat.printout.title',

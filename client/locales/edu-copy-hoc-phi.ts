@@ -290,6 +290,12 @@ export const EDU_HOC_PHI_ROWS: readonly (readonly [
     '已调整。剩余课时：{{balance}}。',
   ],
 
+  [
+    'phieuThu.hotline',
+    'Hotline: 0983 119 819',
+    'Hotline: 0983 119 819',
+    '热线：0983 119 819',
+  ],
   ['phieuThu.title', 'Phiếu thu học phí', 'Tuition receipt', '学费收据'],
   ['phieuThu.detail', 'Phiếu thu', 'Receipt', '收据'],
   [

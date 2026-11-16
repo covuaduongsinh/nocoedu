@@ -1,4 +1,8 @@
-import { ApiClientError, useApiClient } from '@nocobase/app-client';
+import {
+  ApiClientError,
+  resolveAssetUrl,
+  useApiClient,
+} from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useEffect, useState, type ReactElement } from 'react';
 
@@ -117,10 +121,12 @@ export default function ParentPortalPage(): ReactElement {
 
   return (
     <main className='mx-auto flex min-h-svh w-full max-w-xl flex-col gap-5 bg-background px-4 py-6 text-foreground'>
-      <header className='flex flex-col gap-1'>
-        <p className='text-sm font-medium text-primary'>
-          {t('edu.congPh.club')}
-        </p>
+      <header className='flex flex-col gap-3'>
+        <img
+          src={resolveAssetUrl('/assets/logo.png')}
+          alt={t('edu.congPh.club')}
+          className='h-12 w-auto self-start'
+        />
         <h1 className='text-2xl font-semibold leading-tight'>
           {t('edu.congPh.title')}
         </h1>

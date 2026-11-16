@@ -1,4 +1,4 @@
-import { usePageBreadcrumb } from '@nocobase/app-client';
+import { resolveAssetUrl, usePageBreadcrumb } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { Printer } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
@@ -126,19 +126,29 @@ export default function PhieuThuPage(): ReactElement {
       />
       <PrintArea className='rounded-xl border bg-card p-6 text-sm text-card-foreground sm:p-8'>
         <header className='flex items-start justify-between gap-4 border-b-2 border-primary pb-4'>
-          <div className='min-w-0'>
-            <p className='text-xl font-bold tracking-tight text-primary uppercase'>
-              {t('edu.phieuThu.org')}
-            </p>
-            <p className='mt-0.5 inline-block border-b-2 border-(--brand-gold) pb-0.5 text-xs font-medium text-muted-foreground'>
-              {t('edu.phieuThu.slogan')}
-            </p>
-            {receipt.coSo ? (
-              <p className='mt-2 text-xs text-muted-foreground'>
-                {receipt.coSo.ten}
-                {receipt.coSo.diaChi ? ` · ${receipt.coSo.diaChi}` : ''}
+          <div className='flex min-w-0 items-start gap-4'>
+            <img
+              src={resolveAssetUrl('/assets/logo-mark.png')}
+              alt=''
+              className='h-16 w-auto shrink-0'
+            />
+            <div className='min-w-0'>
+              <p className='text-xl font-bold tracking-tight text-primary uppercase'>
+                {t('edu.phieuThu.org')}
               </p>
-            ) : null}
+              <p className='mt-0.5 inline-block border-b-2 border-(--brand-gold) pb-0.5 text-xs font-medium text-muted-foreground'>
+                {t('edu.phieuThu.slogan')}
+              </p>
+              {receipt.coSo ? (
+                <p className='mt-2 text-xs text-muted-foreground'>
+                  {receipt.coSo.ten}
+                  {receipt.coSo.diaChi ? ` · ${receipt.coSo.diaChi}` : ''}
+                </p>
+              ) : null}
+              <p className='mt-1 text-xs text-muted-foreground'>
+                {t('edu.phieuThu.hotline')}
+              </p>
+            </div>
           </div>
           <div className='shrink-0 text-right'>
             <p className='text-xs text-muted-foreground'>

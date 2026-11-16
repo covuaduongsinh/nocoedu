@@ -1,4 +1,4 @@
-import { useApiClient } from '@nocobase/app-client';
+import { resolveAssetUrl, useApiClient } from '@nocobase/app-client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useEffect, useState, useMemo, type ReactElement } from 'react';
@@ -1780,6 +1780,11 @@ export default function DoiSoatPage(): ReactElement {
               className='hidden print:block font-serif text-black p-6'
             >
               <div className='text-center border-b-2 border-black pb-4 mb-4'>
+                <img
+                  src={resolveAssetUrl('/assets/duong-sinh-logo.png')}
+                  alt=''
+                  className='mx-auto mb-2 h-20 w-auto'
+                />
                 <h1 className='text-2xl font-bold uppercase tracking-wider'>
                   {t('edu.doiSoat.printout.club')}
                 </h1>
