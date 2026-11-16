@@ -676,3 +676,18 @@ export const baoCao = defineCompositeResource('edu.baoCao', (r) =>
         .grant('data', perm('xuatDuLieu', FIELDS.xuatDuLieu)),
     ),
 );
+
+/**
+ * Taking a whole copy of the training data out of the application. It is its own action, held by the administrator
+ * only: the copy carries every student, parent phone number and payment. Like `edu.baoCao` the grant is over the export
+ * log, where each copy leaves a row; the route checks the action itself.
+ */
+export const heThong = defineCompositeResource('edu.heThong', (r) =>
+  r
+    .title('Sao lưu dữ liệu')
+    .action('backup', (a) =>
+      a
+        .title('Xuất bản sao lưu toàn bộ dữ liệu')
+        .grant('data', perm('xuatDuLieu', FIELDS.xuatDuLieu)),
+    ),
+);

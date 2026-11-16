@@ -16,4 +16,8 @@ export const PAGES = {
   tuyenSinh: 'edu.tuyenSinh',
   // Granted by `202611140005_edu_ho_so_gv_grant`.
   hoSoGv: 'edu.hoSoGv',
+  // Granted by `202611160001_edu_doi_soat_sao_luu_grant`: the reconciliation page used to borrow the tuition page's
+  // grant, and the backup page had none at all.
+  doiSoat: 'edu.doiSoat',
+  saoLuu: 'edu.saoLuu',
 } as const;

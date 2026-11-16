@@ -8,7 +8,6 @@ import {
   Building2,
   CalendarCheck,
   ClipboardCheck,
-  Contact,
   Database,
   GraduationCap,
   Home,
@@ -104,9 +103,11 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     () => import('./pages/edu/diem-danh.js'),
   ),
   {
+    // Its own page grant (`edu.doiSoat`, seed `202611160001_edu_doi_soat_sao_luu_grant`); what a person sees on the
+    // page still follows their business actions, so a coach gets sessions and no tuition.
     auth: 'required' as const,
     authz: {
-      resource: { type: 'page' as const, id: 'edu.hocPhi' },
+      resource: { type: 'page' as const, id: 'edu.doiSoat' },
       action: 'access',
     },
     componentLoader: () => import('./pages/edu/doi-soat.js'),
@@ -172,7 +173,13 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     10,
     () => import('./pages/edu/ho-so-gv.js'),
   ),
-  ...eduPage('sach', '/sach', BookOpen, 11, () => import('./pages/edu/sach.js')),
+  ...eduPage(
+    'sach',
+    '/sach',
+    BookOpen,
+    11,
+    () => import('./pages/edu/sach.js'),
+  ),
   ...eduPage(
     'phatSach',
     '/phat-sach',
@@ -181,8 +188,12 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     () => import('./pages/edu/phat-sach.js'),
   ),
   {
-    auth: 'required',
-    authz: 'skip',
+    // Administrators only (`edu.saoLuu`): a backup is a copy of every student, parent and payment.
+    auth: 'required' as const,
+    authz: {
+      resource: { type: 'page' as const, id: 'edu.saoLuu' },
+      action: 'access',
+    },
     componentLoader: () => import('./pages/edu/sao-luu.js'),
     name: 'edu-sao-luu',
     navigation: { title: 'edu.nav.saoLuu', icon: Database, order: 13 },

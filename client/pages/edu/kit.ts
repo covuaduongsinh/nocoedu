@@ -347,17 +347,25 @@ export type Result<T> =
     }
   | { readonly state: 'ready'; readonly data: T };
 
-/** POSTs a read-only business route (reports, summaries) and keeps the result; `reload` asks again. */
+/**
+ * POSTs a read-only business route (reports, summaries) and keeps the result; `reload` asks again.
+ *
+ * `enabled: false` asks nothing (a page with two views reads only the one that shows). `lastData` is the last good
+ * answer, kept while a changed request is on its way, so figures above a list do not blank at every filter change.
+ */
 export function useRequest<T>(
   path: string,
   json: unknown,
-): { result: Result<T>; reload: () => void } {
+  options: { readonly enabled?: boolean } = {},
+): { result: Result<T>; reload: () => void; lastData: T | undefined } {
   const api = useApiClient();
+  const enabled = options.enabled ?? true;
   const [version, setVersion] = useState(0);
   const body = JSON.stringify(json);
   const key = `${path}:${body}:${version}`;
   const [done, setDone] = useState<{ key: string; value: Result<T> }>();
   useEffect(() => {
+    if (!enabled) return undefined;
     let live = true;
     api
       .request<{ data: T }>({ path, method: 'POST', json: JSON.parse(body) })
@@ -384,11 +392,12 @@ export function useRequest<T>(
     return () => {
       live = false;
     };
-  }, [api, path, body, key]);
+  }, [api, path, body, key, enabled]);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
   const result: Result<T> =
-    done?.key === key ? done.value : { state: 'loading' };
-  return { result, reload };
+    enabled && done?.key === key ? done.value : { state: 'loading' };
+  const lastData = done?.value.state === 'ready' ? done.value.data : undefined;
+  return { result, reload, lastData };
 }
 
 /** Today in Vietnam as `YYYY-MM-DD`, the club's calendar day. */

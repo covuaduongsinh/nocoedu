@@ -4,7 +4,9 @@ import { ApiError } from '@nocobase/app-server/router';
 import type { RepositoryPolicy } from '@nocobase/db';
 import type { Context, MiddlewareHandler } from 'hono';
 
-export const DOMAIN = 'edu';
+import { DOMAIN, eduError } from '../edu/errors.js';
+
+export { DOMAIN, eduError };
 
 export type EduEnv = {
   Variables: AuthorizationEnv['Variables'] & {
@@ -43,6 +45,23 @@ export async function policiesOf(
   return policies;
 }
 
+/**
+ * The policies of an action the caller may or may not hold: `null` instead of a refusal. For a page that shows more
+ * to a person with more permissions (tuition next to attendance); the part that was refused is simply left out.
+ */
+export async function optionalPoliciesOf(
+  c: Context<EduEnv>,
+  resource: string,
+  action: string,
+): Promise<Readonly<Record<string, RepositoryPolicy>> | null> {
+  try {
+    return await policiesOf(c, resource, action);
+  } catch (error) {
+    if (error instanceof AuthorizationDeniedError) return null;
+    throw error;
+  }
+}
+
 export function policyOf(
   c: Context<EduEnv>,
   collection: string,
@@ -57,26 +76,6 @@ export function policyOf(
     });
   }
   return policy;
-}
-
-export function eduError(
-  status:
-    | 'NOT_FOUND'
-    | 'INVALID_ARGUMENT'
-    | 'FAILED_PRECONDITION'
-    | 'ALREADY_EXISTS'
-    | 'PERMISSION_DENIED',
-  reason: string,
-  message: string,
-  field?: string,
-): ApiError {
-  return new ApiError({
-    status,
-    reason,
-    domain: DOMAIN,
-    message,
-    ...(field ? { fieldViolations: [{ field, description: message }] } : {}),
-  });
 }
 
 export function currentUserId(c: Context<EduEnv>): string {

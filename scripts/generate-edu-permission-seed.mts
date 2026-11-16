@@ -41,7 +41,11 @@ const withoutSach = (grants: readonly unknown[]): unknown[] =>
       g.resource.id !== 'edu.phatSach' &&
       g.resource.id !== 'edu.tuyenSinh' &&
       g.resource.id !== 'edu.hoSoGv' &&
-      g.resource.id !== 'edu.sachHoc'
+      g.resource.id !== 'edu.sachHoc' &&
+      // `202611160001_edu_doi_soat_sao_luu_grant`.
+      g.resource.id !== 'edu.doiSoat' &&
+      g.resource.id !== 'edu.saoLuu' &&
+      g.resource.id !== 'edu.heThong'
     );
   });
 const literal = JSON.stringify(

@@ -20,13 +20,15 @@ import {
   type PackageInput,
 } from '../edu/phan-bo-goi.js';
 import {
+  paidFor,
+  recordPayment,
+  saveAttendance,
+  sellPackage,
+} from '../edu/ghi-so-du.js';
+import {
   ATTENDANCE_STATUSES,
-  asBoolean,
   datesBetween,
-  isLowBalance,
   LOW_BALANCE_THRESHOLD,
-  sessionsToDeduct,
-  unexcusedAbsenceDeducts,
   todayVn,
   vietQrConfig,
   vietQrUrl,
@@ -46,8 +48,8 @@ import {
  *
  * Every route authenticates, authorizes its composite action first and then reads and writes only through the policy
  * that action was granted. The balance of a student (`eduHocVien.soBuoiConLai`) is never written by a client: it moves
- * only here, inside the transaction that also writes the ledger row (`eduSoDuNhatKy`), and every move is guarded by
- * the balance it was computed from, so two requests at once cannot both apply the same change.
+ * only in `server/edu/ghi-so-du.ts`, inside the transaction that also writes the ledger row (`eduSoDuNhatKy`), and
+ * every move is guarded by the balance it was computed from, so two requests at once cannot both apply the same change.
  */
 const Id = z.coerce.number().int().positive();
 const SessionDate = z.iso.date();
@@ -98,9 +100,6 @@ const PaymentInput = z.object({
 
 const QrInput = z.object({ goiHocId: Id });
 const DetailInput = z.object({ goiHocId: Id });
-const DoiSoatInput = z.object({ hocVienId: Id });
-
-const today = (): string => todayVn();
 
 const declare = (summary: string, operationId: string) =>
   describeRoute({
@@ -254,195 +253,23 @@ export default [
             'danhSach',
           );
         }
-        const result = await database.transaction(async (connection) => {
-          const session = sessionPolicy
-            ? await connection
-                .repository('eduBuoiHoc')
-                .withPolicy(sessionPolicy)
-                .findOne({ filter: { id: input.buoiHocId } })
-            : null;
-          if (!session)
-            throw notFound('EDU_SESSION_NOT_FOUND', 'Session not found.');
-          const lop = await connection.query
-            .selectFrom('eduLop')
-            .select('coSoId')
-            .where('id', '=', Number(session.lopId))
-            .executeTakeFirstOrThrow();
-          const branch = await connection.query
-            .selectFrom('eduCoSo')
-            .select('truBuoiVangCoPhep')
-            .where('id', '=', Number(lop.coSoId))
-            .executeTakeFirstOrThrow();
-          // The rule in force is fixed on the session the first time its register is saved. A later change of the
-          // branch setting applies to the next sessions only, so saving an old register again never moves a balance.
-          const stored = await connection.query
-            .selectFrom('eduBuoiHoc')
-            .select(['truVangCoPhep', 'truVangKhongPhep'])
-            .where('id', '=', input.buoiHocId)
-            .executeTakeFirstOrThrow();
-          let excusedDeducts: boolean;
-          if (
-            stored.truVangCoPhep === null ||
-            stored.truVangCoPhep === undefined
-          ) {
-            excusedDeducts = asBoolean(branch.truBuoiVangCoPhep);
-            await connection.query
-              .updateTable('eduBuoiHoc')
-              .set({ truVangCoPhep: excusedDeducts })
-              .where('id', '=', input.buoiHocId)
-              .where('truVangCoPhep', 'is', null)
-              .execute();
-          } else {
-            excusedDeducts = asBoolean(stored.truVangCoPhep);
-          }
-          // The same for an absence without leave: `EDU_TRU_BUOI_VANG_KHONG_PHEP` is read once, on the first save of a
-          // session (DS-60). A session saved before this column existed (`null`) takes the setting on its next save, so
-          // turning the setting on later never reaches a register that was already marked.
-          let unexcusedDeducts: boolean;
-          if (
-            stored.truVangKhongPhep === null ||
-            stored.truVangKhongPhep === undefined
-          ) {
-            unexcusedDeducts = unexcusedAbsenceDeducts(process.env);
-            await connection.query
-              .updateTable('eduBuoiHoc')
-              .set({ truVangKhongPhep: unexcusedDeducts })
-              .where('id', '=', input.buoiHocId)
-              .where('truVangKhongPhep', 'is', null)
-              .execute();
-          } else {
-            unexcusedDeducts = asBoolean(stored.truVangKhongPhep);
-          }
-          const attendance = connection
-            .repository('eduDiemDanh')
-            .withPolicy(attendancePolicy);
-          const students = studentPolicy
-            ? connection.repository('eduHocVien').withPolicy(studentPolicy)
-            : null;
-          const rows: {
-            hocVienId: number;
-            diemDanhId: number;
-            soBuoiDaTru: number;
-            soBuoiConLai: number;
-            canhBao: boolean;
-          }[] = [];
-
-          for (const entry of input.danhSach) {
-            const student = students
-              ? await students.findOne({ filter: { id: entry.hocVienId } })
-              : null;
-            if (!student)
-              throw notFound('EDU_STUDENT_NOT_FOUND', 'Student not found.');
-            if (Number(student.coSoId) !== Number(lop.coSoId)) {
-              throw eduError(
-                'INVALID_ARGUMENT',
-                'EDU_STUDENT_OTHER_BRANCH',
-                'The student does not belong to the branch of this class.',
-                'danhSach',
-              );
-            }
-            const existing = await attendance.findOne({
-              filter: (f) =>
-                f.and([
-                  f.number('buoiHocId').eq(input.buoiHocId),
-                  f.number('hocVienId').eq(entry.hocVienId),
-                ]),
-            });
-            // A row imported from Lark that lies before the opening balance is already inside that balance: it is not a
-            // permission field, so it is read directly. Correcting such a row never moves the balance.
-            const countsTowardBalance = existing
-              ? await rowCountsTowardBalance(connection, Number(existing.id))
-              : true;
-            // An unchanged status keeps what was deducted (also for registers saved before the rule was stored).
-            const target =
-              existing &&
-              (existing.trangThai === entry.trangThai || !countsTowardBalance)
-                ? Number(existing.soBuoiDaTru)
-                : sessionsToDeduct(
-                    entry.trangThai,
-                    excusedDeducts,
-                    unexcusedDeducts,
-                  );
-            let diemDanhId: number;
-            let alreadyDeducted: number;
-            if (existing) {
-              diemDanhId = Number(existing.id);
-              alreadyDeducted = Number(existing.soBuoiDaTru);
-              // Guarded by the amount already deducted: a concurrent save that changed it matches no row.
-              const updated = await connection.query
-                .updateTable('eduDiemDanh')
-                .set({
-                  trangThai: entry.trangThai,
-                  daLamBtvn: entry.daLamBtvn,
-                  nhanXet: entry.nhanXet ?? null,
-                  soBuoiDaTru: target,
-                  nguoiDiemDanhId: userId,
-                })
-                .where('id', '=', diemDanhId)
-                .where('soBuoiDaTru', '=', alreadyDeducted)
-                .execute();
-              if (updated.updatedCount !== 1) throw conflict();
-            } else {
-              alreadyDeducted = 0;
-              try {
-                const created = await attendance.createOne({
-                  values: {
-                    buoiHocId: input.buoiHocId,
-                    hocVienId: entry.hocVienId,
-                    trangThai: entry.trangThai,
-                    daLamBtvn: entry.daLamBtvn,
-                    nhanXet: entry.nhanXet ?? null,
-                    soBuoiDaTru: target,
-                    nguoiDiemDanhId: userId,
-                  },
-                });
-                diemDanhId = Number(created.record.id);
-              } catch (error) {
-                // The unique pair (session, student) refuses a second row written at the same moment.
-                throw error instanceof Error &&
-                  /unique|duplicate/iu.test(error.message)
-                  ? conflict()
-                  : error;
-              }
-              if (!(await attendance.findOne({ filter: { id: diemDanhId } }))) {
-                throw eduError(
-                  'PERMISSION_DENIED',
-                  'EDU_OUT_OF_SCOPE',
-                  'You may not take attendance here.',
-                );
-              }
-            }
-
-            // Only the difference moves the balance, so saving the same register again changes nothing.
-            const difference = target - alreadyDeducted;
-            const before = await balanceOf(connection, entry.hocVienId);
-            let after = before;
-            if (difference !== 0) {
-              after = before - difference;
-              await moveBalance(connection, {
-                hocVienId: entry.hocVienId,
-                before,
-                after,
-                reason: difference > 0 ? 'diem_danh' : 'diem_danh_sua',
-                diemDanhId,
-                userId,
-              });
-            }
-            rows.push({
+        const result = await database.transaction((connection) =>
+          saveAttendance(connection, {
+            buoiHocId: input.buoiHocId,
+            danhSach: input.danhSach.map((entry) => ({
               hocVienId: entry.hocVienId,
-              diemDanhId,
-              soBuoiDaTru: target,
-              soBuoiConLai: after,
-              canhBao: isLowBalance(after),
-            });
-          }
-          await connection.query
-            .updateTable('eduBuoiHoc')
-            .set({ trangThai: 'da_diem_danh' })
-            .where('id', '=', input.buoiHocId)
-            .execute();
-          return { buoiHocId: input.buoiHocId, danhSach: rows };
-        });
+              trangThai: entry.trangThai,
+              daLamBtvn: entry.daLamBtvn,
+              nhanXet: entry.nhanXet ?? null,
+            })),
+            userId,
+            policies: {
+              attendance: attendancePolicy,
+              session: sessionPolicy,
+              student: studentPolicy,
+            },
+          }),
+        );
         return c.json({ data: result });
       },
     );
@@ -459,50 +286,16 @@ export default [
         const packagePolicy = policyOf(c, 'eduGoiHoc');
         const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view'))
           .eduHocVien;
-        const result = await database.transaction(async (connection) => {
-          const student = studentPolicy
-            ? await connection
-                .repository('eduHocVien')
-                .withPolicy(studentPolicy)
-                .findOne({ filter: { id: input.hocVienId } })
-            : null;
-          if (!student)
-            throw notFound('EDU_STUDENT_NOT_FOUND', 'Student not found.');
-          const packages = connection
-            .repository('eduGoiHoc')
-            .withPolicy(packagePolicy);
-          const thanhTien = input.soBuoi * input.donGia;
-          const created = await packages.createOne({
-            values: {
-              hocVienId: input.hocVienId,
-              soBuoi: input.soBuoi,
-              donGia: input.donGia,
-              thanhTien,
-              ngayMua: input.ngayMua ?? today(),
-              trangThai: 'hieu_luc',
-              nguoiTaoId: userId,
-            },
-          });
-          const id = Number(created.record.id);
-          if (!(await packages.findOne({ filter: { id } }))) {
-            throw eduError(
-              'PERMISSION_DENIED',
-              'EDU_OUT_OF_SCOPE',
-              'You may not sell a package here.',
-            );
-          }
-          const before = await balanceOf(connection, input.hocVienId);
-          const after = before + input.soBuoi;
-          await moveBalance(connection, {
+        const result = await database.transaction((connection) =>
+          sellPackage(connection, {
             hocVienId: input.hocVienId,
-            before,
-            after,
-            reason: 'mua_goi',
-            goiHocId: id,
+            soBuoi: input.soBuoi,
+            donGia: input.donGia,
+            ngayMua: input.ngayMua,
             userId,
-          });
-          return { id, thanhTien, soBuoiConLai: after };
-        });
+            policies: { package: packagePolicy, student: studentPolicy },
+          }),
+        );
         return c.json({ data: result }, 201);
       },
     );
@@ -518,69 +311,17 @@ export default [
         const paymentPolicy = policyOf(c, 'eduThanhToan');
         const packagePolicy = (await policiesOf(c, 'edu.goiHoc', 'view'))
           .eduGoiHoc;
-        if (!packagePolicy) {
-          throw eduError(
-            'PERMISSION_DENIED',
-            'EDU_OUT_OF_SCOPE',
-            'You may not record a payment here.',
-          );
-        }
-        const result = await database.transaction(async (connection) => {
-          const pack = await connection
-            .repository('eduGoiHoc')
-            .withPolicy(packagePolicy)
-            .findOne({ filter: { id: input.goiHocId } });
-          if (!pack)
-            throw notFound('EDU_PACKAGE_NOT_FOUND', 'Package not found.');
-          const student = await connection.query
-            .selectFrom('eduHocVien')
-            .select('coSoId')
-            .where('id', '=', Number(pack.hocVienId))
-            .executeTakeFirstOrThrow();
-          // Lock the package row for this transaction before the paid total is read, so two payments at once on
-          // PostgreSQL cannot both pass the "not more than due" check.
-          await connection.query
-            .updateTable('eduGoiHoc')
-            .set({ trangThai: asText(pack.trangThai) })
-            .where('id', '=', input.goiHocId)
-            .execute();
-          const paid = await paidFor(connection, input.goiHocId);
-          const due = Number(pack.thanhTien) - paid;
-          if (input.soTien > due) {
-            throw eduError(
-              'FAILED_PRECONDITION',
-              'EDU_OVERPAYMENT',
-              'The payment is more than the amount still due.',
-              'soTien',
-            );
-          }
-          const date = input.ngay ?? today();
-          const payments = connection
-            .repository('eduThanhToan')
-            .withPolicy(paymentPolicy);
-          const created = await payments.createOne({
-            values: {
-              goiHocId: input.goiHocId,
-              hocVienId: Number(pack.hocVienId),
-              coSoId: Number(student.coSoId),
-              soTien: input.soTien,
-              hinhThuc: input.hinhThuc,
-              ngay: date,
-              thang: date.slice(0, 7),
-              noiDungCk: input.noiDungCk ?? null,
-              nguoiGhiNhanId: userId,
-            },
-          });
-          const id = Number(created.record.id);
-          if (!(await payments.findOne({ filter: { id } }))) {
-            throw eduError(
-              'PERMISSION_DENIED',
-              'EDU_OUT_OF_SCOPE',
-              'You may not record a payment here.',
-            );
-          }
-          return { id, conNo: due - input.soTien };
-        });
+        const result = await database.transaction((connection) =>
+          recordPayment(connection, {
+            goiHocId: input.goiHocId,
+            soTien: input.soTien,
+            hinhThuc: input.hinhThuc,
+            ngay: input.ngay,
+            noiDungCk: input.noiDungCk ?? null,
+            userId,
+            policies: { payment: paymentPolicy, package: packagePolicy },
+          }),
+        );
         return c.json({ data: result }, 201);
       },
     );
@@ -759,245 +500,6 @@ export default [
       },
     );
 
-    // --- Student full audit trail (Tuition cycles, sessions, books) --------------------------------------------
-    router.post(
-      '/hocVien/doiSoatTongThe',
-      declare('Full audit trail of sessions, tuition cycles and books', 'studentAuditTrail'),
-      needs('edu.hocVien', 'view'),
-      apiValidator('json', DoiSoatInput),
-      async (c) => {
-        const input = c.req.valid('json');
-        const hocVienId = input.hocVienId;
-        const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view')).eduHocVien;
-        const connection = database.connection();
-        const student = studentPolicy
-          ? await database
-              .repository('eduHocVien')
-              .withPolicy(studentPolicy)
-              .findOne({ filter: { id: hocVienId } })
-          : null;
-        if (!student) throw notFound('EDU_STUDENT_NOT_FOUND', 'Student not found.');
-
-        let lopTen: string | null = null;
-        if (student.lopId) {
-          const lop = await connection.query
-            .selectFrom('eduLop')
-            .select('ten')
-            .where('id', '=', Number(student.lopId))
-            .executeTakeFirst();
-          if (lop) lopTen = asText(lop.ten);
-        }
-        let coSoTen: string | null = null;
-        if (student.coSoId) {
-          const coSo = await connection.query
-            .selectFrom('eduCoSo')
-            .select('ten')
-            .where('id', '=', Number(student.coSoId))
-            .executeTakeFirst();
-          if (coSo) coSoTen = asText(coSo.ten);
-        }
-
-        const packages = await connection.query
-          .selectFrom('eduGoiHoc')
-          .selectAll()
-          .where('hocVienId', '=', hocVienId)
-          .orderBy('id', 'asc')
-          .execute();
-
-        const payments = await connection.query
-          .selectFrom('eduThanhToan')
-          .selectAll()
-          .where('hocVienId', '=', hocVienId)
-          .execute();
-
-        const issuedBooks = await connection.query
-          .selectFrom('eduPhatSach')
-          .innerJoin('eduSach', 'eduSach.id', 'eduPhatSach.sachId')
-          .select([
-            'eduPhatSach.id',
-            'eduPhatSach.ngay',
-            'eduPhatSach.uuDai',
-            'eduPhatSach.tienSach',
-            'eduSach.ten as tenSach',
-            'eduSach.giaBia',
-          ])
-          .where('eduPhatSach.hocVienId', '=', hocVienId)
-          .orderBy('eduPhatSach.ngay', 'desc')
-          .execute();
-
-        const paidBookRows = await connection.query
-          .selectFrom('eduNopSach')
-          .selectAll()
-          .where('hocVienId', '=', hocVienId)
-          .orderBy('ngay', 'desc')
-          .execute();
-
-        const ledger = await readAll(async (limit, offset) =>
-          connection.query
-            .selectFrom('eduSoDuNhatKy')
-            .selectAll()
-            .where('hocVienId', '=', hocVienId)
-            .orderBy('id', 'asc')
-            .limit(limit)
-            .offset(offset)
-            .execute(),
-        );
-
-        const attendanceIds = [
-          ...new Set(
-            ledger
-              .filter((row) => row.diemDanhId != null)
-              .map((row) => Number(row.diemDanhId)),
-          ),
-        ];
-        const sessions = await sessionsOf(connection, attendanceIds);
-        const sessionTime = new Map(
-          [...sessions].map(([id, info]) => [id, `${info.ngay} ${info.gioBatDau}`]),
-        );
-
-        const { deductions, adjustments } = fromLedger(
-          ledger.map((row) => ({
-            id: Number(row.id),
-            thayDoi: Number(row.thayDoi),
-            lyDo: asText(row.lyDo),
-            goiHocId: row.goiHocId == null ? null : Number(row.goiHocId),
-            diemDanhId: row.diemDanhId == null ? null : Number(row.diemDanhId),
-            ngay: toDay(row.createdAt),
-          })),
-          sessionTime,
-        );
-
-        const inputs: PackageInput[] = [
-          ...packages.map((row) => ({
-            goiHocId: Number(row.id),
-            soBuoi: Number(row.soBuoi),
-            ngayMua: asText(row.ngayMua),
-            thuTu: Number(row.id),
-            hieuLuc: asText(row.trangThai) === 'hieu_luc',
-            loai: asText(row.loai) === 'chuyen_so_du' ? ('chuyen_so_du' as const) : ('mua' as const),
-          })),
-          ...adjustments,
-        ];
-        const fifoResult = allocateFifo(inputs, deductions);
-        const fifoByGoi = new Map(fifoResult.cacGoi.map((g) => [g.goiHocId, g]));
-
-        const attendanceRows = await connection.query
-          .selectFrom('eduDiemDanh')
-          .innerJoin('eduBuoiHoc', 'eduBuoiHoc.id', 'eduDiemDanh.buoiHocId')
-          .leftJoin('eduLop', 'eduLop.id', 'eduBuoiHoc.lopId')
-          .select([
-            'eduDiemDanh.id as diemDanhId',
-            'eduDiemDanh.buoiHocId',
-            'eduDiemDanh.trangThai',
-            'eduDiemDanh.daLamBtvn',
-            'eduDiemDanh.nhanXet',
-            'eduDiemDanh.soBuoiDaTru',
-            'eduDiemDanh.yThucDiem',
-            'eduBuoiHoc.ngay',
-            'eduBuoiHoc.gioBatDau',
-            'eduBuoiHoc.gioKetThuc',
-            'eduLop.ten as lopTen',
-          ])
-          .where('eduDiemDanh.hocVienId', '=', hocVienId)
-          .orderBy('eduBuoiHoc.ngay', 'desc')
-          .orderBy('eduBuoiHoc.gioBatDau', 'desc')
-          .execute();
-
-        let tongTienHocPhi = 0;
-        let tongDaThanhToanHocPhi = 0;
-        const cacKyNop = packages.map((pack) => {
-          const packId = Number(pack.id);
-          const thanhTien = Number(pack.thanhTien);
-          tongTienHocPhi += thanhTien;
-          const paid = payments
-            .filter((p) => Number(p.goiHocId) === packId)
-            .reduce((sum, p) => sum + Number(p.soTien), 0);
-          tongDaThanhToanHocPhi += paid;
-          const fifo = fifoByGoi.get(packId);
-          return {
-            id: packId,
-            tenKy: `Gói ${pack.soBuoi} buổi (${asText(pack.ngayMua)})`,
-            ngayMua: asText(pack.ngayMua),
-            soBuoi: Number(pack.soBuoi),
-            donGia: Number(pack.donGia),
-            thanhTien,
-            daThanhToan: paid,
-            conNo: Math.max(0, thanhTien - paid),
-            daDung: fifo?.daDung ?? 0,
-            conLai: fifo?.conLai ?? 0,
-            trangThai: asText(pack.trangThai),
-          };
-        });
-
-        const tongTienSachDaPhat = issuedBooks.reduce(
-          (sum, b) => sum + Number(b.tienSach),
-          0,
-        );
-        const tongTienSachDaNop = paidBookRows.reduce(
-          (sum, b) => sum + Number(b.soTien),
-          0,
-        );
-        const tienSachTon = tongTienSachDaNop - tongTienSachDaPhat;
-        const tongSoBuoiDaMua = packages.reduce((sum, p) => sum + Number(p.soBuoi), 0);
-        const tongSoBuoiDaHoc = attendanceRows.reduce(
-          (sum, a) => sum + Number(a.soBuoiDaTru),
-          0,
-        );
-        const vuotSoDu = fifoResult.vuotSoDu.reduce((sum, e) => sum + e.soBuoi, 0);
-
-        return c.json({
-          data: {
-            hocVien: {
-              id: Number(student.id),
-              ma: asText(student.ma),
-              hoTen: asText(student.hoTen),
-              lopId: student.lopId ? Number(student.lopId) : null,
-              lopTen,
-              coSoId: student.coSoId ? Number(student.coSoId) : null,
-              coSoTen,
-              soBuoiConLai: Number(student.soBuoiConLai),
-              trangThai: asText(student.trangThai),
-            },
-            tongHop: {
-              tongSoBuoiDaMua,
-              tongSoBuoiDaHoc,
-              soBuoiConLai: Number(student.soBuoiConLai),
-              soBuoiVuotGoi: vuotSoDu,
-              tongTienHocPhi,
-              tongTienSach: tongTienSachDaPhat,
-              tongTienSachDaNop,
-              tienSachTon,
-              tongDaThanhToan: tongDaThanhToanHocPhi,
-              tongConNo: Math.max(0, tongTienHocPhi - tongDaThanhToanHocPhi),
-            },
-            cacKyNop,
-            sachDaPhat: issuedBooks.map((b) => ({
-              id: Number(b.id),
-              tenSach: asText(b.tenSach),
-              ngayPhat: asText(b.ngay),
-              soLuong: 1,
-              giaBia: Number(b.giaBia),
-              thanhTien: Number(b.tienSach),
-              trangThaiThanhToan: tienSachTon >= 0 ? 'da_thanh_toan' : 'chua_thanh_toan',
-            })),
-            danhSachBuoiHoc: attendanceRows.map((a) => ({
-              diemDanhId: Number(a.diemDanhId),
-              buoiHocId: Number(a.buoiHocId),
-              ngay: asText(a.ngay),
-              gioBatDau: asText(a.gioBatDau),
-              gioKetThuc: asText(a.gioKetThuc),
-              lopTen: asText(a.lopTen),
-              trangThai: asText(a.trangThai),
-              daLamBtvn: Boolean(a.daLamBtvn),
-              nhanXet: a.nhanXet ? asText(a.nhanXet) : '',
-              yThucDiem: a.yThucDiem != null ? Number(a.yThucDiem) : null,
-              soBuoiDaTru: Number(a.soBuoiDaTru),
-            })),
-          },
-        });
-      },
-    );
-
     // --- Low balance --------------------------------------------------------------------------------------------
     router.post(
       '/soDu/canhBao',
@@ -1034,13 +536,6 @@ export default [
 
 type Query = ReturnType<DatabaseManager['connection']>['query'];
 type Queryable = { readonly query: Query };
-
-const conflict = () =>
-  eduError(
-    'FAILED_PRECONDITION',
-    'EDU_BALANCE_CONFLICT',
-    'The attendance or balance was changed at the same time. Reload and try again.',
-  );
 
 /**
  * The club's calendar day (Vietnam time) of a stored value. A timestamp is read as UTC, so an entry made at 02:00 on
@@ -1124,82 +619,4 @@ async function sessionsOf(
     }
   }
   return result;
-}
-
-async function balanceOf(
-  connection: Queryable,
-  hocVienId: number,
-): Promise<number> {
-  const row = await connection.query
-    .selectFrom('eduHocVien')
-    .select('soBuoiConLai')
-    .where('id', '=', hocVienId)
-    .executeTakeFirstOrThrow();
-  return Number(row.soBuoiConLai);
-}
-
-async function paidFor(
-  connection: Queryable,
-  goiHocId: number,
-): Promise<number> {
-  const rows = await connection.query
-    .selectFrom('eduThanhToan')
-    .select('soTien')
-    .where('goiHocId', '=', goiHocId)
-    .execute();
-  return rows.reduce((sum, row) => sum + Number(row.soTien), 0);
-}
-
-/**
- * Moves a student's balance from `before` to `after` and writes the ledger row, in the caller's transaction. The
- * update names the balance it was computed from: if another request changed it first no row matches, and the whole
- * transaction stops instead of applying a stale difference.
- */
-async function moveBalance(
-  connection: Queryable,
-  change: {
-    hocVienId: number;
-    before: number;
-    after: number;
-    reason: 'diem_danh' | 'diem_danh_sua' | 'mua_goi' | 'chuyen_tu_lark';
-    diemDanhId?: number;
-    goiHocId?: number;
-    userId: string;
-  },
-): Promise<void> {
-  const updated = await connection.query
-    .updateTable('eduHocVien')
-    .set({ soBuoiConLai: change.after })
-    .where('id', '=', change.hocVienId)
-    .where('soBuoiConLai', '=', change.before)
-    .execute();
-  if (updated.updatedCount !== 1) throw conflict();
-  await connection.query
-    .insertInto('eduSoDuNhatKy')
-    .values({
-      hocVienId: change.hocVienId,
-      thayDoi: change.after - change.before,
-      soDuSau: change.after,
-      lyDo: change.reason,
-      goiHocId: change.goiHocId ?? null,
-      diemDanhId: change.diemDanhId ?? null,
-      nguoiThucHienId: change.userId,
-      createdAt: new Date(),
-    })
-    .execute();
-}
-
-/** `eduDiemDanh.tinhVaoSoDu`: `false` for history already contained in an opening balance; a missing value counts. */
-async function rowCountsTowardBalance(
-  connection: Queryable,
-  diemDanhId: number,
-): Promise<boolean> {
-  const row = await connection.query
-    .selectFrom('eduDiemDanh')
-    .select('tinhVaoSoDu')
-    .where('id', '=', diemDanhId)
-    .executeTakeFirst();
-  return row?.tinhVaoSoDu === undefined || row.tinhVaoSoDu === null
-    ? true
-    : asBoolean(row.tinhVaoSoDu);
 }
