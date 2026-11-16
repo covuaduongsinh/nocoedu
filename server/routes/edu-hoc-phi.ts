@@ -98,6 +98,9 @@ const PaymentInput = z.object({
   noiDungCk: z.string().trim().max(191).nullish(),
 });
 
+/** `huy: true` calls a session off; `false` opens it again. */
+const CancelInput = z.object({ buoiHocId: Id, huy: z.boolean() });
+
 const QrInput = z.object({ goiHocId: Id });
 const DetailInput = z.object({ goiHocId: Id });
 
@@ -124,6 +127,7 @@ export default [
 
     for (const path of [
       '/buoiHoc/taoTheoLich',
+      '/buoiHoc/huy',
       '/diemDanh/luu',
       '/goiHoc/taoMoi',
       '/goiHoc/chiTiet',
@@ -225,6 +229,55 @@ export default [
           return { created };
         });
         return c.json({ data: result }, 201);
+      },
+    );
+
+    // --- A session that is not held (a holiday, the coach away) -------------------------------------------------
+    // It is called off rather than deleted, so the timetable does not create it again and it stops counting as a
+    // register that is still due. Only a session nobody was marked in can be called off: marks moved balances.
+    router.post(
+      '/buoiHoc/huy',
+      declare('Call a session off, or open it again', 'cancelSession'),
+      needs('edu.buoiHoc', 'manage'),
+      apiValidator('json', CancelInput),
+      async (c) => {
+        const input = c.req.valid('json');
+        const policy = policyOf(c, 'eduBuoiHoc');
+        const result = await database.transaction(async (connection) => {
+          const session = await connection
+            .repository('eduBuoiHoc')
+            .withPolicy(policy)
+            .findOne({ filter: { id: input.buoiHocId } });
+          if (!session)
+            throw notFound('EDU_SESSION_NOT_FOUND', 'Session not found.');
+          const from = input.huy ? 'du_kien' : 'huy';
+          const to = input.huy ? 'huy' : 'du_kien';
+          if (session.trangThai === to) {
+            return { buoiHocId: input.buoiHocId, trangThai: to };
+          }
+          const refused = () =>
+            eduError(
+              'FAILED_PRECONDITION',
+              'EDU_SESSION_HAS_ATTENDANCE',
+              'A session with attendance cannot be called off.',
+            );
+          const marked = await connection.query
+            .selectFrom('eduDiemDanh')
+            .select('id')
+            .where('buoiHocId', '=', input.buoiHocId)
+            .executeTakeFirst();
+          if (marked || session.trangThai !== from) throw refused();
+          // Guarded by the status it was read with: a register saved at the same moment wins.
+          const updated = await connection.query
+            .updateTable('eduBuoiHoc')
+            .set({ trangThai: to })
+            .where('id', '=', input.buoiHocId)
+            .where('trangThai', '=', from)
+            .execute();
+          if (updated.updatedCount !== 1) throw refused();
+          return { buoiHocId: input.buoiHocId, trangThai: to };
+        });
+        return c.json({ data: result });
       },
     );
 

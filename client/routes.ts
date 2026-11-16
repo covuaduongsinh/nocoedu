@@ -100,7 +100,7 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     '/diem-danh',
     CalendarCheck,
     1,
-    () => import('./pages/edu/diem-danh.js'),
+    () => import('./pages/edu/diem-danh/index.js'),
   ),
   {
     // Its own page grant (`edu.doiSoat`, seed `202611160001_edu_doi_soat_sao_luu_grant`); what a person sees on the

@@ -103,6 +103,48 @@ const api = vi.fn(({ method, path, json }: ApiCall) => {
       ],
     };
   if (path === 'diemDanh/count') return { data: 1 };
+  if (path === 'nhanXet/lichSuBuoiHoc')
+    return {
+      data: {
+        danhSach: [
+          {
+            diemDanhId: 21,
+            ngay: '2026-11-03',
+            gioBatDau: '17:30',
+            lopTen: 'Lớp Mẫu 3',
+            trangThai: 'co_mat',
+            nhanXet: 'Nhận xét mẫu của buổi học',
+            yThucDiem: 9,
+          },
+          {
+            diemDanhId: 22,
+            ngay: '2026-11-05',
+            gioBatDau: '17:30',
+            lopTen: 'Lớp Mẫu 3',
+            trangThai: 'co_mat',
+            nhanXet: '',
+            yThucDiem: null,
+          },
+        ],
+      },
+    };
+  if (path === 'nhanXetThang/findMany')
+    return {
+      data: [
+        {
+          id: 51,
+          hocVienId: 7,
+          thang: '2026-10',
+          noiDung: 'Nhận xét tháng mười mẫu',
+        },
+        {
+          id: 52,
+          hocVienId: 7,
+          thang: '2026-K2',
+          noiDung: 'Nhận xét định kỳ mẫu',
+        },
+      ],
+    };
   if (path === 'buoiHoc/findMany')
     return {
       data: [
@@ -236,9 +278,7 @@ describe('student file', () => {
     expect(await screen.findByText('Phụ huynh Mẫu 11')).toBeInTheDocument();
     expect(screen.getByText('Mẹ')).toBeInTheDocument();
 
-    await userEvent.click(
-      screen.getByRole('tab', { name: 'Buổi học và nhận xét' }),
-    );
+    await userEvent.click(screen.getByRole('tab', { name: 'Buổi học' }));
     expect(
       await screen.findByText('Nhận xét mẫu của buổi học'),
     ).toBeInTheDocument();
@@ -272,6 +312,30 @@ describe('student file', () => {
     expect(screen.getByText('Điểm danh')).toBeInTheDocument();
   });
 
+  it('gathers the comments of each session and of each period on one tab, for those who may read comments', async () => {
+    permissions = {
+      unrestricted: false,
+      permissions: [
+        {
+          resource: { type: 'composite', id: 'edu.nhanXet' },
+          actions: ['view'],
+        },
+      ],
+    };
+    await render('/hoc-vien/7');
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhận xét' }));
+    // Only the sessions that have a comment are listed, with the score next to them.
+    expect(
+      await screen.findByText('Nhận xét mẫu của buổi học'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('2026-11-03')).toBeInTheDocument();
+    expect(screen.queryByText('2026-11-05')).not.toBeInTheDocument();
+    expect(screen.getByText(/Ý thức.*: 9/u)).toBeInTheDocument();
+    expect(await screen.findByText('Nhận xét định kỳ mẫu')).toBeInTheDocument();
+    expect(screen.getByText('Nhận xét tháng mười mẫu')).toBeInTheDocument();
+    expect(callsTo('nhanXet/lichSuBuoiHoc')[0]?.json).toEqual({ hocVienId: 7 });
+  });
+
   it('offers a coach only the tabs they may view, and asks for no tuition', async () => {
     permissions = {
       unrestricted: false,
@@ -284,9 +348,7 @@ describe('student file', () => {
     };
     await render('/hoc-vien/7');
     expect(await screen.findByRole('tab', { name: 'Thông tin' })).toBeVisible();
-    expect(
-      await screen.findByRole('tab', { name: 'Buổi học và nhận xét' }),
-    ).toBeVisible();
+    expect(await screen.findByRole('tab', { name: 'Buổi học' })).toBeVisible();
     expect(
       screen.queryByRole('tab', { name: 'Phụ huynh' }),
     ).not.toBeInTheDocument();
@@ -296,6 +358,11 @@ describe('student file', () => {
     expect(
       screen.queryByRole('tab', { name: 'Sổ số dư' }),
     ).not.toBeInTheDocument();
+    // No comment action: no comments tab, and nothing of it is asked for.
+    expect(
+      screen.queryByRole('tab', { name: 'Nhận xét' }),
+    ).not.toBeInTheDocument();
+    expect(callsTo('nhanXet/lichSuBuoiHoc')).toHaveLength(0);
     expect(callsTo('goiHoc/findMany')).toHaveLength(0);
     expect(callsTo('soDuNhatKy/findMany')).toHaveLength(0);
     expect(callsTo('lienKet/findMany')).toHaveLength(0);

@@ -12,6 +12,7 @@ import { EDU_SACH_ROWS } from './edu-copy-sach.js';
 import { EDU_HO_SO_GV_ROWS } from './edu-copy-ho-so-gv.js';
 import { EDU_TUYEN_SINH_ROWS } from './edu-copy-tuyen-sinh.js';
 import { EDU_NOI_DUNG_ROWS } from './edu-copy-noi-dung.js';
+import { EDU_DIEM_DANH_ROWS } from './edu-copy-diem-danh.js';
 import { EDU_DOI_SOAT_ROWS } from './edu-copy-doi-soat.js';
 import { EDU_NHAP_DU_LIEU_ROWS } from './edu-copy-nhap-du-lieu.js';
 
@@ -324,6 +325,7 @@ function build(index: 1 | 2 | 3): Tree {
     ...EDU_NOI_DUNG_ROWS,
     ...EDU_DOI_SOAT_ROWS,
     ...EDU_NHAP_DU_LIEU_ROWS,
+    ...EDU_DIEM_DANH_ROWS,
   ]) {
     const parts = row[0].split('.');
     let node = root;

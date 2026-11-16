@@ -47,6 +47,8 @@ interface SessionView {
 interface Summary {
   homNay: SessionView[];
   chuaDiemDanh: SessionView[];
+  /** Marked sessions of the last two weeks where a student who came has no comment yet. */
+  thieuNhanXet?: (SessionView & { thieu: number; tong: number })[];
 }
 interface LowStudent {
   id: number;
@@ -103,6 +105,10 @@ export default function EduHome(): ReactElement {
   const unmarkedSessions =
     summary.result.state === 'ready' ? summary.result.data.chuaDiemDanh : [];
   const lowStudents = low.result.state === 'ready' ? low.result.data : [];
+  const missingComments =
+    summary.result.state === 'ready'
+      ? (summary.result.data.thieuNhanXet ?? [])
+      : [];
 
   return (
     <PageContainer className='mx-auto max-w-6xl space-y-6'>
@@ -246,6 +252,46 @@ export default function EduHome(): ReactElement {
                       empty={t('edu.home.unmarkedEmpty')}
                       showDate
                     />
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              {/* Marked sessions that still miss a comment: the club comments on every student after every session */}
+              {missingComments.length > 0 ? (
+                <Card className='shadow-xs'>
+                  <CardHeader className='pb-3'>
+                    <CardTitle className='text-base font-semibold sm:text-lg'>
+                      {t('edu.home.missingComments')}
+                    </CardTitle>
+                    <CardDescription>
+                      {t('edu.home.missingCommentsHint')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className='divide-y'>
+                      {missingComments.map((session) => (
+                        <li
+                          key={session.id}
+                          className='flex items-center justify-between gap-3 py-3 text-sm'
+                        >
+                          <div className='flex min-w-0 flex-col gap-1'>
+                            <RecordLink to={`/diem-danh?buoi=${session.id}`}>
+                              {session.lop}
+                            </RecordLink>
+                            <span className='text-xs text-muted-foreground'>
+                              {session.ngay} · {session.gioBatDau} –{' '}
+                              {session.gioKetThuc}
+                            </span>
+                          </div>
+                          <StatusBadge tone='warning' size='sm'>
+                            {t('edu.home.missingCount', {
+                              thieu: session.thieu,
+                              tong: session.tong,
+                            })}
+                          </StatusBadge>
+                        </li>
+                      ))}
+                    </ul>
                   </CardContent>
                 </Card>
               ) : null}

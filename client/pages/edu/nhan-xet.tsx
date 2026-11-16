@@ -81,7 +81,10 @@ export default function NhanXetPage(): ReactElement {
   } | null>(null);
   const [aiLoading, setAiLoading] = useState<Record<number, boolean>>({});
 
+  // A draft put together from the student's sessions of the period by fixed rules on the server (attendance, homework,
+  // the awareness score and the coach's own session comments). No language model is involved, and the coach edits it.
   const generateAiReview = async (student: Row): Promise<void> => {
+    setError(undefined);
     setAiLoading((prev) => ({ ...prev, [student.id]: true }));
     try {
       const res = await api.request<{ data: { goiY: string } }>({
@@ -90,14 +93,15 @@ export default function NhanXetPage(): ReactElement {
         json: { hocVienId: student.id, thang: month },
       });
       setDrafts((prev) => ({ ...prev, [student.id]: res.data.goiY }));
-    } catch (err) {
-      console.error(err);
+    } catch (cause) {
+      setError(message(cause));
     } finally {
       setAiLoading((prev) => ({ ...prev, [student.id]: false }));
     }
   };
 
   const openHistory = async (student: Row): Promise<void> => {
+    setError(undefined);
     try {
       const res = await api.request<{
         data: {
@@ -127,8 +131,8 @@ export default function NhanXetPage(): ReactElement {
         json: { hocVienId: student.id, thang: month },
       });
       setHistoryModal({ student, data: res.data });
-    } catch (err) {
-      console.error(err);
+    } catch (cause) {
+      setError(message(cause));
     }
   };
 
@@ -289,20 +293,20 @@ export default function NhanXetPage(): ReactElement {
                     onClick={() => void openHistory(student)}
                     className='h-7 text-xs font-medium gap-1'
                   >
-                    🔍 Xem lịch sử {month}
+                    {t('edu.nhanXet.history', { ky: month })}
                   </Button>
                   {canWrite ? (
                     <Button
                       size='sm'
                       type='button'
-                      variant='default'
+                      variant='outline'
                       disabled={aiLoading[student.id]}
                       onClick={() => void generateAiReview(student)}
-                      className='h-7 text-xs font-medium gap-1 bg-violet-600 hover:bg-violet-700 text-white'
+                      className='h-7 text-xs font-medium gap-1'
                     >
                       {aiLoading[student.id]
-                        ? '⏳ Đang phân tích...'
-                        : '✨ AI Gợi ý nhận xét'}
+                        ? t('edu.nhanXet.suggesting')
+                        : t('edu.nhanXet.suggest')}
                     </Button>
                   ) : null}
                 </div>
@@ -314,7 +318,7 @@ export default function NhanXetPage(): ReactElement {
                 rows={4}
                 placeholder={
                   kind === 'thang'
-                    ? 'Nhập nhận xét tháng hoặc bấm "✨ AI Gợi ý nhận xét" để hệ thống tự động tổng hợp từ các buổi học...'
+                    ? t('edu.nhanXet.draftHint')
                     : t('edu.nhanXet.templateText')
                 }
                 maxLength={3000}

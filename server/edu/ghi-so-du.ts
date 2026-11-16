@@ -171,6 +171,14 @@ export async function saveAttendance(
         .findOne({ filter: { id: buoiHocId } })
     : null;
   if (!session) throw notFound('EDU_SESSION_NOT_FOUND', 'Session not found.');
+  if (session.trangThai === 'huy') {
+    // A session that was called off (a holiday, a day the coach was away) has no register.
+    throw eduError(
+      'FAILED_PRECONDITION',
+      'EDU_SESSION_CANCELLED',
+      'This session was cancelled. Open it again before taking attendance.',
+    );
+  }
   const lop = await connection.query
     .selectFrom('eduLop')
     .select('coSoId')

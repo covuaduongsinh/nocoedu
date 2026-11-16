@@ -26,6 +26,7 @@ import {
   LevelBadge,
   SessionBalanceBadge,
 } from './edu-ui-parts.js';
+import { StudentComments } from './hoc-vien-nhan-xet.js';
 import {
   post,
   text,
@@ -128,6 +129,7 @@ function StudentFile({
   const canPackages = useCanView('edu.goiHoc');
   const canLedger = useCanView('edu.soDu');
   const canBooks = useCanView('edu.sachHoc');
+  const canComments = useCanView('edu.nhanXet');
   const classes = useRows('lop').loaded;
   const branches = useRows('coSo').loaded;
   const classRow =
@@ -225,6 +227,11 @@ function StudentFile({
               {t('edu.hocVien.tab.sessions')}
             </TabsTrigger>
           ) : null}
+          {canComments ? (
+            <TabsTrigger value='comments'>
+              {t('edu.hocVien.tabComments')}
+            </TabsTrigger>
+          ) : null}
           {canPackages ? (
             <TabsTrigger value='packages'>
               {t('edu.hocVien.tab.packages')}
@@ -287,6 +294,11 @@ function StudentFile({
         {canSessions ? (
           <TabsContent value='sessions' className='pt-4'>
             <Sessions studentId={student.id} />
+          </TabsContent>
+        ) : null}
+        {canComments ? (
+          <TabsContent value='comments' className='pt-4'>
+            <StudentComments studentId={student.id} />
           </TabsContent>
         ) : null}
         {canPackages ? (

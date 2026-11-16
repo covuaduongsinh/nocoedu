@@ -902,8 +902,52 @@ export default [
           gioKetThuc: asText(s.gioKetThuc),
           daDiemDanh: s.trangThai === 'da_diem_danh',
         });
+        // Registers of the last two weeks where a student who came has no comment yet: the club writes a short
+        // comment for every student after every session. Counted over the sessions the session policy returned.
+        const since = addDays(today, -14);
+        const recent = (
+          await readAll(
+            'eduBuoiHoc',
+            sessionPolicy,
+            (f: { string: (n: string) => { eq: (v: string) => unknown } }) =>
+              f.string('trangThai').eq('da_diem_danh'),
+          )
+        ).filter((s) => asText(s.ngay) >= since);
+        const missing = new Map<number, { tong: number; thieu: number }>();
+        for (const part of chunks(
+          recent.map((s) => num(s.id)),
+          200,
+        )) {
+          const marks = await q()
+            .selectFrom('eduDiemDanh')
+            .select(['buoiHocId', 'nhanXet'])
+            .where('buoiHocId', 'in', part)
+            .where('trangThai', 'in', PRESENT)
+            .execute();
+          for (const mark of marks) {
+            const id = num(mark.buoiHocId);
+            const count = missing.get(id) ?? { tong: 0, thieu: 0 };
+            count.tong += 1;
+            if (!asText(mark.nhanXet).trim()) count.thieu += 1;
+            missing.set(id, count);
+          }
+        }
+        const recentClasses = await nameMap(
+          'eduLop',
+          recent.map((s) => num(s.lopId)),
+        );
         return c.json({
           data: {
+            thieuNhanXet: recent
+              .filter((s) => (missing.get(num(s.id))?.thieu ?? 0) > 0)
+              .sort((a, b) => asText(b.ngay).localeCompare(asText(a.ngay)))
+              .slice(0, 20)
+              .map((s) => ({
+                ...view(s),
+                lop: recentClasses.get(num(s.lopId)) ?? '',
+                thieu: missing.get(num(s.id))?.thieu ?? 0,
+                tong: missing.get(num(s.id))?.tong ?? 0,
+              })),
             homNay: sessions.map(view),
             chuaDiemDanh: pending
               .filter((s) => asText(s.ngay) <= today)

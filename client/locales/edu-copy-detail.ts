@@ -44,9 +44,10 @@ export const EDU_DETAIL_ROWS: readonly (readonly [
   ['hocVien.tab.parents', 'Phụ huynh', 'Parents', '家长'],
   [
     'hocVien.tab.sessions',
-    'Buổi học và nhận xét',
-    'Sessions and comments',
-    '课程与评语',
+    // The comments have a tab of their own (`hocVien.tabComments`), with the monthly and periodic ones.
+    'Buổi học',
+    'Sessions',
+    '课程',
   ],
   ['hocVien.tab.packages', 'Gói học', 'Packages', '课时包'],
   ['hocVien.tab.ledger', 'Sổ số dư', 'Balance history', '课时记录'],
