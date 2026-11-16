@@ -61,6 +61,16 @@ export function checkUpdate(
       typeof values.truBuoiVangCoPhep !== 'boolean'
     )
       return invalid('truBuoiVangCoPhep');
+    // The sessions-left threshold of the branch: a whole number from 0 to 30.
+    if (
+      has('nguongNhacBuoi') &&
+      !(
+        Number.isInteger(values.nguongNhacBuoi) &&
+        (values.nguongNhacBuoi as number) >= 0 &&
+        (values.nguongNhacBuoi as number) <= 30
+      )
+    )
+      return invalid('nguongNhacBuoi');
     return status();
   }
   if (name === 'lop') {

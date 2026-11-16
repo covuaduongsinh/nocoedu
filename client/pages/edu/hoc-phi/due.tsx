@@ -17,9 +17,6 @@ import {
 import { RowsTable } from '../list-page.js';
 import { formatVnd } from '../tien.js';
 
-/** The balance below which a student is listed; the server's `LOW_BALANCE_THRESHOLD`. */
-const LOW_BALANCE = 2;
-
 interface LowRow {
   readonly id: number;
   readonly ma: string;
@@ -101,7 +98,7 @@ export function DueLists(props: {
             {t('edu.hocPhi.lowTitle')}
           </h2>
           <p className='text-sm text-muted-foreground'>
-            {t('edu.hocPhi.lowHint', { count: LOW_BALANCE })}
+            {t('edu.hocPhi.lowHint')}
           </p>
         </div>
         <RowsTable

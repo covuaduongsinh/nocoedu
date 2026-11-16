@@ -143,6 +143,8 @@ export function Register(props: {
    */
   readonly contentReady: boolean;
   readonly canRecord: boolean;
+  /** Whether a student's balance is at or below the threshold of the student's branch. */
+  readonly isLow: (student: Row) => boolean;
   readonly onSaved: () => void;
 }): ReactElement {
   const { t } = useTranslation();
@@ -252,7 +254,9 @@ export function Register(props: {
     return (
       <Balance
         left={left}
-        warn={after ? after.canhBao : left !== undefined && left <= 2}
+        warn={
+          after ? after.canhBao : left !== undefined && props.isLow(student)
+        }
       />
     );
   };

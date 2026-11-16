@@ -9,11 +9,17 @@ import { StatusBadge } from '#components/status-badge';
 
 import { FormDialog, TextField } from './form-parts.js';
 import { GenericImportDialog } from './generic-import-dialog.js';
-import { createOne, useListState, usePagedRows } from './kit.js';
+import { createOne, text, useListState, usePagedRows } from './kit.js';
 import { ListPage } from './list-page.js';
 import { RowManage } from './sua-xoa.js';
 
-const EMPTY = { ma: '', ten: '', diaChi: '', truBuoiVangCoPhep: false };
+const EMPTY = {
+  ma: '',
+  ten: '',
+  diaChi: '',
+  truBuoiVangCoPhep: false,
+  nguongNhacBuoi: '2',
+};
 
 export default function CoSoPage(): ReactElement {
   const { t } = useTranslation();
@@ -71,6 +77,11 @@ export default function CoSoPage(): ReactElement {
                 : t('edu.common.no'),
           },
           {
+            key: 'nguongNhacBuoi',
+            label: t('edu.coSo.nguongNhac'),
+            render: (row) => text(row.nguongNhacBuoi),
+          },
+          {
             key: 'trangThai',
             label: t('edu.coSo.trangThai'),
             render: (row) => (
@@ -94,6 +105,7 @@ export default function CoSoPage(): ReactElement {
               ten: form.ten.trim(),
               diaChi: form.diaChi.trim() || null,
               truBuoiVangCoPhep: form.truBuoiVangCoPhep,
+              nguongNhacBuoi: Number(form.nguongNhacBuoi),
             });
             reload();
           }}
@@ -127,6 +139,15 @@ export default function CoSoPage(): ReactElement {
             />
             {t('edu.coSo.truBuoi')}
           </label>
+          <TextField
+            id='co-so-nguong-nhac'
+            label={t('edu.coSo.nguongNhac')}
+            hint={t('edu.coSo.nguongNhacHint')}
+            type='number'
+            value={form.nguongNhacBuoi}
+            required
+            onChange={(nguongNhacBuoi) => setForm({ ...form, nguongNhacBuoi })}
+          />
         </FormDialog>
       ) : null}
     </>

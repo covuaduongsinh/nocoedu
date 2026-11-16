@@ -26,10 +26,10 @@ import {
   saveAttendance,
   sellPackage,
 } from '../edu/ghi-so-du.js';
+import { reminderThresholds } from '../edu/nguong-nhac.js';
 import {
   ATTENDANCE_STATUSES,
   datesBetween,
-  LOW_BALANCE_THRESHOLD,
   todayVn,
   vietQrConfig,
   vietQrUrl,
@@ -821,18 +821,26 @@ export default [
       declare('Students with few sessions left', 'lowBalance'),
       needs('edu.hocVien', 'view'),
       async (c) => {
-        const rows = await database
+        // Each branch sets its own threshold (`eduCoSo.nguongNhacBuoi`): read the students up to the highest one,
+        // then keep those that are low for their own branch.
+        const thresholds = await reminderThresholds(database.connection());
+        const candidates = await database
           .repository('eduHocVien')
           .withPolicy(policyOf(c, 'eduHocVien'))
           .findMany({
             filter: (f) =>
               f.and([
                 f.string('trangThai').eq('dang_hoc'),
-                f.number('soBuoiConLai').lte(LOW_BALANCE_THRESHOLD),
+                f.number('soBuoiConLai').lte(thresholds.highest),
               ]),
             sort: (s) => s.field('soBuoiConLai').asc(),
-            limit: 200,
+            limit: 1000,
           });
+        const rows = candidates
+          .filter((row) =>
+            thresholds.isLow(row.coSoId, Number(row.soBuoiConLai)),
+          )
+          .slice(0, 200);
         return c.json({
           data: rows.map((row) => ({
             id: Number(row.id),

@@ -291,7 +291,10 @@ export function createApplicationRoutes(
   const config = createAppClientConfig({ rawConfig });
   return includeNotificationTemplateRoutes(
     [appRoutes, settingsShellRoutes, systemSettingsRoutes],
-    config.get<boolean>('notificationTemplates.invitationConfigured') === true,
+    config.get<boolean>('notificationTemplates.invitationConfigured') ===
+      true ||
+      // NocoEdu's tuition reminder (`server/providers/edu-nhac-hoc-phi.ts`) is real notification business.
+      config.get<boolean>('notificationTemplates.tuitionReminder') === true,
   );
 }
 

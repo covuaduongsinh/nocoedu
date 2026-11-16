@@ -151,9 +151,21 @@ export const EDU_HOC_PHI_ROWS: readonly (readonly [
   ],
   [
     'hocPhi.lowHint',
-    'Học viên đang học còn từ {{count}} buổi trở xuống. Liên hệ phụ huynh để nộp học phí kỳ mới.',
-    'Active students with {{count}} sessions left or fewer. Contact the parents about the next package.',
-    '在读学员剩余 {{count}} 节或更少。请联系家长续费。',
+    'Học viên đang học còn ít buổi theo ngưỡng của cơ sở mình (đặt ở mục Cơ sở). Liên hệ phụ huynh để nộp học phí kỳ mới.',
+    'Active students at or below their branch’s threshold (set under Branches). Contact the parents about the next package.',
+    '在读学员剩余课时不超过所在分校的提醒值（在“分校”中设置）。请联系家长续费。',
+  ],
+  [
+    'coSo.nguongNhac',
+    'Nhắc khi còn (buổi)',
+    'Remind when sessions left (or fewer)',
+    '剩余课时提醒值（节）',
+  ],
+  [
+    'coSo.nguongNhacHint',
+    'Học viên còn từng này buổi trở xuống được nhắc thu học phí. Số nguyên từ 0 đến 30.',
+    'A student with this many sessions left or fewer is reminded about tuition. A whole number from 0 to 30.',
+    '剩余课时不超过此数的学员会被提醒续费。0 到 30 的整数。',
   ],
   [
     'hocPhi.lowNone',

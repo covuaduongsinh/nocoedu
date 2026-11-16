@@ -1,5 +1,6 @@
 import EduAuthorizationProvider from './edu-authorization.js';
 import EduLarkMappingProvider from './edu-lark-mapping.js';
+import EduNhacHocPhiProvider from './edu-nhac-hoc-phi.js';
 import EduSampleDataProvider from './edu-sample-data.js';
 import NotificationManagementProvider from './notification-management.js';
 import SubmissionProvider from './submission.js';
@@ -11,6 +12,7 @@ const serviceProviders: readonly ApplicationServiceProviderConstructor[] = [
   EduAuthorizationProvider,
   EduSampleDataProvider,
   EduLarkMappingProvider,
+  EduNhacHocPhiProvider,
 ];
 
 export default serviceProviders;

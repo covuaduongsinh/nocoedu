@@ -15,12 +15,8 @@ import { z } from 'zod';
 
 import { toCsv } from '../edu/csv.js';
 import { asText } from '../edu/names.js';
-import {
-  LOW_BALANCE_THRESHOLD,
-  addDays,
-  asBoolean,
-  todayVn,
-} from '../edu/so-du.js';
+import { reminderThresholds } from '../edu/nguong-nhac.js';
+import { addDays, asBoolean, todayVn } from '../edu/so-du.js';
 import {
   currentUserId,
   eduError,
@@ -332,11 +328,13 @@ export default [
           };
         }
         case 'sapHetBuoi': {
+          // The threshold is the one of each student's own branch.
+          const thresholds = await reminderThresholds(database.connection());
           const rows = students
             .filter(
               (s) =>
                 s.trangThai === 'dang_hoc' &&
-                num(s.soBuoiConLai) <= LOW_BALANCE_THRESHOLD,
+                thresholds.isLow(s.coSoId, num(s.soBuoiConLai)),
             )
             .sort((a, b) => num(a.soBuoiConLai) - num(b.soBuoiConLai))
             .map((s) => ({

@@ -53,9 +53,9 @@ export const EDU_MORE_ROWS: readonly (readonly [
   ],
   [
     'home.lowHint',
-    'Còn từ 2 buổi trở xuống.',
-    'Two sessions left or fewer.',
-    '剩余 2 节课或更少。',
+    'Còn ít buổi, theo ngưỡng của từng cơ sở.',
+    'Few sessions left, by each branch’s threshold.',
+    '剩余课时较少，按各分校的提醒值。',
   ],
   [
     'home.callBack',

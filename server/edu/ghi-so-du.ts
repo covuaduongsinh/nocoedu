@@ -11,10 +11,10 @@ import type { DatabaseConnection, RepositoryPolicy } from '@nocobase/db';
 
 import { eduError } from './errors.js';
 import { asText } from './names.js';
+import { reminderThresholds } from './nguong-nhac.js';
 import {
   asBoolean,
   type AttendanceStatus,
-  isLowBalance,
   sessionsToDeduct,
   todayVn,
   unexcusedAbsenceDeducts,
@@ -238,6 +238,7 @@ export async function saveAttendance(
     ? connection.repository('eduHocVien').withPolicy(policies.student)
     : null;
   const rows: AttendanceResultRow[] = [];
+  const thresholds = await reminderThresholds(connection);
 
   for (const entry of input.danhSach) {
     const student = students
@@ -340,7 +341,7 @@ export async function saveAttendance(
       diemDanhId,
       soBuoiDaTru: target,
       soBuoiConLai: after,
-      canhBao: isLowBalance(after),
+      canhBao: thresholds.isLow(student.coSoId, after),
     });
   }
   await connection.query

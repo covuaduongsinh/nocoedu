@@ -218,6 +218,29 @@ export function useListState(): {
   return { page, setPage, search, setSearch, applied };
 }
 
+/** The sessions-left threshold of a branch that is not known (the server's `LOW_BALANCE_THRESHOLD`). */
+const DEFAULT_LOW_AT = 2;
+
+/**
+ * Whether a student with this balance is "low": at or below the threshold of the student's branch
+ * (`eduCoSo.nguongNhacBuoi`). Until the branches are read the default applies; the server's own answers
+ * (`canhBao`) win wherever the page has them.
+ */
+export function useIsLowBalance(): (student: Row) => boolean {
+  const branches = useRows('coSo').loaded;
+  return (student) => {
+    const branch =
+      branches.state === 'ready'
+        ? branches.rows.find((row) => row.id === student.coSoId)
+        : undefined;
+    const at = Number(branch?.nguongNhacBuoi);
+    return (
+      Number(student.soBuoiConLai) <=
+      (Number.isFinite(at) ? at : DEFAULT_LOW_AT)
+    );
+  };
+}
+
 /**
  * The rows of a collection with these ids (a page of attendance names its sessions), by id. Rows the person may not
  * see are simply absent. Ids are looked up at most 100 at a time.

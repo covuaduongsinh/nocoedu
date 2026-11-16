@@ -20,6 +20,7 @@ import {
   todayVn,
   useErrorMessage,
   useRequest,
+  useIsLowBalance,
   useRows,
   type Row,
 } from '../kit.js';
@@ -64,6 +65,7 @@ function SessionWorkspace(props: {
   readonly today: string;
   readonly canRecord: boolean;
   readonly canManage: boolean;
+  readonly isLow: (student: Row) => boolean;
   readonly onBack: () => void;
   /** The register was saved: the page stays as it is. */
   readonly onSaved: () => void;
@@ -197,6 +199,7 @@ function SessionWorkspace(props: {
           }
           contentReady={stored.result.state === 'ready'}
           canRecord={props.canRecord}
+          isLow={props.isLow}
           onSaved={props.onSaved}
         />
       )}
@@ -245,6 +248,7 @@ export default function DiemDanhPage(): ReactElement {
   const sessions = useRows('buoiHoc', { newestFirst: true });
   const classes = useRows('lop').loaded;
   const students = useRows('hocVien').loaded;
+  const isLow = useIsLowBalance();
   const { can: canRecord } = useCan({
     resource: { type: 'composite', id: 'edu.diemDanh' },
     action: 'record',
@@ -377,6 +381,7 @@ export default function DiemDanhPage(): ReactElement {
           today={today}
           canRecord={canRecord}
           canManage={canManage}
+          isLow={isLow}
           onBack={back}
           onSaved={() =>
             setSavedIds((current) => new Set(current).add(session.id))
