@@ -57,17 +57,23 @@ interface Form {
 }
 
 const CHANNEL_COLORS: Record<string, string> = {
-  facebook: 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300',
+  facebook:
+    'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300',
   fb: 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300',
   zalo: 'border-cyan-500/20 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
-  gioi_thieu: 'border-purple-500/20 bg-purple-500/10 text-purple-700 dark:text-purple-300',
-  vang_lai: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  website: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  gioi_thieu:
+    'border-purple-500/20 bg-purple-500/10 text-purple-700 dark:text-purple-300',
+  vang_lai:
+    'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  website:
+    'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
 };
 
 function channelBadge(channel: string): ReactElement {
   const normalized = channel.toLowerCase().trim();
-  const style = CHANNEL_COLORS[normalized] ?? 'border-border bg-muted text-muted-foreground';
+  const style =
+    CHANNEL_COLORS[normalized] ??
+    'border-border bg-muted text-muted-foreground';
   return (
     <Badge variant='outline' className={style}>
       {channel}
@@ -110,17 +116,19 @@ export default function TuyenSinhPage(): ReactElement {
     setCrmTesting(true);
     setCrmResult(undefined);
     try {
-      const res = await post(api, '/edu/crm/lead-sync', {
+      const res = (await post(api, '/edu/crm/lead-sync', {
         hoTen: 'Phụ huynh Test NocoCRM',
         soDienThoai: '0988776655',
         coSoId: branchRows[0]?.id ? Number(branchRows[0].id) : 1,
         kenhTiepNhan: 'nococrm',
         ghiChu: 'Khách hàng quan tâm khóa học cờ vua tiểu học (Test sync)',
-      }) as { data: { thongBao: string } };
+      })) as { data: { thongBao: string } };
       setCrmResult(`✅ ${res.data.thongBao}`);
       reload();
     } catch (err) {
-      setCrmResult(`❌ Lỗi đồng bộ: ${err instanceof Error ? err.message : String(err)}`);
+      setCrmResult(
+        `❌ Lỗi đồng bộ: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setCrmTesting(false);
     }
@@ -145,7 +153,10 @@ export default function TuyenSinhPage(): ReactElement {
   const daChotRows = rows.filter((r) => r.trangThai === 'da_chot');
   const khongChotRows = rows.filter((r) => r.trangThai === 'khong_chot');
 
-  const updateLeadStatus = async (id: number, newStatus: string): Promise<void> => {
+  const updateLeadStatus = async (
+    id: number,
+    newStatus: string,
+  ): Promise<void> => {
     try {
       await updateOne(api, 'lienHe', id, { trangThai: newStatus });
       reload();
@@ -252,12 +263,7 @@ export default function TuyenSinhPage(): ReactElement {
         }
         actions={
           <div className='flex items-center gap-2'>
-            <GenericImportDialog
-              entity='tuyenSinh'
-              title='Nhập Dữ liệu Tuyển Sinh từ CSV'
-              buttonLabel='Nhập Tuyển sinh CSV'
-              onSuccess={reload}
-            />
+            <GenericImportDialog entity='tuyenSinh' onSuccess={reload} />
             {canManage ? (
               <div className='flex items-center gap-2'>
                 <Button
@@ -268,10 +274,18 @@ export default function TuyenSinhPage(): ReactElement {
                 >
                   🔗 Kết nối NocoCRM
                 </Button>
-                <Button variant='outline' size='sm' onClick={() => setPurging(true)}>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setPurging(true)}
+                >
                   {t('edu.tuyenSinh.purge')}
                 </Button>
-                <Button size='sm' onClick={() => setForm(blank())} className='gap-1.5'>
+                <Button
+                  size='sm'
+                  onClick={() => setForm(blank())}
+                  className='gap-1.5'
+                >
                   <Plus className='h-4 w-4' />
                   <span>{t('edu.tuyenSinh.new')}</span>
                 </Button>
@@ -397,7 +411,10 @@ export default function TuyenSinhPage(): ReactElement {
                   <span className='text-xs font-semibold uppercase tracking-wider text-foreground'>
                     {col.title}
                   </span>
-                  <Badge variant='outline' className={`px-2 py-0 text-xs font-bold ${col.badgeTone}`}>
+                  <Badge
+                    variant='outline'
+                    className={`px-2 py-0 text-xs font-bold ${col.badgeTone}`}
+                  >
                     {col.count}
                   </Badge>
                 </div>
@@ -413,7 +430,8 @@ export default function TuyenSinhPage(): ReactElement {
                       const cleanPhone = phone.replace(/\D/g, '');
                       const isReminderDue =
                         text(row.ngayNhac) &&
-                        (row.trangThai === 'moi' || row.trangThai === 'dang_cham_soc') &&
+                        (row.trangThai === 'moi' ||
+                          row.trangThai === 'dang_cham_soc') &&
                         text(row.ngayNhac) <= today;
 
                       return (
@@ -424,7 +442,10 @@ export default function TuyenSinhPage(): ReactElement {
                           <CardContent className='space-y-2.5 p-3.5'>
                             <div className='flex items-start justify-between gap-2'>
                               <div className='flex items-center gap-2'>
-                                <InitialsAvatar name={text(row.hoTen)} size='sm' />
+                                <InitialsAvatar
+                                  name={text(row.hoTen)}
+                                  size='sm'
+                                />
                                 <span className='font-semibold text-foreground'>
                                   {text(row.hoTen)}
                                 </span>
@@ -498,7 +519,9 @@ export default function TuyenSinhPage(): ReactElement {
                                       parentName: text(row.hoTen),
                                       parentPhone: text(row.soDienThoai),
                                     });
-                                    void navigate(`/hoc-vien?${params.toString()}`);
+                                    void navigate(
+                                      `/hoc-vien?${params.toString()}`,
+                                    );
                                   }}
                                 >
                                   + Ghi danh
@@ -510,7 +533,12 @@ export default function TuyenSinhPage(): ReactElement {
                                       size='sm'
                                       variant='outline'
                                       className='h-6 px-2 text-[11px]'
-                                      onClick={() => void updateLeadStatus(row.id, 'dang_cham_soc')}
+                                      onClick={() =>
+                                        void updateLeadStatus(
+                                          row.id,
+                                          'dang_cham_soc',
+                                        )
+                                      }
                                     >
                                       Tư vấn →
                                     </Button>
@@ -520,7 +548,12 @@ export default function TuyenSinhPage(): ReactElement {
                                         size='sm'
                                         variant='outline'
                                         className='h-6 px-2 text-[11px] text-emerald-600'
-                                        onClick={() => void updateLeadStatus(row.id, 'da_chot')}
+                                        onClick={() =>
+                                          void updateLeadStatus(
+                                            row.id,
+                                            'da_chot',
+                                          )
+                                        }
                                       >
                                         Chốt ✓
                                       </Button>
@@ -528,7 +561,12 @@ export default function TuyenSinhPage(): ReactElement {
                                         size='sm'
                                         variant='ghost'
                                         className='h-6 px-1.5 text-[11px] text-muted-foreground'
-                                        onClick={() => void updateLeadStatus(row.id, 'khong_chot')}
+                                        onClick={() =>
+                                          void updateLeadStatus(
+                                            row.id,
+                                            'khong_chot',
+                                          )
+                                        }
                                       >
                                         Hẹn sau
                                       </Button>
@@ -538,7 +576,12 @@ export default function TuyenSinhPage(): ReactElement {
                                       size='sm'
                                       variant='ghost'
                                       className='h-6 px-1.5 text-[11px]'
-                                      onClick={() => void updateLeadStatus(row.id, 'dang_cham_soc')}
+                                      onClick={() =>
+                                        void updateLeadStatus(
+                                          row.id,
+                                          'dang_cham_soc',
+                                        )
+                                      }
                                     >
                                       Mở lại
                                     </Button>
@@ -680,33 +723,50 @@ export default function TuyenSinhPage(): ReactElement {
               🔗 Tích Hợp Đồng Bộ Lead NocoCRM
             </DialogTitle>
             <DialogDescription>
-              Khi có khách hàng tiềm năng mới trên NocoCRM, webhook tự động đẩy hồ sơ về phễu tuyển sinh NocoEdu.
+              Khi có khách hàng tiềm năng mới trên NocoCRM, webhook tự động đẩy
+              hồ sơ về phễu tuyển sinh NocoEdu.
             </DialogDescription>
           </DialogHeader>
 
           <div className='flex flex-col gap-4 py-3 text-sm'>
             <div className='rounded-lg border bg-muted/30 p-3 flex flex-col gap-1.5'>
-              <span className='text-xs font-semibold uppercase text-muted-foreground'>Webhook Endpoint</span>
+              <span className='text-xs font-semibold uppercase text-muted-foreground'>
+                Webhook Endpoint
+              </span>
               <code className='rounded bg-muted px-2 py-1 font-mono text-xs text-primary select-all break-all'>
                 https://nocoedu.dsc.edu.vn/api/edu/crm/lead-sync
               </code>
             </div>
 
             <div className='rounded-lg border bg-muted/30 p-3 flex flex-col gap-1.5'>
-              <span className='text-xs font-semibold uppercase text-muted-foreground'>X-CRM-Token (Header)</span>
+              <span className='text-xs font-semibold uppercase text-muted-foreground'>
+                X-CRM-Token (Header)
+              </span>
               <code className='rounded bg-muted px-2 py-1 font-mono text-xs text-foreground select-all'>
                 nocoedu-crm-secret
               </code>
             </div>
 
             <div className='rounded-lg border p-3 text-xs text-muted-foreground space-y-1.5'>
-              <p className='font-semibold text-foreground'>📋 Các trường dữ liệu nhận từ CRM:</p>
+              <p className='font-semibold text-foreground'>
+                📋 Các trường dữ liệu nhận từ CRM:
+              </p>
               <ul className='list-disc pl-4 space-y-0.5'>
-                <li><code>hoTen</code>: Tên phụ huynh hoặc học viên (bắt buộc)</li>
-                <li><code>soDienThoai</code>: Số điện thoại liên hệ (bắt buộc)</li>
-                <li><code>coSoId</code>: ID cơ sở muốn đăng ký (tùy chọn)</li>
-                <li><code>ghiChu</code>: Ghi chú nhu cầu từ CRM</li>
-                <li><code>ngayHenHocThu</code>: Ngày hẹn học thử (YYYY-MM-DD)</li>
+                <li>
+                  <code>hoTen</code>: Tên phụ huynh hoặc học viên (bắt buộc)
+                </li>
+                <li>
+                  <code>soDienThoai</code>: Số điện thoại liên hệ (bắt buộc)
+                </li>
+                <li>
+                  <code>coSoId</code>: ID cơ sở muốn đăng ký (tùy chọn)
+                </li>
+                <li>
+                  <code>ghiChu</code>: Ghi chú nhu cầu từ CRM
+                </li>
+                <li>
+                  <code>ngayHenHocThu</code>: Ngày hẹn học thử (YYYY-MM-DD)
+                </li>
               </ul>
             </div>
 

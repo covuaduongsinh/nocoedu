@@ -54,7 +54,8 @@ import {
   type Row,
 } from './kit.js';
 
-const fmt = (value: unknown): string => Number(value || 0).toLocaleString('vi-VN');
+const fmt = (value: unknown): string =>
+  Number(value || 0).toLocaleString('vi-VN');
 
 interface Qr {
   soTien: number;
@@ -80,10 +81,14 @@ export default function HocPhiPage(): ReactElement {
   const students = useRows('hocVien');
   const classes = useRows('lop').loaded;
 
-  const [activeTab, setActiveTab] = useState<'cashier' | 'ledger' | 'reminders'>('cashier');
+  const [activeTab, setActiveTab] = useState<
+    'cashier' | 'ledger' | 'reminders'
+  >('cashier');
 
   // State cho Tab 1: Quầy thu ngân
-  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(
+    null,
+  );
   const [searchStudent, setSearchStudent] = useState<string>('');
   const [studentPacks, setStudentPacks] = useState<Row[]>([]);
   const [loadingPacks, setLoadingPacks] = useState(false);
@@ -126,7 +131,8 @@ export default function HocPhiPage(): ReactElement {
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [filterMonth, setFilterMonth] = useState<string>('all');
 
-  const studentRows = students.loaded.state === 'ready' ? students.loaded.rows : [];
+  const studentRows =
+    students.loaded.state === 'ready' ? students.loaded.rows : [];
   const classRows = classes.state === 'ready' ? classes.rows : [];
 
   const classNameOf = (lopId: unknown): string =>
@@ -137,7 +143,11 @@ export default function HocPhiPage(): ReactElement {
     if (!searchStudent.trim()) return [];
     const q = searchStudent.toLowerCase().trim();
     return studentRows
-      .filter((s) => text(s.hoTen).toLowerCase().includes(q) || text(s.ma).toLowerCase().includes(q))
+      .filter(
+        (s) =>
+          text(s.hoTen).toLowerCase().includes(q) ||
+          text(s.ma).toLowerCase().includes(q),
+      )
       .slice(0, 8);
   }, [studentRows, searchStudent]);
 
@@ -230,7 +240,12 @@ export default function HocPhiPage(): ReactElement {
         donGia: Number(sellModal.donGia),
         ngayMua: todayVn(),
       });
-      setSellModal({ open: false, student: null, soBuoi: '12', donGia: '150000' });
+      setSellModal({
+        open: false,
+        student: null,
+        soBuoi: '12',
+        donGia: '150000',
+      });
       students.reload();
       if (selectedStudentId) {
         // reload packs
@@ -288,7 +303,9 @@ export default function HocPhiPage(): ReactElement {
         method: 'POST',
         json: {},
       });
-      const blob = new Blob([res as unknown as string], { type: 'text/csv;charset=utf-8' });
+      const blob = new Blob([res as unknown as string], {
+        type: 'text/csv;charset=utf-8',
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -314,15 +331,18 @@ export default function HocPhiPage(): ReactElement {
           <div className='flex flex-wrap items-center gap-2'>
             <GenericImportDialog
               entity='goiHoc'
-              title='Nhập Gói học & Học phí từ file CSV'
-              buttonLabel='Nhập học phí CSV'
               variant='outline'
               onSuccess={() => {
                 students.reload();
                 if (activeTab === 'ledger') loadPayments();
               }}
             />
-            <Button variant='outline' size='sm' onClick={() => void exportTuitionCsv()} className='gap-1.5'>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => void exportTuitionCsv()}
+              className='gap-1.5'
+            >
               <Download className='h-4 w-4' />
               Xuất CSV
             </Button>
@@ -408,7 +428,9 @@ export default function HocPhiPage(): ReactElement {
                       className='p-3 hover:bg-muted/50 cursor-pointer flex items-center justify-between transition-colors'
                     >
                       <div>
-                        <span className='font-bold text-sm text-foreground'>{text(s.hoTen)}</span>
+                        <span className='font-bold text-sm text-foreground'>
+                          {text(s.hoTen)}
+                        </span>
                         <span className='text-xs text-muted-foreground ml-2 font-mono'>
                           ({text(s.ma)})
                         </span>
@@ -419,9 +441,13 @@ export default function HocPhiPage(): ReactElement {
                       <div className='flex items-center gap-2'>
                         <span className='text-xs font-semibold'>
                           {Number(s.soBuoiConLai) < 0 ? (
-                            <span className='text-destructive'>Nợ {Math.abs(Number(s.soBuoiConLai))} buổi</span>
+                            <span className='text-destructive'>
+                              Nợ {Math.abs(Number(s.soBuoiConLai))} buổi
+                            </span>
                           ) : (
-                            <span className='text-emerald-600'>Còn {Number(s.soBuoiConLai)} buổi</span>
+                            <span className='text-emerald-600'>
+                              Còn {Number(s.soBuoiConLai)} buổi
+                            </span>
                           )}
                         </span>
                         <ArrowRight className='h-4 w-4 text-muted-foreground' />
@@ -443,14 +469,23 @@ export default function HocPhiPage(): ReactElement {
                   </div>
                   <div>
                     <div className='flex items-center gap-2'>
-                      <h3 className='text-lg font-bold text-foreground'>{text(selectedStudent.hoTen)}</h3>
+                      <h3 className='text-lg font-bold text-foreground'>
+                        {text(selectedStudent.hoTen)}
+                      </h3>
                       <span className='font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded'>
                         {text(selectedStudent.ma)}
                       </span>
                     </div>
                     <p className='text-xs text-muted-foreground mt-0.5'>
-                      Lớp: <strong>{classNameOf(selectedStudent.lopId)}</strong> | Số buổi còn lại:{' '}
-                      <strong className={Number(selectedStudent.soBuoiConLai) < 0 ? 'text-destructive font-bold' : 'text-emerald-600 font-bold'}>
+                      Lớp: <strong>{classNameOf(selectedStudent.lopId)}</strong>{' '}
+                      | Số buổi còn lại:{' '}
+                      <strong
+                        className={
+                          Number(selectedStudent.soBuoiConLai) < 0
+                            ? 'text-destructive font-bold'
+                            : 'text-emerald-600 font-bold'
+                        }
+                      >
                         {Number(selectedStudent.soBuoiConLai) < 0
                           ? `🔴 Vượt ${Math.abs(Number(selectedStudent.soBuoiConLai))} buổi`
                           : `🟢 Còn ${Number(selectedStudent.soBuoiConLai)} buổi`}
@@ -463,10 +498,13 @@ export default function HocPhiPage(): ReactElement {
                   <Button
                     variant='outline'
                     size='sm'
-                    onClick={() => navigate(`/doi-soat?hocVienId=${selectedStudent.id}`)}
+                    onClick={() =>
+                      navigate(`/doi-soat?hocVienId=${selectedStudent.id}`)
+                    }
                     className='text-xs gap-1.5'
                   >
-                    <ExternalLink className='h-3.5 w-3.5' /> Xem phiếu đối soát A4
+                    <ExternalLink className='h-3.5 w-3.5' /> Xem phiếu đối soát
+                    A4
                   </Button>
                   {canSell && (
                     <Button
@@ -514,10 +552,13 @@ export default function HocPhiPage(): ReactElement {
                 </div>
 
                 {loadingPacks ? (
-                  <p className='py-6 text-center text-xs text-muted-foreground'>Đang tải danh sách gói...</p>
+                  <p className='py-6 text-center text-xs text-muted-foreground'>
+                    Đang tải danh sách gói...
+                  </p>
                 ) : studentPacks.length === 0 ? (
                   <p className='py-6 text-center text-xs text-muted-foreground'>
-                    Học sinh này chưa mua gói học nào. Hãy bấm nút &quot;Bán gói học mới&quot; ở trên.
+                    Học sinh này chưa mua gói học nào. Hãy bấm nút &quot;Bán gói
+                    học mới&quot; ở trên.
                   </p>
                 ) : (
                   <div className='overflow-x-auto rounded-lg border'>
@@ -527,16 +568,26 @@ export default function HocPhiPage(): ReactElement {
                           <TableHead>Ngày mua</TableHead>
                           <TableHead className='text-center'>Số buổi</TableHead>
                           <TableHead className='text-right'>Đơn giá</TableHead>
-                          <TableHead className='text-right'>Thành tiền</TableHead>
-                          <TableHead className='text-center'>Thao tác</TableHead>
+                          <TableHead className='text-right'>
+                            Thành tiền
+                          </TableHead>
+                          <TableHead className='text-center'>
+                            Thao tác
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody className='text-xs'>
                         {studentPacks.map((pack) => (
                           <TableRow key={pack.id}>
-                            <TableCell className='font-medium'>{text(pack.ngayMua)}</TableCell>
-                            <TableCell className='text-center font-bold'>{text(pack.soBuoi)}</TableCell>
-                            <TableCell className='text-right'>{fmt(pack.donGia)} đ</TableCell>
+                            <TableCell className='font-medium'>
+                              {text(pack.ngayMua)}
+                            </TableCell>
+                            <TableCell className='text-center font-bold'>
+                              {text(pack.soBuoi)}
+                            </TableCell>
+                            <TableCell className='text-right'>
+                              {fmt(pack.donGia)} đ
+                            </TableCell>
                             <TableCell className='text-right font-bold text-primary'>
                               {fmt(pack.thanhTien)} đ
                             </TableCell>
@@ -581,9 +632,12 @@ export default function HocPhiPage(): ReactElement {
           ) : (
             <div className='rounded-2xl border border-dashed p-10 text-center bg-muted/10'>
               <Users className='h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-50' />
-              <p className='text-sm font-semibold text-foreground'>Chưa chọn học viên nào</p>
+              <p className='text-sm font-semibold text-foreground'>
+                Chưa chọn học viên nào
+              </p>
               <p className='text-xs text-muted-foreground mt-1'>
-                Vui lòng nhập tên học viên vào ô tìm kiếm ở trên để bắt đầu thao tác thu ngân hoặc bán gói học.
+                Vui lòng nhập tên học viên vào ô tìm kiếm ở trên để bắt đầu thao
+                tác thu ngân hoặc bán gói học.
               </p>
             </div>
           )}
@@ -602,7 +656,9 @@ export default function HocPhiPage(): ReactElement {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className='text-2xl font-black text-primary'>{fmt(totalLedgerAmount)} đ</div>
+                <div className='text-2xl font-black text-primary'>
+                  {fmt(totalLedgerAmount)} đ
+                </div>
                 <p className='text-xs text-muted-foreground mt-1'>
                   Từ {payments.length} lượt giao dịch đã ghi nhận
                 </p>
@@ -617,9 +673,12 @@ export default function HocPhiPage(): ReactElement {
               </CardHeader>
               <CardContent>
                 <div className='text-2xl font-bold text-foreground'>
-                  {payments.filter((p) => p.hinhThuc === 'chuyen_khoan').length} lượt
+                  {payments.filter((p) => p.hinhThuc === 'chuyen_khoan').length}{' '}
+                  lượt
                 </div>
-                <p className='text-xs text-muted-foreground mt-1'>Qua ngân hàng & VietQR</p>
+                <p className='text-xs text-muted-foreground mt-1'>
+                  Qua ngân hàng & VietQR
+                </p>
               </CardContent>
             </Card>
 
@@ -631,9 +690,12 @@ export default function HocPhiPage(): ReactElement {
               </CardHeader>
               <CardContent>
                 <div className='text-2xl font-bold text-foreground'>
-                  {payments.filter((p) => p.hinhThuc === 'tien_mat').length} lượt
+                  {payments.filter((p) => p.hinhThuc === 'tien_mat').length}{' '}
+                  lượt
                 </div>
-                <p className='text-xs text-muted-foreground mt-1'>Thu trực tiếp tại cơ sở</p>
+                <p className='text-xs text-muted-foreground mt-1'>
+                  Thu trực tiếp tại cơ sở
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -645,15 +707,24 @@ export default function HocPhiPage(): ReactElement {
                 <History className='h-4 w-4 text-primary' />
                 Lịch sử các khoản tiền đã thu ({payments.length} bản ghi)
               </h3>
-              <Button variant='outline' size='sm' onClick={loadPayments} className='text-xs'>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={loadPayments}
+                className='text-xs'
+              >
                 Làm mới
               </Button>
             </div>
 
             {loadingPayments ? (
-              <p className='py-8 text-center text-xs text-muted-foreground'>Đang tải sổ quỹ...</p>
+              <p className='py-8 text-center text-xs text-muted-foreground'>
+                Đang tải sổ quỹ...
+              </p>
             ) : payments.length === 0 ? (
-              <p className='py-8 text-center text-xs text-muted-foreground'>Chưa có giao dịch thu tiền nào.</p>
+              <p className='py-8 text-center text-xs text-muted-foreground'>
+                Chưa có giao dịch thu tiền nào.
+              </p>
             ) : (
               <div className='overflow-x-auto rounded-lg border'>
                 <Table>
@@ -669,9 +740,14 @@ export default function HocPhiPage(): ReactElement {
                   <TableBody className='text-xs'>
                     {payments.map((p) => (
                       <TableRow key={p.id}>
-                        <TableCell className='whitespace-nowrap font-medium'>{text(p.ngay)}</TableCell>
+                        <TableCell className='whitespace-nowrap font-medium'>
+                          {text(p.ngay)}
+                        </TableCell>
                         <TableCell>
-                          <RecordLink to={`/hoc-vien/${text(p.hocVienId)}`} target='_blank'>
+                          <RecordLink
+                            to={`/hoc-vien/${text(p.hocVienId)}`}
+                            target='_blank'
+                          >
                             Học viên #{text(p.hocVienId)}
                           </RecordLink>
                         </TableCell>
@@ -686,7 +762,9 @@ export default function HocPhiPage(): ReactElement {
                                 : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
                             }`}
                           >
-                            {p.hinhThuc === 'chuyen_khoan' ? 'Chuyển khoản' : 'Tiền mặt'}
+                            {p.hinhThuc === 'chuyen_khoan'
+                              ? 'Chuyển khoản'
+                              : 'Tiền mặt'}
                           </span>
                         </TableCell>
                         <TableCell className='max-w-xs truncate text-muted-foreground'>
@@ -710,17 +788,23 @@ export default function HocPhiPage(): ReactElement {
               <div>
                 <h3 className='text-sm font-bold text-foreground flex items-center gap-2'>
                   <BadgeAlert className='h-4 w-4 text-amber-500' />
-                  Học viên hết buổi hoặc sắp hết buổi ({reminderStudents.length} học viên)
+                  Học viên hết buổi hoặc sắp hết buổi ({
+                    reminderStudents.length
+                  }{' '}
+                  học viên)
                 </h3>
                 <p className='text-xs text-muted-foreground mt-0.5'>
-                  Danh sách này chỉ lọc các học viên đang có số buổi còn lại &le; 2 buổi để thu ngân liên hệ nhắc phụ huynh nộp học phí kỳ mới.
+                  Danh sách này chỉ lọc các học viên đang có số buổi còn lại
+                  &le; 2 buổi để thu ngân liên hệ nhắc phụ huynh nộp học phí kỳ
+                  mới.
                 </p>
               </div>
             </div>
 
             {reminderStudents.length === 0 ? (
               <div className='p-8 text-center text-xs text-muted-foreground'>
-                🎉 Tuyệt vời! Hiện không có học sinh nào bị nợ buổi hoặc sắp hết buổi.
+                🎉 Tuyệt vời! Hiện không có học sinh nào bị nợ buổi hoặc sắp hết
+                buổi.
               </div>
             ) : (
               <div className='overflow-x-auto rounded-lg border'>
@@ -730,8 +814,12 @@ export default function HocPhiPage(): ReactElement {
                       <TableHead>Mã</TableHead>
                       <TableHead>Họ và tên</TableHead>
                       <TableHead>Lớp học</TableHead>
-                      <TableHead className='text-center'>Tình trạng số buổi</TableHead>
-                      <TableHead className='text-center'>Thao tác thu tiền</TableHead>
+                      <TableHead className='text-center'>
+                        Tình trạng số buổi
+                      </TableHead>
+                      <TableHead className='text-center'>
+                        Thao tác thu tiền
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className='text-xs'>
@@ -739,9 +827,15 @@ export default function HocPhiPage(): ReactElement {
                       const num = Number(s.soBuoiConLai);
                       return (
                         <TableRow key={s.id}>
-                          <TableCell className='font-mono font-bold'>{text(s.ma)}</TableCell>
+                          <TableCell className='font-mono font-bold'>
+                            {text(s.ma)}
+                          </TableCell>
                           <TableCell>
-                            <RecordLink to={`/hoc-vien/${s.id}`} target='_blank' className='font-bold'>
+                            <RecordLink
+                              to={`/hoc-vien/${s.id}`}
+                              target='_blank'
+                              className='font-bold'
+                            >
                               {text(s.hoTen)}
                             </RecordLink>
                           </TableCell>
@@ -776,7 +870,9 @@ export default function HocPhiPage(): ReactElement {
                               <Button
                                 size='sm'
                                 variant='outline'
-                                onClick={() => navigate(`/doi-soat?hocVienId=${s.id}`)}
+                                onClick={() =>
+                                  navigate(`/doi-soat?hocVienId=${s.id}`)
+                                }
                                 className='h-7 text-xs gap-1'
                               >
                                 <ExternalLink className='h-3 w-3' /> Đối soát
@@ -850,9 +946,14 @@ export default function HocPhiPage(): ReactElement {
             id='pay-hinh-thuc'
             label='Hình thức thanh toán'
             value={payModal.hinhThuc}
-            onChange={(hinhThuc) => setPayModal((prev) => ({ ...prev, hinhThuc: hinhThuc as any }))}
+            onChange={(hinhThuc) =>
+              setPayModal((prev) => ({ ...prev, hinhThuc: hinhThuc as any }))
+            }
             options={[
-              { value: 'chuyen_khoan', label: 'Chuyển khoản (VietQR / Ngân hàng)' },
+              {
+                value: 'chuyen_khoan',
+                label: 'Chuyển khoản (VietQR / Ngân hàng)',
+              },
               { value: 'tien_mat', label: 'Tiền mặt' },
             ]}
           />
@@ -860,7 +961,9 @@ export default function HocPhiPage(): ReactElement {
             id='pay-noi-dung'
             label='Nội dung chuyển khoản / Ghi chú'
             value={payModal.noiDungCk}
-            onChange={(noiDungCk) => setPayModal((prev) => ({ ...prev, noiDungCk }))}
+            onChange={(noiDungCk) =>
+              setPayModal((prev) => ({ ...prev, noiDungCk }))
+            }
           />
           <Button
             type='button'
@@ -882,7 +985,8 @@ export default function HocPhiPage(): ReactElement {
               Mã VietQR Thanh Toán Nhanh
             </DialogTitle>
             <DialogDescription>
-              Phụ huynh mở ứng dụng ngân hàng và quét mã để thanh toán đúng số tiền và nội dung.
+              Phụ huynh mở ứng dụng ngân hàng và quét mã để thanh toán đúng số
+              tiền và nội dung.
             </DialogDescription>
           </DialogHeader>
           {qr === 'unset' ? (
@@ -891,15 +995,25 @@ export default function HocPhiPage(): ReactElement {
             </p>
           ) : qr ? (
             <div className='flex flex-col items-center gap-4 py-2'>
-              <img src={qr.url} alt='VietQR' className='max-h-72 rounded-xl shadow-md border' />
+              <img
+                src={qr.url}
+                alt='VietQR'
+                className='max-h-72 rounded-xl shadow-md border'
+              />
               <div className='w-full rounded-xl bg-muted p-3 text-xs space-y-1.5'>
                 <div className='flex justify-between'>
                   <span className='text-muted-foreground'>Số tiền:</span>
-                  <span className='font-bold text-foreground text-sm'>{fmt(qr.soTien)} đ</span>
+                  <span className='font-bold text-foreground text-sm'>
+                    {fmt(qr.soTien)} đ
+                  </span>
                 </div>
                 <div className='flex justify-between'>
-                  <span className='text-muted-foreground'>Nội dung chuyển khoản:</span>
-                  <span className='font-mono font-bold text-primary'>{qr.noiDungCk}</span>
+                  <span className='text-muted-foreground'>
+                    Nội dung chuyển khoản:
+                  </span>
+                  <span className='font-mono font-bold text-primary'>
+                    {qr.noiDungCk}
+                  </span>
                 </div>
               </div>
             </div>

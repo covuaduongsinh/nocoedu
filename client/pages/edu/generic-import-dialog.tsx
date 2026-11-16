@@ -1,5 +1,6 @@
-import { useApiClient } from '@nocobase/app-client';
-import { AlertCircle, CheckCircle2, Download, FileSpreadsheet, Loader2, Upload } from 'lucide-react';
+import { ApiClientError, useApiClient } from '@nocobase/app-client';
+import { useCan } from '@nocobase/app-plugin-authorization/client';
+import { useTranslation } from '@nocobase/i18n/client';
 import { useState, type ReactElement } from 'react';
 
 import { Button } from '#components/ui/button';
@@ -14,326 +15,253 @@ import {
 import { Input } from '#components/ui/input';
 import { Label } from '#components/ui/label';
 
-import { post } from './kit.js';
+import { post, useErrorMessage } from './kit.js';
 
-export interface GenericImportDialogProps {
-  readonly entity:
-    | 'lop'
-    | 'coSo'
-    | 'hoSoGv'
-    | 'sach'
-    | 'phatSach'
-    | 'goiHoc'
-    | 'diemDanh'
-    | 'tuyenSinh';
-  readonly title: string;
-  readonly buttonLabel?: string;
-  readonly variant?: 'outline' | 'default' | 'secondary';
-  readonly onSuccess?: () => void;
+/** The file the server accepts: about 500 KB. It is checked here too so a big file is not read into the page. */
+const MAX_BYTES = 512 * 1024;
+
+/** The action that opens each import on the server (`server/edu/import-da-nang.ts`); the button follows it. */
+const GATES = {
+  coSo: ['edu.coSo', 'manage'],
+  lop: ['edu.lop', 'manage'],
+  sach: ['edu.sach', 'manage'],
+  hoSoGv: ['edu.hoSoGv', 'manage'],
+  tuyenSinh: ['edu.tuyenSinh', 'manage'],
+  phatSach: ['edu.phatSach', 'manage'],
+  goiHoc: ['edu.goiHoc', 'manage'],
+  diemDanh: ['edu.diemDanh', 'record'],
+} as const;
+
+export type ImportKind = keyof typeof GATES;
+
+interface Report {
+  readonly tongDong: number;
+  readonly hopLe: number;
+  readonly loi: readonly { dong: number; ma: string; cot?: string }[];
 }
 
-interface PreviewRow {
-  line: number;
-  data: Record<string, string>;
-  isValid: boolean;
-  errors: string[];
-}
-
-interface PreviewReport {
-  totalRows: number;
-  validCount: number;
-  errorCount: number;
-  rows: PreviewRow[];
-}
-
+/**
+ * Import one kind of record from a CSV file: choose the file, preview what it would do, then confirm. The file's text
+ * stays in memory, is sent to the server twice (preview, confirm) and is dropped when the dialog closes. The preview
+ * shows counts and line numbers with a reason, never the content of a row. One bad row means nothing is written.
+ *
+ * The button shows only to a person who holds the action that opens this import; the server decides either way.
+ */
 export function GenericImportDialog({
   entity,
-  title,
-  buttonLabel = 'Nhập từ CSV',
   variant = 'outline',
   onSuccess,
-}: GenericImportDialogProps): ReactElement {
+}: {
+  readonly entity: ImportKind;
+  readonly variant?: 'outline' | 'default' | 'secondary';
+  readonly onSuccess?: () => void;
+}): ReactElement | null {
+  const { t } = useTranslation();
   const api = useApiClient();
+  const message = useErrorMessage();
+  const [resource, action] = GATES[entity];
+  const allowed = useCan({
+    resource: { type: 'composite', id: resource },
+    action,
+  }).can;
   const [open, setOpen] = useState(false);
-  const [csvContent, setCsvContent] = useState<string>('');
-  const [fileName, setFileName] = useState<string>('');
-  const [busy, setBusy] = useState<'template' | 'preview' | 'commit'>();
-  const [preview, setPreview] = useState<PreviewReport>();
-  const [successMessage, setSuccessMessage] = useState<string>();
-  const [errorMessage, setErrorMessage] = useState<string>();
+  const [csv, setCsv] = useState<string>();
+  const [report, setReport] = useState<Report>();
+  const [done, setDone] = useState<number>();
+  const [busy, setBusy] = useState<'preview' | 'confirm'>();
+  const [error, setError] = useState<string>();
 
-  const reset = () => {
-    setCsvContent('');
-    setFileName('');
-    setPreview(undefined);
-    setSuccessMessage(undefined);
-    setErrorMessage(undefined);
-    setBusy(undefined);
+  if (!allowed) return null;
+
+  const close = (): void => {
+    setOpen(false);
+    setCsv(undefined);
+    setReport(undefined);
+    setDone(undefined);
+    setError(undefined);
   };
 
-  const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen);
-    if (!isOpen) reset();
-  };
-
-  // Tải mẫu CSV
-  const handleDownloadTemplate = async () => {
+  const run = async (kind: 'preview' | 'confirm'): Promise<void> => {
+    if (csv === undefined || busy) return;
+    setBusy(kind);
+    setError(undefined);
     try {
-      setBusy('template');
-      setErrorMessage(undefined);
-      const res = await api.request<{ data: { entity: string; name: string; csv: string } }>({
-        path: `/edu/import/mau/${entity}`,
-        method: 'GET',
-      });
-      const data = res?.data;
-      if (data?.csv) {
-        const blob = new Blob([data.csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `mau_import_${entity}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+      const answer = (await post(
+        api,
+        kind === 'preview' ? 'nhapDuLieu/xemTruoc' : 'nhapDuLieu/xacNhan',
+        { loai: entity, csv },
+      )) as { data: Report & { daGhi?: number } };
+      if (kind === 'preview') setReport(answer.data);
+      else {
+        setDone(answer.data.daGhi ?? answer.data.hopLe);
+        setReport(undefined);
+        setCsv(undefined);
+        onSuccess?.();
       }
-    } catch (err: any) {
-      setErrorMessage(err?.response?.data?.error?.message || err?.message || 'Không thể tải mẫu CSV');
+    } catch (cause) {
+      setError(message(cause));
+      // The data changed since the preview: it has to be previewed again.
+      if (
+        cause instanceof ApiClientError &&
+        (cause as { reason?: string }).reason === 'EDU_IMPORT_HAS_PROBLEMS'
+      ) {
+        setReport(undefined);
+      }
     } finally {
       setBusy(undefined);
     }
   };
 
-  // Đọc file CSV
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const choose = async (file: File | undefined): Promise<void> => {
+    setReport(undefined);
+    setDone(undefined);
+    setError(undefined);
+    setCsv(undefined);
     if (!file) return;
-
-    setFileName(file.name);
-    setPreview(undefined);
-    setSuccessMessage(undefined);
-    setErrorMessage(undefined);
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = (event.target?.result as string) || '';
-      setCsvContent(text);
-    };
-    reader.onerror = () => {
-      setErrorMessage('Không thể đọc nội dung file');
-    };
-    reader.readAsText(file, 'UTF-8');
-  };
-
-  // Kiểm tra & xem trước
-  const handlePreview = async () => {
-    if (!csvContent) {
-      setErrorMessage('Vui lòng chọn file CSV');
+    if (file.size > MAX_BYTES) {
+      setError(t('edu.import.tooBig'));
       return;
     }
+    setCsv(await file.text());
+  };
+
+  const downloadSample = async (): Promise<void> => {
+    setError(undefined);
     try {
-      setBusy('preview');
-      setErrorMessage(undefined);
-      const res = (await post(api, `/edu/import/xem-truoc/${entity}`, {
-        csv: csvContent,
-      })) as { data: PreviewReport };
-      setPreview(res?.data);
-    } catch (err: any) {
-      setErrorMessage(err?.response?.data?.error?.message || err?.message || 'Lỗi khi kiểm tra dữ liệu CSV');
-    } finally {
-      setBusy(undefined);
+      const answer = (await post(api, 'nhapDuLieu/mau', { loai: entity })) as {
+        data: { csv: string };
+      };
+      const url = URL.createObjectURL(
+        new Blob([answer.data.csv], { type: 'text/csv;charset=utf-8' }),
+      );
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `mau-nhap-${entity}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      setError(message(cause));
     }
   };
 
-  // Xác nhận nạp
-  const handleCommit = async () => {
-    if (!csvContent) return;
-    try {
-      setBusy('commit');
-      setErrorMessage(undefined);
-      const res = (await post(api, `/edu/import/xac-nhan/${entity}`, {
-        csv: csvContent,
-      })) as {
-        data: { totalRows: number; importedCount: number; message: string };
-      };
-      const data = res?.data;
-      setSuccessMessage(data?.message || 'Đã nạp dữ liệu thành công!');
-      setPreview(undefined);
-      setCsvContent('');
-      if (onSuccess) onSuccess();
-    } catch (err: any) {
-      setErrorMessage(err?.response?.data?.error?.message || err?.message || 'Lỗi khi nạp dữ liệu');
-    } finally {
-      setBusy(undefined);
+  /** The reason of a row, in this order: the import's own wording, the shared error wording, a plain fallback. */
+  const reason = (code: string): string => {
+    for (const key of [`edu.nhapDuLieu.loi.${code}`, `edu.errors.${code}`]) {
+      const found = t(key);
+      if (found !== key) return found;
     }
+    return t('edu.nhapDuLieu.loi.other');
   };
+
+  const canConfirm =
+    report !== undefined && report.loi.length === 0 && report.hopLe > 0;
+  const fileId = `import-file-${entity}`;
 
   return (
     <>
-      <Button variant={variant} size="sm" onClick={() => setOpen(true)} className="gap-2 shadow-sm font-medium">
-        <Upload className="h-4 w-4" />
-        {buttonLabel}
+      <Button variant={variant} onClick={() => setOpen(true)}>
+        {t('edu.import.open')}
       </Button>
-
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-6">
+      <Dialog open={open} onOpenChange={(next) => (next ? undefined : close())}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-              <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
-              {title}
-            </DialogTitle>
-            <DialogDescription>
-              Tải mẫu CSV chuẩn, điền dữ liệu theo các cột quy định, sau đó tải lên để hệ thống tự động kiểm tra và nhập liệu.
-            </DialogDescription>
+            <DialogTitle>{t(`edu.nhapDuLieu.title.${entity}`)}</DialogTitle>
+            <DialogDescription>{t('edu.nhapDuLieu.hint')}</DialogDescription>
           </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto space-y-5 py-2 pr-1">
-            {/* Bước 1: Tải mẫu */}
-            <div className="bg-muted/40 rounded-lg p-4 border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <p className="font-semibold text-sm">Bước 1: Tải file mẫu CSV</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  File mẫu chứa đúng định dạng cột và dữ liệu minh họa chuẩn tiếng Việt (UTF-8).
-                </p>
-              </div>
+          <div className='flex flex-col gap-4'>
+            <div className='flex flex-col gap-1.5'>
+              <Label htmlFor={fileId}>{t('edu.import.file')}</Label>
+              <Input
+                id={fileId}
+                type='file'
+                accept='.csv,text/csv'
+                onChange={(event) => void choose(event.target.files?.[0])}
+              />
+              <p className='text-xs text-muted-foreground'>
+                {t('edu.nhapDuLieu.limits')}
+              </p>
+              <p className='text-xs text-muted-foreground'>
+                {t(`edu.nhapDuLieu.note.${entity}`)}
+              </p>
               <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownloadTemplate}
-                disabled={busy === 'template'}
-                className="gap-1.5 shrink-0"
+                type='button'
+                variant='link'
+                className='h-auto self-start p-0'
+                onClick={() => void downloadSample()}
               >
-                {busy === 'template' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4 text-primary" />
-                )}
-                Tải file mẫu CSV
+                {t('edu.import.sample')}
               </Button>
             </div>
 
-            {/* Bước 2: Chọn file */}
-            <div className="space-y-2">
-              <Label htmlFor="csv-upload" className="font-semibold text-sm">
-                Bước 2: Chọn tập tin CSV cần nhập
-              </Label>
-              <div className="flex items-center gap-3">
-                <Input
-                  id="csv-upload"
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={handleFileChange}
-                  className="cursor-pointer"
-                />
-                {csvContent && !preview && !successMessage && (
-                  <Button
-                    onClick={handlePreview}
-                    disabled={busy === 'preview'}
-                    className="gap-2 shrink-0 bg-primary font-semibold"
-                  >
-                    {busy === 'preview' && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Kiểm tra dữ liệu
-                  </Button>
-                )}
-              </div>
-              {fileName && (
-                <p className="text-xs text-muted-foreground">
-                  Đã nạp file: <span className="font-medium text-foreground">{fileName}</span>
-                </p>
-              )}
-            </div>
-
-            {/* Báo lỗi nếu có */}
-            {errorMessage && (
-              <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-md flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            {/* Báo thành công */}
-            {successMessage && (
-              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-md flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 shrink-0" />
-                <div className="space-y-1">
-                  <p className="font-semibold">{successMessage}</p>
-                  <p className="text-xs">Dữ liệu đã được nạp thành công và cập nhật vào hệ thống.</p>
-                </div>
-              </div>
-            )}
-
-            {/* Bước 3: Xem trước kết quả kiểm tra */}
-            {preview && (
-              <div className="space-y-3 border rounded-lg p-4 bg-card">
-                <div className="flex items-center justify-between pb-2 border-b">
-                  <p className="font-semibold text-sm">Bước 3: Kết quả kiểm tra dữ liệu</p>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="px-2 py-0.5 rounded bg-muted font-medium">
-                      Tổng: {preview.totalRows} dòng
-                    </span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-semibold">
-                      Hợp lệ: {preview.validCount}
-                    </span>
-                    {preview.errorCount > 0 && (
-                      <span className="px-2 py-0.5 rounded bg-rose-500/15 text-rose-700 dark:text-rose-400 font-semibold">
-                        Lỗi: {preview.errorCount}
-                      </span>
-                    )}
+            {report ? (
+              <section className='flex flex-col gap-2'>
+                <h3 className='text-sm font-medium'>
+                  {t('edu.import.summary')}
+                </h3>
+                <dl className='grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm'>
+                  <dt>{t('edu.import.rows')}</dt>
+                  <dd className='text-right tabular-nums'>{report.tongDong}</dd>
+                  <dt>{t('edu.nhapDuLieu.valid')}</dt>
+                  <dd className='text-right tabular-nums'>{report.hopLe}</dd>
+                </dl>
+                {report.loi.length > 0 ? (
+                  <div role='alert' className='flex flex-col gap-1'>
+                    <h3 className='text-sm font-medium text-destructive'>
+                      {t('edu.import.problems')}: {report.loi.length}
+                    </h3>
+                    <p className='text-xs text-muted-foreground'>
+                      {t('edu.import.problemsHint')}
+                    </p>
+                    <ul className='max-h-48 overflow-y-auto text-sm'>
+                      {report.loi.slice(0, 100).map((problem) => (
+                        <li key={`${problem.dong}-${problem.ma}`}>
+                          {t('edu.import.line', { line: problem.dong })}
+                          {problem.cot
+                            ? ` (${t('edu.nhapDuLieu.column', { cot: problem.cot })})`
+                            : ''}
+                          : {reason(problem.ma)}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                </div>
+                ) : null}
+              </section>
+            ) : null}
 
-                <div className="max-h-60 overflow-y-auto border rounded divide-y text-xs">
-                  {preview.rows.map((r, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-2.5 flex items-start gap-2.5 ${
-                        r.isValid ? 'bg-background hover:bg-muted/40' : 'bg-destructive/5'
-                      }`}
-                    >
-                      <div className="pt-0.5">
-                        {r.isValid ? (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                        ) : (
-                          <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
-                        )}
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-muted-foreground">Dòng {r.line}:</span>
-                          <span className="font-medium text-foreground">
-                            {Object.entries(r.data)
-                              .slice(0, 3)
-                              .map(([k, v]) => `${k}: ${v || '—'}`)
-                              .join(' | ')}
-                          </span>
-                        </div>
-                        {r.errors.length > 0 && (
-                          <div className="text-destructive font-semibold">
-                            ⚠️ {r.errors.join(', ')}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {done !== undefined ? (
+              <p role='status' className='text-sm'>
+                {t('edu.import.done', { count: done })}
+              </p>
+            ) : null}
+            {error ? (
+              <p role='alert' className='text-sm text-destructive'>
+                {error}
+              </p>
+            ) : null}
           </div>
-
-          <DialogFooter className="gap-2 sm:gap-0 pt-3 border-t">
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              {successMessage ? 'Đóng' : 'Hủy bỏ'}
+          <DialogFooter>
+            <Button type='button' variant='outline' onClick={close}>
+              {t('edu.import.close')}
             </Button>
-            {preview && preview.validCount > 0 && (
-              <Button
-                onClick={handleCommit}
-                disabled={busy === 'commit'}
-                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-              >
-                {busy === 'commit' && <Loader2 className="h-4 w-4 animate-spin" />}
-                Xác nhận nạp {preview.validCount} dòng hợp lệ
-              </Button>
-            )}
+            <Button
+              type='button'
+              variant='outline'
+              disabled={csv === undefined || busy !== undefined}
+              onClick={() => void run('preview')}
+            >
+              {busy === 'preview'
+                ? t('edu.import.previewing')
+                : t('edu.import.preview')}
+            </Button>
+            <Button
+              type='button'
+              disabled={!canConfirm || busy !== undefined}
+              onClick={() => void run('confirm')}
+            >
+              {busy === 'confirm'
+                ? t('edu.import.confirming')
+                : t('edu.import.confirm')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

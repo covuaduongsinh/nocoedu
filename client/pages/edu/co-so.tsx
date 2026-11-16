@@ -50,14 +50,11 @@ export default function CoSoPage(): ReactElement {
         }}
         actions={
           <div className='flex items-center gap-2'>
-            <GenericImportDialog
-              entity='coSo'
-              title='Nhập danh sách Cơ sở từ CSV'
-              buttonLabel='Nhập Cơ sở CSV'
-              onSuccess={reload}
-            />
+            <GenericImportDialog entity='coSo' onSuccess={reload} />
             {canManage ? (
-              <Button onClick={() => setForm(EMPTY)}>{t('edu.coSo.new')}</Button>
+              <Button onClick={() => setForm(EMPTY)}>
+                {t('edu.coSo.new')}
+              </Button>
             ) : null}
           </div>
         }

@@ -74,14 +74,11 @@ export default function SachPage(): ReactElement {
         }}
         actions={
           <div className='flex items-center gap-2'>
-            <GenericImportDialog
-              entity='sach'
-              title='Nhập Danh mục Sách từ CSV'
-              buttonLabel='Nhập Sách CSV'
-              onSuccess={reload}
-            />
+            <GenericImportDialog entity='sach' onSuccess={reload} />
             {canManage ? (
-              <Button onClick={() => setForm(EMPTY)}>{t('edu.sach.new')}</Button>
+              <Button onClick={() => setForm(EMPTY)}>
+                {t('edu.sach.new')}
+              </Button>
             ) : null}
           </div>
         }
