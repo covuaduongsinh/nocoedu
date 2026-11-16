@@ -109,6 +109,7 @@ export async function seedSchool(
   const q = connection.query;
   // The file shares one application, so start every case from an empty school.
   for (const table of [
+    'eduCongPhuHuynh',
     'eduSachHoc',
     'eduLienHe',
     'eduHoSoGv',

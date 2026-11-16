@@ -29,6 +29,7 @@ export const COLLECTIONS = {
   lienHe: { name: 'eduLienHe', title: 'Liên hệ tuyển sinh' },
   hoSoGv: { name: 'eduHoSoGv', title: 'Hồ sơ giáo viên' },
   sachHoc: { name: 'eduSachHoc', title: 'Sách đã và đang học' },
+  congPhuHuynh: { name: 'eduCongPhuHuynh', title: 'Link riêng của phụ huynh' },
 } as const;
 
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -307,6 +308,20 @@ export const FIELDS = {
     read: ['id', 'hocVienId', 'sachId', 'trangThai'],
     write: [],
   },
+  // Never `tokenHash`: not even a hash of a link leaves the server. Rows are written only by `edu-cong-phu-huynh.ts`.
+  congPhuHuynh: {
+    read: [
+      'id',
+      'hocVienId',
+      'phuHuynhId',
+      'hanLuc',
+      'thuHoiLuc',
+      'xemCuoiLuc',
+      'soLanXem',
+      'createdAt',
+    ],
+    write: [],
+  },
   hoSoGv: {
     read: ['id', 'userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
     write: ['userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
@@ -416,6 +431,15 @@ export const sachHoc = defineCompositeResource('edu.sachHoc', (r) =>
   r
     .title('Sách đã và đang học')
     .action('view', (a) => a.title('Xem').grant('data', sachHocRead)),
+);
+// The private link of a parent (stage 3). `view` lists the links of a student and when each was last opened; `manage`
+// makes and revokes them (`POST /congPhuHuynh/taoLink`, `/thuHoi`), which write the rows themselves: the record API
+// never creates or changes one, and never returns the hash of a token.
+export const congPhuHuynh = simple(
+  'edu.congPhuHuynh',
+  'Link riêng của phụ huynh',
+  'congPhuHuynh',
+  {},
 );
 // Coach profile and pay per session (DS-61 phase F). Pay is the club's private matter: only the administrator holds
 // this resource; the account itself (`userId`) cannot be changed after the profile is made.

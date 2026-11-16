@@ -275,7 +275,10 @@ describe('student file', () => {
     });
 
     await userEvent.click(screen.getByRole('tab', { name: 'Phụ huynh' }));
-    expect(await screen.findByText('Phụ huynh Mẫu 11')).toBeInTheDocument();
+    // The parent is in the table and, for who may manage links, on a card under it.
+    expect(
+      (await screen.findAllByText('Phụ huynh Mẫu 11')).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText('Mẹ')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('tab', { name: 'Buổi học' }));

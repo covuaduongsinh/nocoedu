@@ -103,3 +103,13 @@ notification:
 Không có kênh này thì job không được lên lịch và không có gì được gửi (ứng dụng vẫn chạy bình thường). Đổi cấu hình thì khởi động lại. Chạy nhiều bản của ứng dụng thì cần `jobs.default` là Redis, nếu không mỗi bản tự gửi một lần (khoá gửi theo tuần giúp không trùng thông báo, nhưng không nên dựa vào đó).
 
 - **Xem lại nội dung mẫu:** Cài đặt hệ thống › Quản lý thông báo › Mẫu thông báo, mẫu `edu.nhac-hoc-phi` (chỉ xem trước bằng dữ liệu giả, không gửi gì).
+
+## Link riêng cho phụ huynh
+
+Phụ huynh đọc nhật ký học của con **không cần tài khoản**, qua một đường dẫn riêng dạng `https://<tên miền>/<đường dẫn ứng dụng>/ph#<mã>`.
+
+- **Ai tạo:** Quản trị (mọi học viên) và Quản lý cơ sở (học viên của cơ sở mình). Vào hồ sơ học viên, tab **Phụ huynh**, khối "Link riêng cho phụ huynh": **Tạo link** → bấm **Sao chép** rồi gửi cho phụ huynh (Zalo, tin nhắn). Link **chỉ hiện một lần**: hệ thống không lưu mã, chỉ lưu bản băm, nên đóng cửa sổ là không xem lại được. Quên thì bấm **Tạo link mới** (link cũ ngừng dùng được ngay).
+- **Hạn dùng:** 90 ngày kể từ lúc tạo. **Thu hồi** bất cứ lúc nào. Mỗi lần phụ huynh mở, hệ thống ghi số lần và lần cuối (thấy ở khối này).
+- **Phụ huynh thấy gì:** tên gọi rút gọn (ví dụ "Nguyễn M. An"), cấp độ, lớp, số buổi còn lại, 10 buổi gần nhất (có mặt/vắng, bài về nhà, ý thức, kiến thức mới, bài giao về nhà, nhận xét của HLV) và nhận xét tháng gần nhất. **Không có**: ngày sinh, số điện thoại, tiền học phí, mã học viên, họ tên đầy đủ, ghi chú riêng của HLV.
+- **An toàn:** mã nằm sau dấu `#` nên không vào nhật ký máy chủ; đường dẫn sai, hết hạn hay đã thu hồi đều báo cùng một thông báo; trang không bị công cụ tìm kiếm lập chỉ mục; mỗi địa chỉ chỉ mở tối đa 30 lần mỗi phút.
+- **Quyền:** bộ quyền `edu.congPhuHuynh` do seed `202611160005_edu_cong_phu_huynh_grant` cấp cho Quản trị và Quản lý cơ sở (Kế toán, HLV không có). Trên bản đang chạy, chạy `pnpm nocobase db apply` để thêm bảng và quyền; không gán bộ quyền cho ai.

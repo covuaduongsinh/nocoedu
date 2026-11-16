@@ -37,6 +37,8 @@ import {
   type Row,
 } from './kit.js';
 import { RowsTable } from './list-page.js';
+import { ParentLinks } from './parent-links.js';
+import { useParentLinks } from './parent-links-model.js';
 import { NoteButton, RowManage, UnlinkButton } from './sua-xoa.js';
 
 const fmt = (value: unknown): string => Number(value).toLocaleString('vi-VN');
@@ -481,45 +483,58 @@ function Parents({ studentId }: { readonly studentId: number }): ReactElement {
     'phuHuynh',
     linkRows.map((row) => Number(row.phuHuynhId)),
   );
+  const portal = useParentLinks(studentId);
   return (
-    <RowsTable
-      loaded={links.loaded}
-      onRetry={links.reload}
-      emptyTitle={t('edu.hocVien.noParents')}
-      emptyHint={t('edu.hocVien.noParentsHint')}
-      columns={[
-        {
-          key: 'hoTen',
-          label: t('edu.phuHuynh.hoTen'),
-          render: (row) => text(parents.get(Number(row.phuHuynhId))?.hoTen),
-        },
-        {
-          key: 'quanHe',
-          label: t('edu.hocVien.quanHe'),
-          render: (row) => t(`edu.relation.${text(row.quanHe)}`),
-        },
-        {
-          key: 'soDienThoai',
-          label: t('edu.phuHuynh.soDienThoai'),
-          render: (row) =>
-            text(parents.get(Number(row.phuHuynhId))?.soDienThoai),
-        },
-        {
-          key: 'zalo',
-          label: t('edu.phuHuynh.zalo'),
-          render: (row) => text(parents.get(Number(row.phuHuynhId))?.zalo),
-        },
-        {
-          key: 'lienHeChinh',
-          label: t('edu.hocVien.lienHeChinh'),
-          render: (row) =>
-            row.lienHeChinh === true ? t('edu.common.yes') : '',
-        },
-      ]}
-      rowActions={(row) => (
-        <UnlinkButton linkId={row.id} onChanged={links.reload} />
-      )}
-    />
+    <div className='flex flex-col gap-6'>
+      <RowsTable
+        loaded={links.loaded}
+        onRetry={links.reload}
+        emptyTitle={t('edu.hocVien.noParents')}
+        emptyHint={t('edu.hocVien.noParentsHint')}
+        columns={[
+          {
+            key: 'hoTen',
+            label: t('edu.phuHuynh.hoTen'),
+            render: (row) => text(parents.get(Number(row.phuHuynhId))?.hoTen),
+          },
+          {
+            key: 'quanHe',
+            label: t('edu.hocVien.quanHe'),
+            render: (row) => t(`edu.relation.${text(row.quanHe)}`),
+          },
+          {
+            key: 'soDienThoai',
+            label: t('edu.phuHuynh.soDienThoai'),
+            render: (row) =>
+              text(parents.get(Number(row.phuHuynhId))?.soDienThoai),
+          },
+          {
+            key: 'zalo',
+            label: t('edu.phuHuynh.zalo'),
+            render: (row) => text(parents.get(Number(row.phuHuynhId))?.zalo),
+          },
+          {
+            key: 'lienHeChinh',
+            label: t('edu.hocVien.lienHeChinh'),
+            render: (row) =>
+              row.lienHeChinh === true ? t('edu.common.yes') : '',
+          },
+        ]}
+        rowActions={(row) => (
+          <UnlinkButton linkId={row.id} onChanged={links.reload} />
+        )}
+      />
+      {portal.canView && linkRows.length > 0 ? (
+        <ParentLinks
+          studentId={studentId}
+          parents={linkRows.map((row) => ({
+            id: Number(row.phuHuynhId),
+            name: text(parents.get(Number(row.phuHuynhId))?.hoTen),
+          }))}
+          portal={portal}
+        />
+      ) : null}
+    </div>
   );
 }
 

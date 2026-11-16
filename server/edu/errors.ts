@@ -9,7 +9,8 @@ export function eduError(
     | 'INVALID_ARGUMENT'
     | 'FAILED_PRECONDITION'
     | 'ALREADY_EXISTS'
-    | 'PERMISSION_DENIED',
+    | 'PERMISSION_DENIED'
+    | 'RESOURCE_EXHAUSTED',
   reason: string,
   message: string,
   field?: string,

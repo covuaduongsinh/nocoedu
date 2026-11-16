@@ -13,6 +13,7 @@ import eduNoiDungBuoi from './edu-noi-dung-buoi.js';
 import eduLienHe from './edu-lien-he.js';
 import eduNhanXet from './edu-nhan-xet.js';
 import eduCrm from './edu-crm.js';
+import eduCongPhuHuynh from './edu-cong-phu-huynh.js';
 import eduSaoLuu from './edu-sao-luu.js';
 import eduXuatCsv from './edu-xuat-csv.js';
 import eduTraCuu from './edu-tra-cuu.js';
@@ -26,6 +27,7 @@ const routes: readonly AppRouteContribution<Application>[] = [
   ...eduLienHe,
   ...eduNhanXet,
   ...eduCrm,
+  ...eduCongPhuHuynh,
   ...eduSaoLuu,
   ...eduHoSoGv,
   ...eduPhatSach,

@@ -273,6 +273,16 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     path: '/reset-password',
   },
   {
+    // The private link a parent opens (`/ph#<token>`, `pages/ph/index.tsx`). A parent has no account: `optional` so it
+    // renders outside the shell like `/device`, and `skip` because the token in the address, not a permission, is what
+    // opens it. The token sits after the `#` so no server ever receives it in an address.
+    auth: 'optional',
+    authz: 'skip',
+    componentLoader: () => import('./pages/ph/index.js'),
+    name: 'ph',
+    path: '/ph',
+  },
+  {
     // Where a command line's sign-in sends the person to approve it (`pages/auth/device.tsx`). Optional rather than
     // required so it renders outside the shell, like the sign-in pages; the page sends a guest to sign in and back.
     auth: 'optional',

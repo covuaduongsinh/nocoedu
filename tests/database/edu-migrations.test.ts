@@ -461,3 +461,29 @@ describeMigration('202611160004_edu_co_so_nguong_nhac', {
     await expectCollection('eduCoSo').not.toHaveField('nguongNhacBuoi');
   },
 });
+
+describeMigration('202611160005_create_edu_cong_phu_huynh', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduCongPhuHuynh').toHaveField('tokenHash', {
+      nullable: false,
+    });
+    await expectCollection('eduCongPhuHuynh').toHaveIndex(['tokenHash'], {
+      unique: true,
+    });
+    await expectCollection('eduCongPhuHuynh').toHaveField('thuHoiLuc', {
+      nullable: true,
+    });
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduCongPhuHuynh').not.toExist();
+  },
+});

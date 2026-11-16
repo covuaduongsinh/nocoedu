@@ -5,6 +5,7 @@ import {
   baoCao,
   buoiHoc,
   coSo,
+  congPhuHuynh,
   coSoQuanLy,
   diemDanh,
   dongY,
@@ -145,6 +146,12 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .grant(doiSoatPage)
   .grant(saoLuuPage)
   .grant(heThong.reference().grant({ backup: { data: ALL } }))
+  // The parents' private links came last: `202611160005_edu_cong_phu_huynh_grant`.
+  .grant(
+    congPhuHuynh
+      .reference()
+      .grant({ view: { data: ALL }, manage: { data: ALL } }),
+  )
   .build();
 
 export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
@@ -244,6 +251,12 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
   )
   .grant(sachHoc.reference().grant({ view: { data: MY_BRANCHES } }))
   .grant(doiSoatPage)
+  .grant(
+    congPhuHuynh.reference().grant({
+      view: { data: MY_BRANCHES },
+      manage: { data: MY_BRANCHES },
+    }),
+  )
   .build();
 
 export const eduHlv = definePermissionSet('edu_hlv')
