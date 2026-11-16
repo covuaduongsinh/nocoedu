@@ -1,6 +1,6 @@
-# Job PostgreSQL cho CI (cần người có quyền `workflows` thêm vào `.github/workflows/ds-check.yml`)
+# Job PostgreSQL cho CI (đã thêm vào `.github/workflows/ds-check.yml`)
 
-Runner không có quyền `workflows` nên không đẩy được file workflow. Thêm job sau vào `jobs:`:
+Job này đã nằm trong `.github/workflows/ds-check.yml` (job `postgres`, chạy trên mỗi pull request). Bản dưới đây là mẫu gốc; danh sách tệp test trong workflow đầy đủ hơn.
 
 ```yaml
 postgres:

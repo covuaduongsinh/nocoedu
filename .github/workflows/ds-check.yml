@@ -35,3 +35,52 @@ jobs:
             echo "Files that must not be committed" >&2
             exit 1
           fi
+
+  # The same migrations, record scopes and money paths on PostgreSQL, the database of the deployed application (the
+  # `check` job and local development use SQLite). `NOCOBASE_TEST_DB_DIALECT` makes the test harness provision an
+  # isolated database per test file on this server (`docs/ci-postgres-job.md`).
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nocoedu
+          POSTGRES_PASSWORD: nocoedu-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nocoedu" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NOCOBASE_TEST_DB_DIALECT: postgres
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: '5432'
+      POSTGRES_USER: nocoedu
+      POSTGRES_PASSWORD: nocoedu-ci-only
+      POSTGRES_DATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Migrations, record scope and money paths on PostgreSQL
+        run: >-
+          pnpm exec vitest run
+          tests/database/edu-migrations.test.ts
+          tests/server/edu-scope.test.ts
+          tests/server/edu-scope-writes.test.ts
+          tests/server/edu-actions.test.ts
+          tests/server/edu-diem-danh.test.ts
+          tests/server/edu-so-du-dieu-chinh.test.ts
+          tests/server/edu-phieu-thu.test.ts
+          tests/server/edu-ghi-mot-lan.test.ts
+          tests/server/edu-nguong-nhac.test.ts
+          tests/server/edu-nhac-hoc-phi.test.ts
+          tests/server/edu-cong-phu-huynh.test.ts
+          tests/server/edu-co-so-quan-ly.test.ts
+          tests/server/edu-permission-sets.test.ts
