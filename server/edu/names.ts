@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 /** "Nguyễn Minh An" → "Nguyễn M. An": the short form other applications may show (knowledge document 05). */
 export function shortName(fullName: string): string {
   const words = fullName.trim().split(/\s+/u).filter(Boolean);
@@ -30,4 +32,13 @@ export function asText(value: unknown): string {
   return typeof value === 'string' || typeof value === 'number'
     ? String(value)
     : '';
+}
+
+/**
+ * A placeholder `ma` for a row whose real code (`HS00001`) needs the id the database is about to give it: 28 characters,
+ * because the column is 32 wide. PostgreSQL refuses a longer value; SQLite does not, which is how a 40-character
+ * `TMP-<uuid>` once passed every local test and failed on the deployed database.
+ */
+export function temporaryCode(): string {
+  return `TMP-${randomUUID().replaceAll('-', '').slice(0, 24)}`;
 }

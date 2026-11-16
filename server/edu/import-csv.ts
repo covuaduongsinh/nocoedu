@@ -1,7 +1,7 @@
 import type { DatabaseManager } from '@nocobase/db';
 
 import { LEVEL_KEYS, levelOrder } from './levels.js';
-import { asText, codeFromId, normalizePhone } from './names.js';
+import { asText, codeFromId, normalizePhone, temporaryCode } from './names.js';
 
 /**
  * Import of students and their parents from a CSV file, all or nothing.
@@ -267,7 +267,7 @@ export async function importStudents(
     for (const item of candidates) {
       const student = await connection.repository('eduHocVien').createOne({
         values: {
-          ma: `TMP-${crypto.randomUUID()}`,
+          ma: temporaryCode(),
           hoTen: item.hoTen,
           namSinh: item.namSinh,
           levelKey: item.levelKey,
@@ -289,7 +289,7 @@ export async function importStudents(
       if (parentId === undefined) {
         const parent = await connection.repository('eduPhuHuynh').createOne({
           values: {
-            ma: `TMP-${crypto.randomUUID()}`,
+            ma: temporaryCode(),
             hoTen: item.parentName,
             soDienThoai: item.phone,
             zalo: item.zalo,

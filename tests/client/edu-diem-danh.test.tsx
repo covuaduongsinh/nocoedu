@@ -16,14 +16,17 @@ import {
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import BaoCaoPage from '../../client/pages/edu/bao-cao.js';
-import DiemDanhPage from '../../client/pages/edu/diem-danh.js';
+import DiemDanhPage from '../../client/pages/edu/diem-danh/index.js';
 import viVN from '../../client/locales/vi-VN.js';
 import packageMetadata from '../../package.json' with { type: 'json' };
 
 let permissions: AuthorizationSnapshot;
+/** What `/buoiHoc/noiDung/xem` answers: a response, or a refusal. */
+let storedContent: unknown;
+let sessionStatus: string;
 const getSession = vi.fn(async () => ({ data: null }));
 const api = vi.fn(({ method, path }: ApiCall) => {
   if (method === 'GET' && path === 'authorization/permissions')
@@ -37,10 +40,12 @@ const api = vi.fn(({ method, path }: ApiCall) => {
           ngay: '2026-11-09',
           gioBatDau: '17:30',
           gioKetThuc: '19:00',
-          trangThai: 'du_kien',
+          trangThai: sessionStatus,
         },
       ],
     };
+  if (path === 'buoiHoc/noiDung/xem') return storedContent as object;
+  if (path === 'buoiHoc/noiDung/luu') return { data: { buoiHocId: 5 } };
   if (path === 'lop/findMany')
     return { data: [{ id: 1, ma: 'L1', ten: 'Lớp Mẫu 1', coSoId: 1 }] };
   if (path === 'hocVien/findMany')
@@ -101,9 +106,150 @@ async function render(
 }
 
 describe('attendance and report pages', () => {
+  const width = window.innerWidth;
   beforeEach(() => {
     api.mockClear();
     permissions = { unrestricted: false, permissions: [] };
+    storedContent = { data: { noiDung: {}, yThuc: [] } };
+    sessionStatus = 'du_kien';
+    // jsdom has no `matchMedia`; the register reads the width to choose cards (a phone) or a table.
+    vi.stubGlobal('matchMedia', () => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.innerWidth = width;
+  });
+
+  const recorder = (): void => {
+    permissions = {
+      unrestricted: false,
+      permissions: [
+        {
+          resource: { type: 'composite', id: 'edu.diemDanh' },
+          actions: ['record'],
+        },
+      ],
+    };
+  };
+
+  it('is a table on a wide screen', async () => {
+    recorder();
+    await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
+    await screen.findByText('Học viên Mẫu 01');
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
+  });
+
+  it('is one card per student on a phone, with the same fields and no table to scroll sideways', async () => {
+    recorder();
+    window.innerWidth = 375;
+    await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
+    await screen.findByText('Học viên Mẫu 01');
+    await waitFor(() =>
+      expect(screen.queryByRole('table')).not.toBeInTheDocument(),
+    );
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
+    expect(
+      screen.getByRole('checkbox', { name: /Làm bài tập/u }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Ý thức/u })).toBeEnabled();
+    expect(
+      screen.getByRole('textbox', { name: /Nhận xét ngắn/u }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Lưu điểm danh' }),
+    ).toBeInTheDocument();
+  });
+
+  it('lists the sessions to choose from when none is in the address', async () => {
+    await render(<DiemDanhPage />, '/diem-danh', '/diem-danh');
+    // The session is in "all sessions" behind the period filter; "All" shows it.
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Tất cả' }),
+    );
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Lớp Mẫu 1/u }),
+    );
+    expect(await screen.findByText('Học viên Mẫu 01')).toBeInTheDocument();
+  });
+
+  it('saves a changed status, a quick comment and a score, the content only when it changed', async () => {
+    recorder();
+    await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
+    await userEvent.click(
+      await screen.findByRole('radio', { name: /Vắng có phép/u }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Chưa làm bài tập về nhà' }),
+    );
+    await userEvent.type(screen.getByRole('textbox', { name: /Ý thức/u }), '8');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Lưu điểm danh' }),
+    );
+    await waitFor(() =>
+      expect(api).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: 'buoiHoc/noiDung/luu',
+          json: expect.objectContaining({
+            buoiHocId: 5,
+            yThuc: [{ hocVienId: 7, diem: 8 }],
+          }),
+        }),
+      ),
+    );
+    expect(api).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: 'diemDanh/luu',
+        json: {
+          buoiHocId: 5,
+          danhSach: [
+            {
+              hocVienId: 7,
+              trangThai: 'vang_co_phep',
+              daLamBtvn: false,
+              nhanXet: 'Chưa làm bài tập về nhà',
+            },
+          ],
+        },
+      }),
+    );
+  });
+
+  it('never writes the session content when it could not be read', async () => {
+    recorder();
+    storedContent = new Response(null, { status: 500 });
+    await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
+    expect(
+      await screen.findByText(/Chưa tải được nội dung buổi học/u),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Ý thức/u })).toBeDisabled();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Lưu điểm danh' }),
+    );
+    await waitFor(() =>
+      expect(api).toHaveBeenCalledWith(
+        expect.objectContaining({ path: 'diemDanh/luu' }),
+      ),
+    );
+    expect(
+      api.mock.calls.some(([call]) => call.path === 'buoiHoc/noiDung/luu'),
+    ).toBe(false);
+  });
+
+  it('shows no register for a session that was called off', async () => {
+    recorder();
+    sessionStatus = 'huy';
+    await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
+    expect(
+      await screen.findByText('Buổi học này đã huỷ nên không có sổ điểm danh.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Lưu điểm danh' }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows no save button without the attendance action', async () => {
@@ -124,15 +270,7 @@ describe('attendance and report pages', () => {
   });
 
   it('saves the register through the business route and warns when few sessions are left', async () => {
-    permissions = {
-      unrestricted: false,
-      permissions: [
-        {
-          resource: { type: 'composite', id: 'edu.diemDanh' },
-          actions: ['record'],
-        },
-      ],
-    };
+    recorder();
     await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
     await userEvent.click(
       await screen.findByRole('button', { name: 'Lưu điểm danh' }),
@@ -157,6 +295,10 @@ describe('attendance and report pages', () => {
       ),
     );
     expect(await screen.findByText('Sắp hết: còn 2 buổi')).toBeInTheDocument();
+    // Nothing of the session content was typed, so it is not written.
+    expect(
+      api.mock.calls.some(([call]) => call.path === 'buoiHoc/noiDung/luu'),
+    ).toBe(false);
   });
 
   it('shows a report with Vietnamese column names', async () => {

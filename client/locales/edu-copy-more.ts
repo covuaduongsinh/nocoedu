@@ -12,7 +12,7 @@ export const EDU_MORE_ROWS: readonly (readonly [
   ['nav.hocPhi', 'Học phí', 'Tuition', '学费'],
   ['nav.nhanXet', 'Nhận xét', 'Comments', '评语'],
   ['nav.baoCao', 'Báo cáo', 'Reports', '报表'],
-  ['nav.saoLuu', 'Sao lưu dữ liệu', 'Backup & Restore', '备份与恢复'],
+  ['nav.saoLuu', 'Sao lưu dữ liệu', 'Data backup', '数据备份'],
 
   ['home.today', 'Hôm nay có lớp', 'Classes today', '今日课程'],
   [
@@ -53,9 +53,9 @@ export const EDU_MORE_ROWS: readonly (readonly [
   ],
   [
     'home.lowHint',
-    'Còn từ 2 buổi trở xuống.',
-    'Two sessions left or fewer.',
-    '剩余 2 节课或更少。',
+    'Còn ít buổi, theo ngưỡng của từng cơ sở.',
+    'Few sessions left, by each branch’s threshold.',
+    '剩余课时较少，按各分校的提醒值。',
   ],
   [
     'home.callBack',

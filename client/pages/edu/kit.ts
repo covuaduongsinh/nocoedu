@@ -218,6 +218,29 @@ export function useListState(): {
   return { page, setPage, search, setSearch, applied };
 }
 
+/** The sessions-left threshold of a branch that is not known (the server's `LOW_BALANCE_THRESHOLD`). */
+const DEFAULT_LOW_AT = 2;
+
+/**
+ * Whether a student with this balance is "low": at or below the threshold of the student's branch
+ * (`eduCoSo.nguongNhacBuoi`). Until the branches are read the default applies; the server's own answers
+ * (`canhBao`) win wherever the page has them.
+ */
+export function useIsLowBalance(): (student: Row) => boolean {
+  const branches = useRows('coSo').loaded;
+  return (student) => {
+    const branch =
+      branches.state === 'ready'
+        ? branches.rows.find((row) => row.id === student.coSoId)
+        : undefined;
+    const at = Number(branch?.nguongNhacBuoi);
+    return (
+      Number(student.soBuoiConLai) <=
+      (Number.isFinite(at) ? at : DEFAULT_LOW_AT)
+    );
+  };
+}
+
 /**
  * The rows of a collection with these ids (a page of attendance names its sessions), by id. Rows the person may not
  * see are simply absent. Ids are looked up at most 100 at a time.
@@ -323,12 +346,33 @@ export function normalizePhone(value: string): string {
   return plain.replace(/\D/gu, '');
 }
 
+/** One attempt of a form's operation: the key every attempt of it shares, and the signal that ends the wait. */
+export interface Operation {
+  readonly key: string;
+  readonly signal: AbortSignal;
+}
+
+/**
+ * POSTs a business route. A route that writes money or a balance takes the `operation` of the form (`FormDialog`
+ * hands it to `onSubmit`): the server then writes once however often the request arrives.
+ */
 export function post(
   api: ApiClient,
   path: string,
   json: unknown,
+  operation?: Operation,
 ): Promise<unknown> {
-  return api.request({ path, method: 'POST', json });
+  return api.request({
+    path,
+    method: 'POST',
+    json,
+    ...(operation
+      ? {
+          headers: { 'Idempotency-Key': operation.key },
+          signal: operation.signal,
+        }
+      : {}),
+  });
 }
 
 /** A row value as text: strings and numbers only, anything else is empty. */
@@ -343,21 +387,31 @@ export type Result<T> =
   | {
       readonly state: 'error';
       readonly forbidden: boolean;
+      /** The server answered 404: the record is not there, or not in the person's scope. */
+      readonly notFound: boolean;
       readonly reason?: string;
     }
   | { readonly state: 'ready'; readonly data: T };
 
-/** POSTs a read-only business route (reports, summaries) and keeps the result; `reload` asks again. */
+/**
+ * POSTs a read-only business route (reports, summaries) and keeps the result; `reload` asks again.
+ *
+ * `enabled: false` asks nothing (a page with two views reads only the one that shows). `lastData` is the last good
+ * answer, kept while a changed request is on its way, so figures above a list do not blank at every filter change.
+ */
 export function useRequest<T>(
   path: string,
   json: unknown,
-): { result: Result<T>; reload: () => void } {
+  options: { readonly enabled?: boolean } = {},
+): { result: Result<T>; reload: () => void; lastData: T | undefined } {
   const api = useApiClient();
+  const enabled = options.enabled ?? true;
   const [version, setVersion] = useState(0);
   const body = JSON.stringify(json);
   const key = `${path}:${body}:${version}`;
   const [done, setDone] = useState<{ key: string; value: Result<T> }>();
   useEffect(() => {
+    if (!enabled) return undefined;
     let live = true;
     api
       .request<{ data: T }>({ path, method: 'POST', json: JSON.parse(body) })
@@ -374,6 +428,9 @@ export function useRequest<T>(
               forbidden:
                 error instanceof ApiClientError &&
                 (error as { status?: number }).status === 403,
+              notFound:
+                error instanceof ApiClientError &&
+                (error as { status?: number }).status === 404,
               ...(error instanceof ApiClientError &&
               (error as { reason?: string }).reason
                 ? { reason: (error as { reason: string }).reason }
@@ -384,11 +441,36 @@ export function useRequest<T>(
     return () => {
       live = false;
     };
-  }, [api, path, body, key]);
+  }, [api, path, body, key, enabled]);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
   const result: Result<T> =
-    done?.key === key ? done.value : { state: 'loading' };
-  return { result, reload };
+    enabled && done?.key === key ? done.value : { state: 'loading' };
+  const lastData = done?.value.state === 'ready' ? done.value.data : undefined;
+  return { result, reload, lastData };
+}
+
+/**
+ * Downloads a report as a CSV file through `/baoCao/xuatCsv`: the server asks for `edu.baoCao` `export`, reads through
+ * the caller's policies and writes the export log. A page never builds a CSV of students in the browser.
+ */
+export async function downloadReport(
+  api: ApiClient,
+  json: Record<string, unknown>,
+  fileName: string,
+): Promise<void> {
+  const stream = await api.stream({
+    path: '/baoCao/xuatCsv',
+    method: 'POST',
+    json,
+  });
+  const blob = await new Response(stream).blob();
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(
+    new Blob([blob], { type: 'text/csv;charset=utf-8' }),
+  );
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 /** Today in Vietnam as `YYYY-MM-DD`, the club's calendar day. */

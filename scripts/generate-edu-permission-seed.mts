@@ -23,14 +23,19 @@ const withoutLaterActions = (grants: readonly unknown[]): unknown[] =>
       resource: { type: string; id: string };
       actions: { action: string }[];
     };
-    return g.resource.type === 'composite' && g.resource.id === 'edu.hocVien'
-      ? {
-          ...g,
-          actions: g.actions.filter(
-            (a) => !['import', 'export'].includes(a.action),
-          ),
-        }
-      : g;
+    if (g.resource.type === 'composite' && g.resource.id === 'edu.hocVien') {
+      return {
+        ...g,
+        actions: g.actions.filter(
+          (a) => !['import', 'export'].includes(a.action),
+        ),
+      };
+    }
+    // `adjust` of `edu.soDu` is granted by `202611160002_edu_so_du_adjust_grant`.
+    if (g.resource.type === 'composite' && g.resource.id === 'edu.soDu') {
+      return { ...g, actions: g.actions.filter((a) => a.action !== 'adjust') };
+    }
+    return g;
   });
 // The books page and the `edu.sach` grant were added later still: `202611130003_edu_sach_grant`.
 const withoutSach = (grants: readonly unknown[]): unknown[] =>
@@ -41,7 +46,13 @@ const withoutSach = (grants: readonly unknown[]): unknown[] =>
       g.resource.id !== 'edu.phatSach' &&
       g.resource.id !== 'edu.tuyenSinh' &&
       g.resource.id !== 'edu.hoSoGv' &&
-      g.resource.id !== 'edu.sachHoc'
+      g.resource.id !== 'edu.sachHoc' &&
+      // `202611160001_edu_doi_soat_sao_luu_grant`.
+      g.resource.id !== 'edu.doiSoat' &&
+      g.resource.id !== 'edu.saoLuu' &&
+      g.resource.id !== 'edu.heThong' &&
+      // `202611160005_edu_cong_phu_huynh_grant`.
+      g.resource.id !== 'edu.congPhuHuynh'
     );
   });
 const literal = JSON.stringify(

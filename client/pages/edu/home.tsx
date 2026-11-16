@@ -47,6 +47,8 @@ interface SessionView {
 interface Summary {
   homNay: SessionView[];
   chuaDiemDanh: SessionView[];
+  /** Marked sessions of the last two weeks where a student who came has no comment yet. */
+  thieuNhanXet?: (SessionView & { thieu: number; tong: number })[];
 }
 interface LowStudent {
   id: number;
@@ -103,6 +105,10 @@ export default function EduHome(): ReactElement {
   const unmarkedSessions =
     summary.result.state === 'ready' ? summary.result.data.chuaDiemDanh : [];
   const lowStudents = low.result.state === 'ready' ? low.result.data : [];
+  const missingComments =
+    summary.result.state === 'ready'
+      ? (summary.result.data.thieuNhanXet ?? [])
+      : [];
 
   return (
     <PageContainer className='mx-auto max-w-6xl space-y-6'>
@@ -219,12 +225,13 @@ export default function EduHome(): ReactElement {
               ) : null}
 
               {/* Unmarked Sessions Requiring Attention */}
-              {summary.result.state === 'ready' && unmarkedSessions.length > 0 ? (
-                <Card className='border-amber-500/20 shadow-xs'>
+              {summary.result.state === 'ready' &&
+              unmarkedSessions.length > 0 ? (
+                <Card className='border-(--status-warning)/20 shadow-xs'>
                   <CardHeader className='pb-3'>
                     <div className='flex items-center justify-between'>
                       <div>
-                        <CardTitle className='text-base font-semibold text-amber-700 dark:text-amber-400 sm:text-lg'>
+                        <CardTitle className='text-base font-semibold text-(--status-warning) sm:text-lg'>
                           {t('edu.home.unmarked')}
                         </CardTitle>
                         <CardDescription>
@@ -233,7 +240,7 @@ export default function EduHome(): ReactElement {
                       </div>
                       <Badge
                         variant='outline'
-                        className='border-amber-500/30 bg-amber-500/10 text-amber-600'
+                        className='border-(--status-warning)/30 bg-(--status-warning)/10 text-(--status-warning)'
                       >
                         {unmarkedSessions.length} buổi cần xử lý
                       </Badge>
@@ -245,6 +252,46 @@ export default function EduHome(): ReactElement {
                       empty={t('edu.home.unmarkedEmpty')}
                       showDate
                     />
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              {/* Marked sessions that still miss a comment: the club comments on every student after every session */}
+              {missingComments.length > 0 ? (
+                <Card className='shadow-xs'>
+                  <CardHeader className='pb-3'>
+                    <CardTitle className='text-base font-semibold sm:text-lg'>
+                      {t('edu.home.missingComments')}
+                    </CardTitle>
+                    <CardDescription>
+                      {t('edu.home.missingCommentsHint')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className='divide-y'>
+                      {missingComments.map((session) => (
+                        <li
+                          key={session.id}
+                          className='flex items-center justify-between gap-3 py-3 text-sm'
+                        >
+                          <div className='flex min-w-0 flex-col gap-1'>
+                            <RecordLink to={`/diem-danh?buoi=${session.id}`}>
+                              {session.lop}
+                            </RecordLink>
+                            <span className='text-xs text-muted-foreground'>
+                              {session.ngay} · {session.gioBatDau} –{' '}
+                              {session.gioKetThuc}
+                            </span>
+                          </div>
+                          <StatusBadge tone='warning' size='sm'>
+                            {t('edu.home.missingCount', {
+                              thieu: session.thieu,
+                              tong: session.tong,
+                            })}
+                          </StatusBadge>
+                        </li>
+                      ))}
+                    </ul>
                   </CardContent>
                 </Card>
               ) : null}
@@ -273,7 +320,7 @@ export default function EduHome(): ReactElement {
                   <CardContent>
                     {lowStudents.length === 0 ? (
                       <div className='flex items-center gap-2 py-4 text-sm text-muted-foreground'>
-                        <CheckCircle2 className='h-4 w-4 text-emerald-500' />
+                        <CheckCircle2 className='h-4 w-4 text-(--status-success)' />
                         <span>{t('edu.home.lowEmpty')}</span>
                       </div>
                     ) : (
@@ -361,7 +408,7 @@ export default function EduHome(): ReactElement {
                     <span className='text-muted-foreground'>→</span>
                   </Link>
                   <Link
-                    to='/ho-so-gv'
+                    to='/giao-vien'
                     className='flex items-center justify-between rounded-lg border p-2.5 text-sm font-medium transition-colors hover:bg-muted'
                   >
                     <span>👨‍🏫 Hồ sơ giáo viên</span>
@@ -446,7 +493,7 @@ function CallBacks(): ReactElement | null {
       <CardContent className='space-y-3'>
         {due.length === 0 ? (
           <div className='flex items-center gap-2 py-3 text-sm text-muted-foreground'>
-            <CheckCircle2 className='h-4 w-4 text-emerald-500' />
+            <CheckCircle2 className='h-4 w-4 text-(--status-success)' />
             <span>{t('edu.home.callBackEmpty')}</span>
           </div>
         ) : (
@@ -490,7 +537,7 @@ function SessionList(props: {
   if (props.sessions.length === 0) {
     return (
       <div className='flex items-center gap-2 py-4 text-sm text-muted-foreground'>
-        <CheckCircle2 className='h-4 w-4 text-emerald-500' />
+        <CheckCircle2 className='h-4 w-4 text-(--status-success)' />
         <span>{props.empty}</span>
       </div>
     );
@@ -531,7 +578,11 @@ function SessionList(props: {
             ) : (
               <Link
                 to={`/diem-danh?buoi=${session.id}`}
-                className={buttonVariants({ size: 'sm', variant: 'default', className: 'h-8 text-xs' })}
+                className={buttonVariants({
+                  size: 'sm',
+                  variant: 'default',
+                  className: 'h-8 text-xs',
+                })}
               >
                 {t('edu.home.markNow')}
               </Link>

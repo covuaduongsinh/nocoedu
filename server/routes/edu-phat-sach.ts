@@ -13,6 +13,7 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
+import { handOutBook } from '../edu/ghi-sach.js';
 import { asText } from '../edu/names.js';
 import { todayVn } from '../edu/so-du.js';
 import {
@@ -201,80 +202,17 @@ export default [
         const policy = policyOf(c, 'eduPhatSach');
         const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view'))
           .eduHocVien;
-        if (!studentPolicy) {
-          throw eduError(
-            'PERMISSION_DENIED',
-            'EDU_OUT_OF_SCOPE',
-            'You may not hand a book out here.',
-          );
-        }
-        const result = await database.transaction(async (connection) => {
-          const student = await connection
-            .repository('eduHocVien')
-            .withPolicy(studentPolicy)
-            .findOne({ filter: { id: input.hocVienId } });
-          if (!student) {
-            throw eduError(
-              'NOT_FOUND',
-              'EDU_STUDENT_NOT_FOUND',
-              'Student not found.',
-            );
-          }
-          const book = await connection.query
-            .selectFrom('eduSach')
-            .select(['id', 'giaBan', 'trangThai'])
-            .where('id', '=', input.sachId)
-            .executeTakeFirst();
-          if (!book) {
-            throw eduError(
-              'NOT_FOUND',
-              'EDU_BOOK_NOT_FOUND',
-              'Book not found.',
-            );
-          }
-          if (book.trangThai !== 'dang_ban') {
-            throw eduError(
-              'FAILED_PRECONDITION',
-              'EDU_BOOK_WITHDRAWN',
-              'This book is no longer sold.',
-              'sachId',
-            );
-          }
-          const price = Number(book.giaBan);
-          if (input.uuDai > price) {
-            throw eduError(
-              'FAILED_PRECONDITION',
-              'EDU_DISCOUNT_TOO_LARGE',
-              'The discount is more than the price of the book.',
-              'uuDai',
-            );
-          }
-          const handouts = connection
-            .repository('eduPhatSach')
-            .withPolicy(policy);
-          const created = await handouts.createOne({
-            values: {
-              hocVienId: input.hocVienId,
-              sachId: input.sachId,
-              coSoId: Number(student.coSoId),
-              ngay: input.ngay ?? todayVn(),
-              uuDai: input.uuDai,
-              tienSach: price - input.uuDai,
-              ghiChu: input.ghiChu ?? null,
-              nguoiTaoId: userId,
-              createdAt: new Date(),
-            },
-          });
-          const id = Number(created.record.id);
-          if (!(await handouts.findOne({ filter: { id } }))) {
-            throw eduError(
-              'PERMISSION_DENIED',
-              'EDU_OUT_OF_SCOPE',
-              'You may not hand a book out here.',
-            );
-          }
-          return { id, tienSach: price - input.uuDai };
-        });
+        const result = await database.transaction((connection) =>
+          handOutBook(connection, {
+            hocVienId: input.hocVienId,
+            sachId: input.sachId,
+            ngay: input.ngay,
+            uuDai: input.uuDai,
+            ghiChu: input.ghiChu ?? null,
+            userId,
+            policies: { handout: policy, student: studentPolicy },
+          }),
+        );
         return c.json({ data: result }, 201);
       },
     );

@@ -84,9 +84,7 @@ function CoachSessionsDialog(props: {
           <DialogTitle>
             {`${props.coachName} · ${t('edu.hoSoGv.chiTietTitle')} (${props.thang})`}
           </DialogTitle>
-          <DialogDescription>
-            {t('edu.hoSoGv.chiTietHint')}
-          </DialogDescription>
+          <DialogDescription>{t('edu.hoSoGv.chiTietHint')}</DialogDescription>
         </DialogHeader>
         {result.state === 'loading' ? (
           <p role='status' className='text-sm text-muted-foreground'>
@@ -250,12 +248,7 @@ export default function HoSoGvPage(): ReactElement {
         paging={{ page: list.page, total, onPage: list.setPage }}
         actions={
           <div className='flex items-center gap-2'>
-            <GenericImportDialog
-              entity='hoSoGv'
-              title='Nhập Hồ sơ Giáo viên từ CSV'
-              buttonLabel='Nhập Giáo viên CSV'
-              onSuccess={reload}
-            />
+            <GenericImportDialog entity='hoSoGv' onSuccess={reload} />
             {canManage ? (
               <Button
                 onClick={() =>

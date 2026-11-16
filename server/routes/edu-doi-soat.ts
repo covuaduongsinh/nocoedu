@@ -8,29 +8,42 @@ import {
   defineApiRoutes,
   describeRoute,
 } from '@nocobase/app-server/router';
-import { databaseManagerToken } from '@nocobase/db';
+import { databaseManagerToken, type RepositoryPolicy } from '@nocobase/db';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
+import { saveAttendance } from '../edu/ghi-so-du.js';
 import { asText } from '../edu/names.js';
+import { asBoolean, ATTENDANCE_STATUSES } from '../edu/so-du.js';
 import {
-  ATTENDANCE_STATUSES,
-  sessionsToDeduct,
-} from '../edu/so-du.js';
-import {
+  currentUserId,
   eduError,
   needs,
+  optionalPoliciesOf,
+  policiesOf,
+  policyOf,
   type EduEnv,
 } from './edu-support.js';
 
+/**
+ * Reconciliation of sessions, tuition and books.
+ *
+ * The page lists students, so `edu.hocVien` `view` opens it and decides which students show. Every other kind of data
+ * is added only when the caller also holds the action that guards it, and is read through that action's policy or
+ * summed over the students the student policy returned (`.agents/rules/edu.md`, "Reports and exports"): a coach sees
+ * the sessions of their own students and no money or parent phone number. `quyen` tells the page which parts it got.
+ *
+ * Correcting one attendance row goes through `saveAttendance`, like the register itself: the session's own deduction
+ * rule, the ledger row and the guarded balance move, in one transaction.
+ */
 function normalizeSearchText(str: unknown): string {
   if (!str) return '';
-  return String(str)
+  return asText(str)
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
+    .replace(/[̀-ͯ]/gu, '')
+    .replace(/đ/gu, 'd')
+    .replace(/Đ/gu, 'D')
     .toLowerCase()
     .trim();
 }
@@ -38,10 +51,19 @@ function normalizeSearchText(str: unknown): string {
 const Id = z.coerce.number().int().positive();
 
 const TongQuanInput = z.object({
-  search: z.string().trim().nullish(),
+  search: z.string().trim().max(100).nullish(),
   lopId: Id.nullish(),
   coSoId: Id.nullish(),
-  trangThaiLoc: z.enum(['tat_ca', 'vuot_goi', 'sap_het', 'binh_thuong', 'no_hoc_phi', 'no_sach']).default('tat_ca'),
+  trangThaiLoc: z
+    .enum([
+      'tat_ca',
+      'vuot_goi',
+      'sap_het',
+      'binh_thuong',
+      'no_hoc_phi',
+      'no_sach',
+    ])
+    .default('tat_ca'),
 });
 
 const ChiTietInput = z.object({
@@ -53,7 +75,8 @@ const CapNhatBuoiHocInput = z.object({
   trangThai: z.enum(ATTENDANCE_STATUSES),
   daLamBtvn: z.boolean().optional(),
   yThucDiem: z.number().int().min(0).max(10).nullish(),
-  nhanXet: z.string().trim().max(1000).nullish(),
+  // `eduDiemDanh.nhanXet` holds 500 characters.
+  nhanXet: z.string().trim().max(500).nullish(),
 });
 
 const declare = (summary: string, operationId: string) =>
@@ -67,12 +90,29 @@ const declare = (summary: string, operationId: string) =>
     },
   });
 
+type Row = Record<string, unknown>;
+type Policies = Readonly<Record<string, RepositoryPolicy>> | null;
+
+const PAGE = 100;
+/** The page covers at most this many rows of one kind; more is refused instead of showing a short list. */
+const MAX_ROWS = 5000;
+const PRESENT = new Set(['co_mat', 'hoc_bu']);
+const num = (value: unknown): number => Number(value || 0);
+
+const chunks = <T>(items: readonly T[], size: number): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size)
+    out.push(items.slice(i, i + size));
+  return out;
+};
+
 export default [
   defineApiRoutes<AppPluginApplication>((app) => {
     const auth = app.container.resolve(authenticationToken);
     const authz = app.container.resolve(authorizationToken);
     const database = app.container.resolve(databaseManagerToken);
     const router = new Hono<EduEnv>();
+    const q = () => database.connection().query;
 
     for (const path of [
       '/doiSoat/tongQuan',
@@ -87,90 +127,202 @@ export default [
       );
     }
 
-    // 1. API Tổng quan đối soát toàn trung tâm
+    /** Every row the policy lets through (of one student when `hocVienId` is given), page by page. */
+    async function readAll(
+      collection: string,
+      policy: RepositoryPolicy,
+      hocVienId?: number,
+    ): Promise<Row[]> {
+      const repository = database.repository(collection).withPolicy(policy);
+      const rows: Row[] = [];
+      for (let offset = 0; offset <= MAX_ROWS; offset += PAGE) {
+        const page = (await repository.findMany({
+          ...(hocVienId === undefined
+            ? {}
+            : { filter: (f) => f.number('hocVienId').eq(hocVienId) }),
+          sort: (s) => s.field('id').asc(),
+          limit: PAGE,
+          offset,
+        })) as Row[];
+        rows.push(...page);
+        if (page.length < PAGE) break;
+      }
+      if (rows.length > MAX_ROWS) {
+        throw eduError(
+          'FAILED_PRECONDITION',
+          'EDU_REPORT_TOO_LARGE',
+          'The reconciliation covers too many records. Narrow it to one branch or class.',
+        );
+      }
+      return rows;
+    }
+
+    /** What the caller may see besides the students themselves. */
+    async function partsOf(c: Parameters<typeof policiesOf>[0]): Promise<{
+      packages: Policies;
+      payments: Policies;
+      attendance: Policies;
+      books: Policies;
+      parents: Policies;
+      links: Policies;
+    }> {
+      const [packages, payments, attendance, books, parents, links] =
+        await Promise.all([
+          optionalPoliciesOf(c, 'edu.goiHoc', 'view'),
+          optionalPoliciesOf(c, 'edu.thanhToan', 'view'),
+          optionalPoliciesOf(c, 'edu.diemDanh', 'view'),
+          optionalPoliciesOf(c, 'edu.phatSach', 'view'),
+          optionalPoliciesOf(c, 'edu.phuHuynh', 'view'),
+          optionalPoliciesOf(c, 'edu.lienKet', 'view'),
+        ]);
+      return { packages, payments, attendance, books, parents, links };
+    }
+
+    async function names(
+      table: 'eduLop' | 'eduCoSo',
+      ids: readonly number[],
+    ): Promise<Map<number, Row>> {
+      const map = new Map<number, Row>();
+      for (const part of chunks([...new Set(ids)], 200)) {
+        const rows = await q()
+          .selectFrom(table)
+          .select(table === 'eduLop' ? ['id', 'ten', 'coSoId'] : ['id', 'ten'])
+          .where('id', 'in', part)
+          .execute();
+        for (const row of rows) map.set(num(row.id), row);
+      }
+      return map;
+    }
+
+    // 1. Overview of every student the caller sees
     router.post(
       '/doiSoat/tongQuan',
       declare('Get audit overview for all students', 'getAuditOverview'),
       needs('edu.hocVien', 'view'),
       apiValidator('json', TongQuanInput),
       async (c) => {
-        const connection = database.connection();
         const { search, lopId, coSoId, trangThaiLoc } = c.req.valid('json');
+        const may = await partsOf(c);
+        const mayMoney = Boolean(
+          may.packages?.eduGoiHoc && may.payments?.eduThanhToan,
+        );
+        const mayBooks = Boolean(may.books?.eduPhatSach);
+        const mayParents = Boolean(
+          may.parents?.eduPhuHuynh && may.links?.eduHocVienPhuHuynh,
+        );
 
-        const allStudents = await connection.query
-          .selectFrom('eduHocVien')
-          .selectAll()
-          .orderBy('id', 'asc')
-          .execute();
+        const students = await readAll('eduHocVien', policyOf(c, 'eduHocVien'));
+        const studentIds = students.map((s) => num(s.id));
+        const visible = new Set(studentIds);
 
-        const [classes, branches, allPacks, allPayments, allAttendances, allBooks, allBookPayments, parentLinks, parents] = await Promise.all([
-          connection.query.selectFrom('eduLop').select(['id', 'ten', 'coSoId']).execute(),
-          connection.query.selectFrom('eduCoSo').select(['id', 'ten']).execute(),
-          connection.query.selectFrom('eduGoiHoc').select(['id', 'hocVienId', 'soBuoi', 'thanhTien']).execute(),
-          connection.query.selectFrom('eduThanhToan').select(['id', 'hocVienId', 'goiHocId', 'soTien']).execute(),
-          connection.query.selectFrom('eduDiemDanh').select(['id', 'hocVienId', 'soBuoiDaTru']).execute(),
-          connection.query.selectFrom('eduPhatSach').select(['id', 'hocVienId', 'tienSach', 'uuDai']).execute(),
-          connection.query.selectFrom('eduNopSach').select(['id', 'hocVienId', 'soTien']).execute(),
-          connection.query.selectFrom('eduHocVienPhuHuynh').select(['hocVienId', 'phuHuynhId']).execute(),
-          connection.query.selectFrom('eduPhuHuynh').select(['id', 'hoTen', 'soDienThoai']).execute(),
-        ]);
+        const classMap = await names(
+          'eduLop',
+          students.filter((s) => s.lopId != null).map((s) => num(s.lopId)),
+        );
+        const branchMap = await names(
+          'eduCoSo',
+          students.map((s) => num(s.coSoId)),
+        );
 
-        const classMap = new Map(classes.map((cl) => [Number(cl.id), cl]));
-        const branchMap = new Map(branches.map((b) => [Number(b.id), b]));
-        const parentMap = new Map(parents.map((p) => [Number(p.id), p]));
-        const studentParentMap = new Map<number, any>();
-        for (const link of parentLinks) {
-          const hvId = Number(link.hocVienId);
-          if (!studentParentMap.has(hvId)) {
-            const p = parentMap.get(Number(link.phuHuynhId));
-            if (p) studentParentMap.set(hvId, p);
+        const packStats = new Map<
+          number,
+          { tongSoBuoiDaMua: number; tongTienHocPhi: number }
+        >();
+        if (may.packages?.eduGoiHoc) {
+          for (const pack of await readAll(
+            'eduGoiHoc',
+            may.packages.eduGoiHoc,
+          )) {
+            const id = num(pack.hocVienId);
+            if (!visible.has(id)) continue;
+            const s = packStats.get(id) ?? {
+              tongSoBuoiDaMua: 0,
+              tongTienHocPhi: 0,
+            };
+            s.tongSoBuoiDaMua += num(pack.soBuoi);
+            s.tongTienHocPhi += num(pack.thanhTien);
+            packStats.set(id, s);
+          }
+        }
+        const paid = new Map<number, number>();
+        if (mayMoney && may.payments?.eduThanhToan) {
+          for (const p of await readAll(
+            'eduThanhToan',
+            may.payments.eduThanhToan,
+          )) {
+            const id = num(p.hocVienId);
+            if (!visible.has(id)) continue;
+            paid.set(id, (paid.get(id) ?? 0) + num(p.soTien));
           }
         }
 
-        const paymentMap = new Map<number, number>();
-        for (const p of allPayments) {
-          const hvId = Number(p.hocVienId);
-          paymentMap.set(hvId, (paymentMap.get(hvId) ?? 0) + Number(p.soTien || 0));
-        }
-
-        const packStats = new Map<number, { tongSoBuoiDaMua: number; tongTienHocPhi: number; tongDaThanhToan: number }>();
-        for (const pack of allPacks) {
-          const hvId = Number(pack.hocVienId);
-          const s = packStats.get(hvId) ?? { tongSoBuoiDaMua: 0, tongTienHocPhi: 0, tongDaThanhToan: 0 };
-          s.tongSoBuoiDaMua += Number(pack.soBuoi || 0);
-          s.tongTienHocPhi += Number(pack.thanhTien || 0);
-          s.tongDaThanhToan = paymentMap.get(hvId) ?? 0;
-          packStats.set(hvId, s);
-        }
-        for (const [hvId, paid] of paymentMap.entries()) {
-          if (!packStats.has(hvId)) {
-            packStats.set(hvId, { tongSoBuoiDaMua: 0, tongTienHocPhi: 0, tongDaThanhToan: paid });
-          } else {
-            packStats.get(hvId)!.tongDaThanhToan = paid;
+        // Attendance is summed over the students the student policy returned, never over the whole table.
+        const attended = new Map<number, number>();
+        if (may.attendance?.eduDiemDanh) {
+          for (const part of chunks(studentIds, 200)) {
+            const rows = await q()
+              .selectFrom('eduDiemDanh')
+              .select(['hocVienId', 'trangThai'])
+              .where('hocVienId', 'in', part)
+              .execute();
+            for (const row of rows) {
+              if (!PRESENT.has(asText(row.trangThai))) continue;
+              const id = num(row.hocVienId);
+              attended.set(id, (attended.get(id) ?? 0) + 1);
+            }
           }
         }
 
-        const attendanceStats = new Map<number, { tongSoBuoiDaHoc: number }>();
-        for (const att of allAttendances) {
-          const hvId = Number(att.hocVienId);
-          const s = attendanceStats.get(hvId) ?? { tongSoBuoiDaHoc: 0 };
-          s.tongSoBuoiDaHoc += 1;
-          attendanceStats.set(hvId, s);
+        const bookGiven = new Map<number, number>();
+        const bookPaid = new Map<number, number>();
+        if (mayBooks) {
+          for (const part of chunks(studentIds, 200)) {
+            const given = await q()
+              .selectFrom('eduPhatSach')
+              .select(['hocVienId', 'tienSach'])
+              .where('hocVienId', 'in', part)
+              .execute();
+            // `tienSach` is already the price minus the discount (`/phatSach/ghi`).
+            for (const row of given) {
+              const id = num(row.hocVienId);
+              bookGiven.set(id, (bookGiven.get(id) ?? 0) + num(row.tienSach));
+            }
+            const paidRows = await q()
+              .selectFrom('eduNopSach')
+              .select(['hocVienId', 'soTien'])
+              .where('hocVienId', 'in', part)
+              .execute();
+            for (const row of paidRows) {
+              const id = num(row.hocVienId);
+              bookPaid.set(id, (bookPaid.get(id) ?? 0) + num(row.soTien));
+            }
+          }
         }
 
-        const bookStats = new Map<number, { tongTienSachDaPhat: number; tongTienSachDaNop: number }>();
-        for (const b of allBooks) {
-          const hvId = Number(b.hocVienId);
-          const s = bookStats.get(hvId) ?? { tongTienSachDaPhat: 0, tongTienSachDaNop: 0 };
-          const tien = Number(b.tienSach || 0) - Number(b.uuDai || 0);
-          s.tongTienSachDaPhat += Math.max(0, tien);
-          bookStats.set(hvId, s);
-        }
-        for (const np of allBookPayments) {
-          const hvId = Number(np.hocVienId);
-          const s = bookStats.get(hvId) ?? { tongTienSachDaPhat: 0, tongTienSachDaNop: 0 };
-          s.tongTienSachDaNop += Number(np.soTien || 0);
-          bookStats.set(hvId, s);
+        const parentOf = new Map<number, Row>();
+        if (
+          mayParents &&
+          may.parents?.eduPhuHuynh &&
+          may.links?.eduHocVienPhuHuynh
+        ) {
+          const parents = new Map(
+            (await readAll('eduPhuHuynh', may.parents.eduPhuHuynh)).map((p) => [
+              num(p.id),
+              p,
+            ]),
+          );
+          for (const link of await readAll(
+            'eduHocVienPhuHuynh',
+            may.links.eduHocVienPhuHuynh,
+          )) {
+            const id = num(link.hocVienId);
+            if (!visible.has(id)) continue;
+            const parent = parents.get(num(link.phuHuynhId));
+            // The main contact wins; otherwise the first parent linked.
+            if (parent && (!parentOf.has(id) || asBoolean(link.lienHeChinh))) {
+              parentOf.set(id, parent);
+            }
+          }
         }
 
         let soHocVienVuotGoi = 0;
@@ -178,71 +330,74 @@ export default [
         let soHocVienBinhThuong = 0;
         let tongCongNoHocPhi = 0;
         let tongCongNoSach = 0;
+        const needle = search ? normalizeSearchText(search) : '';
+        const danhSach: Row[] = [];
 
-        const resultRows: any[] = [];
+        for (const hv of students) {
+          const id = num(hv.id);
+          const lopIdNum = hv.lopId != null ? num(hv.lopId) : null;
+          const coSoIdNum = hv.coSoId != null ? num(hv.coSoId) : null;
+          const lop = lopIdNum != null ? classMap.get(lopIdNum) : undefined;
+          const coSo = coSoIdNum != null ? branchMap.get(coSoIdNum) : undefined;
+          const parent = parentOf.get(id);
+          const pack = packStats.get(id) ?? {
+            tongSoBuoiDaMua: 0,
+            tongTienHocPhi: 0,
+          };
+          const tongDaThanhToan = paid.get(id) ?? 0;
+          const soBuoiConLai = num(hv.soBuoiConLai);
+          const tongConNoHocPhi = mayMoney
+            ? Math.max(0, pack.tongTienHocPhi - tongDaThanhToan)
+            : 0;
+          const tongTienSachDaPhat = bookGiven.get(id) ?? 0;
+          const tongTienSachDaNop = bookPaid.get(id) ?? 0;
+          const tienSachTon = tongTienSachDaNop - tongTienSachDaPhat;
+          const congNoSach = tienSachTon < 0 ? -tienSachTon : 0;
 
-        for (const hv of allStudents) {
-          const hvId = Number(hv.id);
-          const lopIdNum = hv.lopId != null ? Number(hv.lopId) : null;
-          const coSoIdNum = hv.coSoId != null ? Number(hv.coSoId) : null;
-
-          const lop = lopIdNum != null ? classMap.get(lopIdNum) : null;
-          const lopCoSoId = lop?.coSoId != null ? Number(lop.coSoId) : null;
-          const coSo = lopCoSoId != null ? branchMap.get(lopCoSoId) : (coSoIdNum != null ? branchMap.get(coSoIdNum) : null);
-          const ph = studentParentMap.get(hvId);
-
-          const ps = packStats.get(hvId) ?? { tongSoBuoiDaMua: 0, tongTienHocPhi: 0, tongDaThanhToan: 0 };
-          const asStat = attendanceStats.get(hvId) ?? { tongSoBuoiDaHoc: 0 };
-          const bs = bookStats.get(hvId) ?? { tongTienSachDaPhat: 0, tongTienSachDaNop: 0 };
-
-          const soBuoiConLai = Number(hv.soBuoiConLai || 0);
-          const tongConNoHocPhi = Math.max(0, ps.tongTienHocPhi - ps.tongDaThanhToan);
-          const tienSachTon = bs.tongTienSachDaNop - bs.tongTienSachDaPhat;
-          const congNoSach = tienSachTon < 0 ? Math.abs(tienSachTon) : 0;
-
-          if (soBuoiConLai < 0) soHocVienVuotGoi++;
-          else if (soBuoiConLai <= 2) soHocVienSapHet++;
-          else soHocVienBinhThuong++;
-
+          if (soBuoiConLai < 0) soHocVienVuotGoi += 1;
+          else if (soBuoiConLai <= 2) soHocVienSapHet += 1;
+          else soHocVienBinhThuong += 1;
           tongCongNoHocPhi += tongConNoHocPhi;
           tongCongNoSach += congNoSach;
 
-          if (search) {
-            const q = normalizeSearchText(search);
-            const matchName = normalizeSearchText(hv.hoTen).includes(q);
-            const matchMa = normalizeSearchText(hv.ma).includes(q);
-            const matchPhone = String(ph?.soDienThoai || '').includes(q);
-            if (!matchName && !matchMa && !matchPhone) continue;
+          if (needle) {
+            const hit =
+              normalizeSearchText(hv.hoTen).includes(needle) ||
+              normalizeSearchText(hv.ma).includes(needle) ||
+              (parent ? asText(parent.soDienThoai).includes(needle) : false);
+            if (!hit) continue;
           }
-
           if (lopId && lopIdNum !== lopId) continue;
-          if (coSoId && lopCoSoId !== coSoId && coSoIdNum !== coSoId) continue;
-
+          if (coSoId && coSoIdNum !== coSoId) continue;
           if (trangThaiLoc === 'vuot_goi' && soBuoiConLai >= 0) continue;
-          if (trangThaiLoc === 'sap_het' && (soBuoiConLai < 0 || soBuoiConLai > 2)) continue;
+          if (
+            trangThaiLoc === 'sap_het' &&
+            (soBuoiConLai < 0 || soBuoiConLai > 2)
+          )
+            continue;
           if (trangThaiLoc === 'binh_thuong' && soBuoiConLai < 3) continue;
           if (trangThaiLoc === 'no_hoc_phi' && tongConNoHocPhi <= 0) continue;
           if (trangThaiLoc === 'no_sach' && congNoSach <= 0) continue;
 
-          resultRows.push({
-            id: hvId,
+          danhSach.push({
+            id,
             ma: asText(hv.ma),
             hoTen: asText(hv.hoTen),
             lopId: lopIdNum,
             lopTen: lop ? asText(lop.ten) : null,
-            coSoId: coSo ? Number(coSo.id) : null,
+            coSoId: coSoIdNum,
             coSoTen: coSo ? asText(coSo.ten) : null,
-            phuHuynhTen: ph ? asText(ph.hoTen) : null,
-            phuHuynhSdt: ph ? asText(ph.soDienThoai) : null,
+            phuHuynhTen: parent ? asText(parent.hoTen) : null,
+            phuHuynhSdt: parent ? asText(parent.soDienThoai) : null,
             soBuoiConLai,
-            soBuoiVuotGoi: soBuoiConLai < 0 ? Math.abs(soBuoiConLai) : 0,
-            tongSoBuoiDaMua: ps.tongSoBuoiDaMua,
-            tongSoBuoiDaHoc: asStat.tongSoBuoiDaHoc,
-            tongTienHocPhi: ps.tongTienHocPhi,
-            tongDaThanhToan: ps.tongDaThanhToan,
+            soBuoiVuotGoi: soBuoiConLai < 0 ? -soBuoiConLai : 0,
+            tongSoBuoiDaMua: pack.tongSoBuoiDaMua,
+            tongSoBuoiDaHoc: attended.get(id) ?? 0,
+            tongTienHocPhi: mayMoney ? pack.tongTienHocPhi : 0,
+            tongDaThanhToan: mayMoney ? tongDaThanhToan : 0,
             tongConNoHocPhi,
-            tongTienSachDaPhat: bs.tongTienSachDaPhat,
-            tongTienSachDaNop: bs.tongTienSachDaNop,
+            tongTienSachDaPhat,
+            tongTienSachDaNop,
             tienSachTon,
             congNoSach,
             trangThai: asText(hv.trangThai) || 'dang_hoc',
@@ -251,124 +406,143 @@ export default [
 
         return c.json({
           data: {
+            quyen: { hocPhi: mayMoney, sach: mayBooks, phuHuynh: mayParents },
             thongKe: {
-              tongHocVien: allStudents.length,
+              tongHocVien: students.length,
               soHocVienVuotGoi,
               soHocVienSapHet,
               soHocVienBinhThuong,
               tongCongNoHocPhi,
               tongCongNoSach,
             },
-            danhSach: resultRows,
+            danhSach,
           },
         });
       },
     );
 
-    // 2. API Chi tiết đối soát học viên với Mapping kỳ nộp - buổi học
+    // 2. One student: sessions mapped onto the packages they paid for
     router.post(
       '/doiSoat/chiTietHocVien',
-      declare('Get detailed audit data for one student', 'getStudentAuditDetail'),
+      declare(
+        'Get detailed audit data for one student',
+        'getStudentAuditDetail',
+      ),
       needs('edu.hocVien', 'view'),
       apiValidator('json', ChiTietInput),
       async (c) => {
-        const connection = database.connection();
         const { hocVienId } = c.req.valid('json');
+        const hocVien = await database
+          .repository('eduHocVien')
+          .withPolicy(policyOf(c, 'eduHocVien'))
+          .findOne({ filter: { id: hocVienId } });
+        // A student outside the caller's scope is "not found", like everywhere else.
+        if (!hocVien)
+          throw eduError(
+            'NOT_FOUND',
+            'EDU_STUDENT_NOT_FOUND',
+            'Student not found.',
+          );
+        const may = await partsOf(c);
+        const mayMoney = Boolean(
+          may.packages?.eduGoiHoc && may.payments?.eduThanhToan,
+        );
+        const mayBooks = Boolean(may.books?.eduPhatSach);
+        const mayParents = Boolean(
+          may.parents?.eduPhuHuynh && may.links?.eduHocVienPhuHuynh,
+        );
+        const mayRecord =
+          (await optionalPoliciesOf(c, 'edu.diemDanh', 'record')) !== null;
+        const ofStudent = hocVienId;
 
-        const hocVien = await connection.query
-          .selectFrom('eduHocVien')
-          .selectAll()
-          .where('id', '=', hocVienId)
-          .executeTakeFirst();
-        if (!hocVien) throw eduError('NOT_FOUND', 'STUDENT_NOT_FOUND', 'Student not found');
+        const goiHocs = may.packages?.eduGoiHoc
+          ? (
+              await readAll('eduGoiHoc', may.packages.eduGoiHoc, ofStudent)
+            ).sort(
+              (a, b) =>
+                asText(a.ngayMua).localeCompare(asText(b.ngayMua)) ||
+                num(a.id) - num(b.id),
+            )
+          : [];
+        const allPayments =
+          mayMoney && may.payments?.eduThanhToan
+            ? await readAll(
+                'eduThanhToan',
+                may.payments.eduThanhToan,
+                ofStudent,
+              )
+            : [];
 
-        const [classes, branches, goiHocs, allPayments, rawSessions, phatSachs, nopSachs, parentLinks, parents] = await Promise.all([
-          connection.query.selectFrom('eduLop').select(['id', 'ten', 'coSoId']).execute(),
-          connection.query.selectFrom('eduCoSo').select(['id', 'ten']).execute(),
-          connection.query
-            .selectFrom('eduGoiHoc')
-            .selectAll()
-            .where('hocVienId', '=', hocVienId)
-            .orderBy('ngayMua', 'asc')
-            .orderBy('id', 'asc')
-            .execute(),
-          connection.query
-            .selectFrom('eduThanhToan')
-            .selectAll()
-            .where('hocVienId', '=', hocVienId)
-            .orderBy('ngay', 'asc')
-            .execute(),
-          connection.query
+        // Attendance rows come through the policy; the session, the class name and the awareness score (not a
+        // permission field) are then read for exactly those rows.
+        const marks = may.attendance?.eduDiemDanh
+          ? await readAll('eduDiemDanh', may.attendance.eduDiemDanh, ofStudent)
+          : [];
+        const sessionById = new Map<number, Row>();
+        const scoreById = new Map<number, number | null>();
+        for (const part of chunks(marks, 200)) {
+          const sessions = await q()
+            .selectFrom('eduBuoiHoc')
+            .select(['id', 'ngay', 'gioBatDau', 'gioKetThuc', 'lopId'])
+            .where('id', 'in', [...new Set(part.map((m) => num(m.buoiHocId)))])
+            .execute();
+          for (const session of sessions)
+            sessionById.set(num(session.id), session);
+          const scores = await q()
             .selectFrom('eduDiemDanh')
-            .innerJoin('eduBuoiHoc', 'eduBuoiHoc.id', 'eduDiemDanh.buoiHocId')
-            .leftJoin('eduLop', 'eduLop.id', 'eduBuoiHoc.lopId')
-            .select([
-              'eduDiemDanh.id as diemDanhId',
-              'eduDiemDanh.buoiHocId',
-              'eduDiemDanh.trangThai',
-              'eduDiemDanh.daLamBtvn',
-              'eduDiemDanh.nhanXet',
-              'eduDiemDanh.soBuoiDaTru',
-              'eduDiemDanh.yThucDiem',
-              'eduBuoiHoc.ngay',
-              'eduBuoiHoc.gioBatDau',
-              'eduBuoiHoc.gioKetThuc',
-              'eduBuoiHoc.lopId',
-              'eduLop.ten as lopTen',
-            ])
-            .where('eduDiemDanh.hocVienId', '=', hocVienId)
-            .orderBy('eduBuoiHoc.ngay', 'asc')
-            .orderBy('eduBuoiHoc.gioBatDau', 'asc')
-            .execute(),
-          connection.query
-            .selectFrom('eduPhatSach')
-            .innerJoin('eduSach', 'eduSach.id', 'eduPhatSach.sachId')
-            .select([
-              'eduPhatSach.id',
-              'eduPhatSach.sachId',
-              'eduPhatSach.ngay',
-              'eduPhatSach.uuDai',
-              'eduPhatSach.tienSach',
-              'eduPhatSach.ghiChu',
-              'eduSach.ten as tenSach',
-              'eduSach.giaBia',
-            ])
-            .where('eduPhatSach.hocVienId', '=', hocVienId)
-            .orderBy('eduPhatSach.ngay', 'asc')
-            .execute(),
-          connection.query
-            .selectFrom('eduNopSach')
-            .selectAll()
-            .where('hocVienId', '=', hocVienId)
-            .orderBy('ngay', 'asc')
-            .execute(),
-          connection.query
-            .selectFrom('eduHocVienPhuHuynh')
-            .selectAll()
-            .where('hocVienId', '=', hocVienId)
-            .execute(),
-          connection.query.selectFrom('eduPhuHuynh').selectAll().execute(),
+            .select(['id', 'yThucDiem'])
+            .where(
+              'id',
+              'in',
+              part.map((m) => num(m.id)),
+            )
+            .execute();
+          for (const score of scores)
+            scoreById.set(
+              num(score.id),
+              score.yThucDiem == null ? null : num(score.yThucDiem),
+            );
+        }
+        const classMap = await names('eduLop', [
+          ...[...sessionById.values()].map((s) => num(s.lopId)),
+          ...(hocVien.lopId != null ? [num(hocVien.lopId)] : []),
         ]);
+        const branchMap = await names('eduCoSo', [num(hocVien.coSoId)]);
+        const sessionKey = (mark: Row): string => {
+          const session = sessionById.get(num(mark.buoiHocId));
+          return `${asText(session?.ngay)} ${asText(session?.gioBatDau)}`;
+        };
+        marks.sort(
+          (a, b) =>
+            sessionKey(a).localeCompare(sessionKey(b)) || num(a.id) - num(b.id),
+        );
 
-        const classMap = new Map(classes.map((cl) => [Number(cl.id), cl]));
-        const branchMap = new Map(branches.map((b) => [Number(b.id), b]));
-        const parentMap = new Map(parents.map((p) => [Number(p.id), p]));
-
-        const lopIdNum = hocVien.lopId != null ? Number(hocVien.lopId) : null;
-        const studentLop = lopIdNum != null ? classMap.get(lopIdNum) : null;
-        const coSoIdNum = hocVien.coSoId != null ? Number(hocVien.coSoId) : (studentLop?.coSoId != null ? Number(studentLop.coSoId) : null);
-        const studentCoSo = coSoIdNum != null ? branchMap.get(coSoIdNum) : null;
-
-        let phuHuynhInfo: any = null;
-        if (parentLinks.length > 0) {
-          const ph = parentMap.get(Number(parentLinks[0].phuHuynhId));
-          if (ph) {
-            phuHuynhInfo = {
-              id: Number(ph.id),
-              hoTen: asText(ph.hoTen),
-              soDienThoai: asText(ph.soDienThoai),
-              email: ph.email ? asText(ph.email) : null,
-              moiQuanHe: parentLinks[0].moiQuanHe ? asText(parentLinks[0].moiQuanHe) : null,
+        let phuHuynh: Row | null = null;
+        if (
+          mayParents &&
+          may.parents?.eduPhuHuynh &&
+          may.links?.eduHocVienPhuHuynh
+        ) {
+          const links = await readAll(
+            'eduHocVienPhuHuynh',
+            may.links.eduHocVienPhuHuynh,
+            ofStudent,
+          );
+          const link =
+            links.find((row) => asBoolean(row.lienHeChinh)) ?? links[0];
+          const parent = link
+            ? await database
+                .repository('eduPhuHuynh')
+                .withPolicy(may.parents.eduPhuHuynh)
+                .findOne({ filter: { id: num(link.phuHuynhId) } })
+            : null;
+          if (link && parent) {
+            phuHuynh = {
+              id: num(parent.id),
+              hoTen: asText(parent.hoTen),
+              soDienThoai: asText(parent.soDienThoai),
+              email: parent.email ? asText(parent.email) : null,
+              moiQuanHe: link.quanHe ? asText(link.quanHe) : null,
             };
           }
         }
@@ -376,24 +550,23 @@ export default [
         const paidByGoiHoc = new Map<number, number>();
         let unallocatedPayment = 0;
         for (const pm of allPayments) {
-          const st = Number(pm.soTien || 0);
-          if (pm.goiHocId != null && Number(pm.goiHocId) > 0) {
-            const gid = Number(pm.goiHocId);
-            paidByGoiHoc.set(gid, (paidByGoiHoc.get(gid) ?? 0) + st);
+          const amount = num(pm.soTien);
+          if (pm.goiHocId != null && num(pm.goiHocId) > 0) {
+            const id = num(pm.goiHocId);
+            paidByGoiHoc.set(id, (paidByGoiHoc.get(id) ?? 0) + amount);
           } else {
-            unallocatedPayment += st;
+            unallocatedPayment += amount;
           }
         }
 
         let tongSoBuoiDaMua = 0;
         let tongTienHocPhi = 0;
         let tongDaThanhToan = 0;
-
         const cacKyNop = goiHocs.map((g, index) => {
-          const gId = Number(g.id);
-          const soBuoi = Number(g.soBuoi || 0);
-          const thanhTien = Number(g.thanhTien || 0);
-          let daThanhToan = paidByGoiHoc.get(gId) ?? 0;
+          const id = num(g.id);
+          const soBuoi = num(g.soBuoi);
+          const thanhTien = mayMoney ? num(g.thanhTien) : 0;
+          let daThanhToan = paidByGoiHoc.get(id) ?? 0;
           if (daThanhToan < thanhTien && unallocatedPayment > 0) {
             const diff = Math.min(thanhTien - daThanhToan, unallocatedPayment);
             daThanhToan += diff;
@@ -403,110 +576,142 @@ export default [
           tongSoBuoiDaMua += soBuoi;
           tongTienHocPhi += thanhTien;
           tongDaThanhToan += daThanhToan;
-
           return {
-            id: gId,
+            id,
             kySo: index + 1,
-            tenKy: `Kỳ ${index + 1} (${soBuoi} buổi)`,
-            ngayMua: asText(g.ngayMua) || '',
+            ngayMua: asText(g.ngayMua),
             soBuoi,
-            donGia: Number(g.donGia || 0),
+            donGia: mayMoney ? num(g.donGia) : 0,
             thanhTien,
             daThanhToan,
             conNo,
-            trangThai: conNo === 0 ? 'da_dong_du' : daThanhToan > 0 ? 'dong_mot_phan' : 'chua_dong',
+            daDung: 0,
+            conLai: soBuoi,
+            tienDo: 0,
+            trangThai:
+              conNo === 0
+                ? 'da_dong_du'
+                : daThanhToan > 0
+                  ? 'dong_mot_phan'
+                  : 'chua_dong',
           };
         });
         tongDaThanhToan += unallocatedPayment;
 
-        let accumulatedSessions = 0;
+        let accumulated = 0;
         let tongSoBuoiDaHoc = 0;
-        let currentKyIdx = 0;
-        let kyAccumulatedCapacity = cacKyNop.length > 0 ? cacKyNop[0].soBuoi : 0;
-
-        const danhSachBuoiHoc = rawSessions.map((s, idx) => {
-          tongSoBuoiDaHoc += 1;
-          const ded = Number(s.soBuoiDaTru || 0) > 0 ? Number(s.soBuoiDaTru) : 0;
-          accumulatedSessions += ded;
-
-          while (currentKyIdx < cacKyNop.length - 1 && accumulatedSessions > kyAccumulatedCapacity) {
-            currentKyIdx++;
-            kyAccumulatedCapacity += cacKyNop[currentKyIdx].soBuoi;
+        let kyIndex = 0;
+        let capacity = cacKyNop[0]?.soBuoi ?? 0;
+        const danhSachBuoiHoc = marks.map((mark, index) => {
+          const status = asText(mark.trangThai);
+          if (PRESENT.has(status)) tongSoBuoiDaHoc += 1;
+          accumulated += Math.max(0, num(mark.soBuoiDaTru));
+          while (kyIndex < cacKyNop.length - 1 && accumulated > capacity) {
+            kyIndex += 1;
+            capacity += cacKyNop[kyIndex]?.soBuoi ?? 0;
           }
-
-          const ngoaiGoi = cacKyNop.length === 0 || accumulatedSessions > kyAccumulatedCapacity;
-          const ky = !ngoaiGoi && currentKyIdx < cacKyNop.length ? cacKyNop[currentKyIdx] : null;
-
+          const ngoaiGoi = cacKyNop.length === 0 || accumulated > capacity;
+          const ky = ngoaiGoi ? undefined : cacKyNop[kyIndex];
+          const session = sessionById.get(num(mark.buoiHocId));
+          const lop =
+            session?.lopId != null ? classMap.get(num(session.lopId)) : null;
           return {
-            diemDanhId: Number(s.diemDanhId),
-            buoiHocId: Number(s.buoiHocId),
-            stt: idx + 1,
-            buoiThu: accumulatedSessions,
-            ngay: asText(s.ngay),
-            gioBatDau: asText(s.gioBatDau),
-            gioKetThuc: asText(s.gioKetThuc),
-            lopId: s.lopId != null ? Number(s.lopId) : null,
-            lopTen: s.lopTen ? asText(s.lopTen) : '—',
-            trangThai: asText(s.trangThai),
-            daLamBtvn: Boolean(s.daLamBtvn),
-            yThucDiem: s.yThucDiem != null ? Number(s.yThucDiem) : null,
-            nhanXet: s.nhanXet ? asText(s.nhanXet) : '',
-            soBuoiDaTru: Number(s.soBuoiDaTru || 0),
+            diemDanhId: num(mark.id),
+            buoiHocId: num(mark.buoiHocId),
+            stt: index + 1,
+            buoiThu: accumulated,
+            ngay: asText(session?.ngay),
+            gioBatDau: asText(session?.gioBatDau),
+            gioKetThuc: asText(session?.gioKetThuc),
+            lopId: session?.lopId != null ? num(session.lopId) : null,
+            lopTen: lop ? asText(lop.ten) : null,
+            trangThai: status,
+            daLamBtvn: asBoolean(mark.daLamBtvn),
+            yThucDiem: scoreById.get(num(mark.id)) ?? null,
+            nhanXet: mark.nhanXet ? asText(mark.nhanXet) : '',
+            soBuoiDaTru: num(mark.soBuoiDaTru),
             kyId: ky ? ky.id : null,
-            kyTen: ky ? ky.tenKy : 'Vượt gói / Chưa nộp kỳ mới',
+            kySo: ky ? ky.kySo : null,
             ngoaiGoi,
           };
         });
 
-        let usedSessions = 0;
+        let used = 0;
         for (const ky of cacKyNop) {
-          const sessionsInThisKy = Math.min(ky.soBuoi, Math.max(0, accumulatedSessions - usedSessions));
-          usedSessions += sessionsInThisKy;
-          (ky as any).daDung = sessionsInThisKy;
-          (ky as any).conLai = ky.soBuoi - sessionsInThisKy;
-          (ky as any).tienDo = ky.soBuoi > 0 ? Math.round((sessionsInThisKy / ky.soBuoi) * 100) : 0;
+          const inThis = Math.min(ky.soBuoi, Math.max(0, accumulated - used));
+          used += inThis;
+          ky.daDung = inThis;
+          ky.conLai = ky.soBuoi - inThis;
+          ky.tienDo =
+            ky.soBuoi > 0 ? Math.round((inThis / ky.soBuoi) * 100) : 0;
         }
 
         let tongTienSachDaPhat = 0;
-        const sachDaPhat = phatSachs.map((ps) => {
-          const giaBia = Number(ps.giaBia || ps.tienSach || 0);
-          const uuDai = Number(ps.uuDai || 0);
-          const thanhTien = Math.max(0, Number(ps.tienSach || 0) - uuDai);
-          tongTienSachDaPhat += thanhTien;
-          return {
-            id: Number(ps.id),
-            sachId: Number(ps.sachId),
-            tenSach: asText(ps.tenSach),
-            ngayPhat: asText(ps.ngay) || '',
-            soLuong: 1,
-            giaBia,
-            uuDai,
-            thanhTien,
-            ghiChu: ps.ghiChu ? asText(ps.ghiChu) : '',
-          };
-        });
-
         let tongTienSachDaNop = 0;
-        for (const ns of nopSachs) {
-          tongTienSachDaNop += Number(ns.soTien || 0);
+        let sachDaPhat: Row[] = [];
+        if (mayBooks && may.books?.eduPhatSach) {
+          const handed = (
+            await readAll('eduPhatSach', may.books.eduPhatSach, ofStudent)
+          ).sort((a, b) => asText(a.ngay).localeCompare(asText(b.ngay)));
+          const bookIds = [...new Set(handed.map((row) => num(row.sachId)))];
+          const books = new Map<number, Row>();
+          for (const part of chunks(bookIds, 200)) {
+            const rows = await q()
+              .selectFrom('eduSach')
+              .select(['id', 'ten', 'giaBia'])
+              .where('id', 'in', part)
+              .execute();
+            for (const row of rows) books.set(num(row.id), row);
+          }
+          sachDaPhat = handed.map((row) => {
+            const book = books.get(num(row.sachId));
+            // `tienSach` is what the family owes for this book: the price minus the discount, fixed when handed out.
+            const thanhTien = num(row.tienSach);
+            const uuDai = num(row.uuDai);
+            tongTienSachDaPhat += thanhTien;
+            return {
+              id: num(row.id),
+              sachId: num(row.sachId),
+              tenSach: book ? asText(book.ten) : '',
+              ngayPhat: asText(row.ngay),
+              soLuong: 1,
+              giaBia: thanhTien + uuDai,
+              uuDai,
+              thanhTien,
+              ghiChu: row.ghiChu ? asText(row.ghiChu) : '',
+            };
+          });
+          const paidRows = await q()
+            .selectFrom('eduNopSach')
+            .select('soTien')
+            .where('hocVienId', '=', hocVienId)
+            .execute();
+          for (const row of paidRows) tongTienSachDaNop += num(row.soTien);
         }
-        const tienSachTon = tongTienSachDaNop - tongTienSachDaPhat;
 
-        const soBuoiConLai = Number(hocVien.soBuoiConLai || 0);
-        const soBuoiVuotGoi = soBuoiConLai < 0 ? Math.abs(soBuoiConLai) : 0;
-        const tongConNo = Math.max(0, tongTienHocPhi - tongDaThanhToan);
+        const lopIdNum = hocVien.lopId != null ? num(hocVien.lopId) : null;
+        const studentLop = lopIdNum != null ? classMap.get(lopIdNum) : null;
+        const coSoIdNum = hocVien.coSoId != null ? num(hocVien.coSoId) : null;
+        const studentCoSo = coSoIdNum != null ? branchMap.get(coSoIdNum) : null;
+        const soBuoiConLai = num(hocVien.soBuoiConLai);
 
         return c.json({
           data: {
+            quyen: {
+              hocPhi: mayMoney,
+              sach: mayBooks,
+              phuHuynh: mayParents,
+              suaBuoi: mayRecord,
+            },
             hocVien: {
-              id: Number(hocVien.id),
+              id: num(hocVien.id),
               ma: asText(hocVien.ma),
               hoTen: asText(hocVien.hoTen),
               lopId: lopIdNum,
               lopTen: studentLop ? asText(studentLop.ten) : null,
               coSoId: coSoIdNum,
               coSoTen: studentCoSo ? asText(studentCoSo.ten) : null,
-              phuHuynh: phuHuynhInfo,
+              phuHuynh,
               soBuoiConLai,
               trangThai: asText(hocVien.trangThai) || 'dang_hoc',
             },
@@ -514,13 +719,13 @@ export default [
               tongSoBuoiDaMua,
               tongSoBuoiDaHoc,
               soBuoiConLai,
-              soBuoiVuotGoi,
+              soBuoiVuotGoi: soBuoiConLai < 0 ? -soBuoiConLai : 0,
               tongTienHocPhi,
               tongDaThanhToan,
-              tongConNo,
+              tongConNo: Math.max(0, tongTienHocPhi - tongDaThanhToan),
               tongTienSachDaPhat,
               tongTienSachDaNop,
-              tienSachTon,
+              tienSachTon: tongTienSachDaNop - tongTienSachDaPhat,
             },
             cacKyNop,
             sachDaPhat,
@@ -530,79 +735,76 @@ export default [
       },
     );
 
-    // 3. API Sửa nhanh một buổi học & Tự động tính toán lại số buổi còn lại
+    // 3. Correct one attendance row; the balance moves through the ledger like a saved register
     router.post(
       '/doiSoat/capNhatBuoiHoc',
-      declare('Quick edit session attendance and recalculate balance', 'quickEditSession'),
+      declare(
+        'Correct one attendance row and move the balance through the ledger',
+        'quickEditSession',
+      ),
       needs('edu.diemDanh', 'record'),
       apiValidator('json', CapNhatBuoiHocInput),
       async (c) => {
-        const connection = database.connection();
-        const { diemDanhId, trangThai, daLamBtvn, yThucDiem, nhanXet } = c.req.valid('json');
-
-        const record = await connection.query
-          .selectFrom('eduDiemDanh')
-          .selectAll()
-          .where('id', '=', diemDanhId)
-          .executeTakeFirst();
-        if (!record) throw eduError('NOT_FOUND', 'RECORD_NOT_FOUND', 'Attendance record not found');
-
-        const hocVienId = Number(record.hocVienId);
-        const soBuoiDaTruMoi = sessionsToDeduct(trangThai, false, false);
-
-        await connection.query
-          .updateTable('eduDiemDanh')
-          .set({
-            trangThai,
-            soBuoiDaTru: soBuoiDaTruMoi,
-            daLamBtvn: daLamBtvn !== undefined ? (daLamBtvn ? 1 : 0) : record.daLamBtvn,
-            yThucDiem: yThucDiem !== undefined ? yThucDiem : record.yThucDiem,
-            nhanXet: nhanXet !== undefined ? nhanXet : record.nhanXet,
-          })
-          .where('id', '=', diemDanhId)
-          .execute();
-
-        const allPacks = await connection.query
-          .selectFrom('eduGoiHoc')
-          .select(['soBuoi'])
-          .where('hocVienId', '=', hocVienId)
-          .execute();
-
-        const allAttendances = await connection.query
-          .selectFrom('eduDiemDanh')
-          .select(['soBuoiDaTru'])
-          .where('hocVienId', '=', hocVienId)
-          .execute();
-
-        let tongMua = 0;
-        for (const p of allPacks) {
-          tongMua += Number(p.soBuoi || 0);
-        }
-
-        let tongTru = 0;
-        for (const att of allAttendances) {
-          tongTru += Number(att.soBuoiDaTru || 0);
-        }
-
-        const soBuoiConLaiMoi = tongMua - tongTru;
-
-        await connection.query
-          .updateTable('eduHocVien')
-          .set({
-            soBuoiConLai: soBuoiConLaiMoi,
-          })
-          .where('id', '=', hocVienId)
-          .execute();
-
-        return c.json({
-          data: {
+        const input = c.req.valid('json');
+        const userId = currentUserId(c);
+        const attendancePolicy = policyOf(c, 'eduDiemDanh');
+        const sessionPolicy = (await policiesOf(c, 'edu.buoiHoc', 'view'))
+          .eduBuoiHoc;
+        const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view'))
+          .eduHocVien;
+        const result = await database.transaction(async (connection) => {
+          // The row is looked up through the caller's own attendance policy: one outside their scope is not found.
+          const record = await connection
+            .repository('eduDiemDanh')
+            .withPolicy(attendancePolicy)
+            .findOne({ filter: { id: input.diemDanhId } });
+          if (!record) {
+            throw eduError(
+              'NOT_FOUND',
+              'EDU_ATTENDANCE_NOT_FOUND',
+              'Attendance record not found.',
+            );
+          }
+          const hocVienId = Number(record.hocVienId);
+          const saved = await saveAttendance(connection, {
+            buoiHocId: Number(record.buoiHocId),
+            danhSach: [
+              {
+                hocVienId,
+                trangThai: input.trangThai,
+                daLamBtvn: input.daLamBtvn,
+                // Not sent keeps the comment; an empty text clears it.
+                nhanXet:
+                  input.nhanXet === undefined
+                    ? undefined
+                    : input.nhanXet || null,
+              },
+            ],
+            userId,
+            policies: {
+              attendance: attendancePolicy,
+              session: sessionPolicy,
+              student: studentPolicy,
+            },
+            existingRowsAnyBranch: true,
+          });
+          if (input.yThucDiem !== undefined) {
+            await connection.query
+              .updateTable('eduDiemDanh')
+              .set({ yThucDiem: input.yThucDiem })
+              .where('id', '=', input.diemDanhId)
+              .execute();
+          }
+          const row = saved.danhSach[0];
+          return {
             success: true,
-            diemDanhId,
+            diemDanhId: input.diemDanhId,
             hocVienId,
-            soBuoiDaTru: soBuoiDaTruMoi,
-            soBuoiConLaiMoi,
-          },
+            soBuoiDaTru: row?.soBuoiDaTru ?? 0,
+            soBuoiConLaiMoi: row?.soBuoiConLai ?? 0,
+          };
         });
+        return c.json({ data: result });
       },
     );
 

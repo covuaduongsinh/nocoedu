@@ -145,12 +145,7 @@ export default function PhatSachPage(): ReactElement {
         paging={{ page: list.page, total, onPage: list.setPage }}
         actions={
           <div className='flex items-center gap-2'>
-            <GenericImportDialog
-              entity='phatSach'
-              title='Nhập Dữ liệu Phát Sách từ CSV'
-              buttonLabel='Nhập Phát Sách CSV'
-              onSuccess={reload}
-            />
+            <GenericImportDialog entity='phatSach' onSuccess={reload} />
             {canManage ? (
               <span className='flex gap-2'>
                 <Button

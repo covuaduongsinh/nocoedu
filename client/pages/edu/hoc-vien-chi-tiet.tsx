@@ -26,6 +26,8 @@ import {
   LevelBadge,
   SessionBalanceBadge,
 } from './edu-ui-parts.js';
+import { StudentTuition } from './hoc-phi/student-tuition.js';
+import { StudentComments } from './hoc-vien-nhan-xet.js';
 import {
   post,
   text,
@@ -36,6 +38,8 @@ import {
   type Row,
 } from './kit.js';
 import { RowsTable } from './list-page.js';
+import { ParentLinks } from './parent-links.js';
+import { useParentLinks } from './parent-links-model.js';
 import { NoteButton, RowManage, UnlinkButton } from './sua-xoa.js';
 
 const fmt = (value: unknown): string => Number(value).toLocaleString('vi-VN');
@@ -128,6 +132,7 @@ function StudentFile({
   const canPackages = useCanView('edu.goiHoc');
   const canLedger = useCanView('edu.soDu');
   const canBooks = useCanView('edu.sachHoc');
+  const canComments = useCanView('edu.nhanXet');
   const classes = useRows('lop').loaded;
   const branches = useRows('coSo').loaded;
   const classRow =
@@ -155,7 +160,9 @@ function StudentFile({
                     {text(student.ma)}
                   </Badge>
                   <StatusBadge
-                    tone={student.trangThai === 'dang_hoc' ? 'success' : 'neutral'}
+                    tone={
+                      student.trangThai === 'dang_hoc' ? 'success' : 'neutral'
+                    }
                   >
                     {t(`edu.status.${text(student.trangThai)}`)}
                   </StatusBadge>
@@ -180,13 +187,24 @@ function StudentFile({
                   {t('edu.diemDanh.balance')}
                 </span>
                 <span className='text-xl font-bold text-foreground'>
-                  <SessionBalanceBadge balance={student.soBuoiConLai != null ? Number(student.soBuoiConLai) : null} />
+                  <SessionBalanceBadge
+                    balance={
+                      student.soBuoiConLai != null
+                        ? Number(student.soBuoiConLai)
+                        : null
+                    }
+                  />
                 </span>
               </div>
               <div className='flex items-center gap-2'>
                 <Link
                   to={`/doi-soat?hocVienId=${student.id}`}
-                  className={buttonVariants({ variant: 'outline', size: 'sm', className: 'h-8 gap-1.5 font-medium text-primary hover:text-primary' })}
+                  className={buttonVariants({
+                    variant: 'outline',
+                    size: 'sm',
+                    className:
+                      'h-8 gap-1.5 font-medium text-primary hover:text-primary',
+                  })}
                 >
                   <CalendarCheck className='size-3.5' />
                   Đối soát buổi học
@@ -210,6 +228,11 @@ function StudentFile({
           {canSessions ? (
             <TabsTrigger value='sessions'>
               {t('edu.hocVien.tab.sessions')}
+            </TabsTrigger>
+          ) : null}
+          {canComments ? (
+            <TabsTrigger value='comments'>
+              {t('edu.hocVien.tabComments')}
             </TabsTrigger>
           ) : null}
           {canPackages ? (
@@ -276,9 +299,27 @@ function StudentFile({
             <Sessions studentId={student.id} />
           </TabsContent>
         ) : null}
+        {canComments ? (
+          <TabsContent value='comments' className='pt-4'>
+            <StudentComments studentId={student.id} />
+          </TabsContent>
+        ) : null}
         {canPackages ? (
           <TabsContent value='packages' className='pt-4'>
-            <Packages studentId={student.id} />
+            {/* The student's tuition is worked from here: the same block as the tuition page (sell, collect, print the
+                receipt, adjust the balance), then which sessions were deducted from which package. */}
+            <div className='flex flex-col gap-8'>
+              <StudentTuition student={student} onChanged={onChanged} />
+              <section className='flex flex-col gap-2'>
+                <h3 className='text-sm font-medium'>
+                  {t('edu.hocVien.deductedTitle')}
+                </h3>
+                <p className='text-sm text-muted-foreground'>
+                  {t('edu.hocVien.deductedHint')}
+                </p>
+                <Packages studentId={student.id} />
+              </section>
+            </div>
           </TabsContent>
         ) : null}
         {canBooks ? (
@@ -356,7 +397,7 @@ function Books({ studentId }: { readonly studentId: number }): ReactElement {
               className={`text-lg font-semibold ${
                 myFund.conLai < 0
                   ? 'text-destructive'
-                  : 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-(--status-success)'
               }`}
             >
               {fmt(myFund.conLai)}
@@ -456,45 +497,64 @@ function Parents({ studentId }: { readonly studentId: number }): ReactElement {
     'phuHuynh',
     linkRows.map((row) => Number(row.phuHuynhId)),
   );
+  const portal = useParentLinks(studentId);
   return (
-    <RowsTable
-      loaded={links.loaded}
-      onRetry={links.reload}
-      emptyTitle={t('edu.hocVien.noParents')}
-      emptyHint={t('edu.hocVien.noParentsHint')}
-      columns={[
-        {
-          key: 'hoTen',
-          label: t('edu.phuHuynh.hoTen'),
-          render: (row) => text(parents.get(Number(row.phuHuynhId))?.hoTen),
-        },
-        {
-          key: 'quanHe',
-          label: t('edu.hocVien.quanHe'),
-          render: (row) => t(`edu.relation.${text(row.quanHe)}`),
-        },
-        {
-          key: 'soDienThoai',
-          label: t('edu.phuHuynh.soDienThoai'),
-          render: (row) =>
-            text(parents.get(Number(row.phuHuynhId))?.soDienThoai),
-        },
-        {
-          key: 'zalo',
-          label: t('edu.phuHuynh.zalo'),
-          render: (row) => text(parents.get(Number(row.phuHuynhId))?.zalo),
-        },
-        {
-          key: 'lienHeChinh',
-          label: t('edu.hocVien.lienHeChinh'),
-          render: (row) =>
-            row.lienHeChinh === true ? t('edu.common.yes') : '',
-        },
-      ]}
-      rowActions={(row) => (
-        <UnlinkButton linkId={row.id} onChanged={links.reload} />
-      )}
-    />
+    <div className='flex flex-col gap-6'>
+      <Link
+        to='/phu-huynh'
+        className='self-start text-sm font-medium text-primary underline-offset-2 hover:underline'
+      >
+        {t('edu.hocVien.allParents')}
+      </Link>
+      <RowsTable
+        loaded={links.loaded}
+        onRetry={links.reload}
+        emptyTitle={t('edu.hocVien.noParents')}
+        emptyHint={t('edu.hocVien.noParentsHint')}
+        columns={[
+          {
+            key: 'hoTen',
+            label: t('edu.phuHuynh.hoTen'),
+            render: (row) => text(parents.get(Number(row.phuHuynhId))?.hoTen),
+          },
+          {
+            key: 'quanHe',
+            label: t('edu.hocVien.quanHe'),
+            render: (row) => t(`edu.relation.${text(row.quanHe)}`),
+          },
+          {
+            key: 'soDienThoai',
+            label: t('edu.phuHuynh.soDienThoai'),
+            render: (row) =>
+              text(parents.get(Number(row.phuHuynhId))?.soDienThoai),
+          },
+          {
+            key: 'zalo',
+            label: t('edu.phuHuynh.zalo'),
+            render: (row) => text(parents.get(Number(row.phuHuynhId))?.zalo),
+          },
+          {
+            key: 'lienHeChinh',
+            label: t('edu.hocVien.lienHeChinh'),
+            render: (row) =>
+              row.lienHeChinh === true ? t('edu.common.yes') : '',
+          },
+        ]}
+        rowActions={(row) => (
+          <UnlinkButton linkId={row.id} onChanged={links.reload} />
+        )}
+      />
+      {portal.canView && linkRows.length > 0 ? (
+        <ParentLinks
+          studentId={studentId}
+          parents={linkRows.map((row) => ({
+            id: Number(row.phuHuynhId),
+            name: text(parents.get(Number(row.phuHuynhId))?.hoTen),
+          }))}
+          portal={portal}
+        />
+      ) : null}
+    </div>
   );
 }
 

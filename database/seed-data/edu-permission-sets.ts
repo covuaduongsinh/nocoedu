@@ -5,11 +5,13 @@ import {
   baoCao,
   buoiHoc,
   coSo,
+  congPhuHuynh,
   coSoQuanLy,
   diemDanh,
   dongY,
   ext,
   goiHoc,
+  heThong,
   hocVien,
   lienKet,
   lop,
@@ -49,7 +51,9 @@ const everyPage = Object.entries(PAGES)
       key !== 'sach' &&
       key !== 'phatSach' &&
       key !== 'tuyenSinh' &&
-      key !== 'hoSoGv',
+      key !== 'hoSoGv' &&
+      key !== 'doiSoat' &&
+      key !== 'saoLuu',
   )
   .map(([, id]) => page(id));
 const sachPage = page(PAGES.sach);
@@ -59,6 +63,9 @@ const phatSachPage = page(PAGES.phatSach);
 const tuyenSinhPage = page(PAGES.tuyenSinh);
 // The coach profile page is the last: `202611140005_edu_ho_so_gv_grant` (administrator only).
 const hoSoGvPage = page(PAGES.hoSoGv);
+// The reconciliation and backup pages got their own grants last: `202611160001_edu_doi_soat_sao_luu_grant`.
+const doiSoatPage = page(PAGES.doiSoat);
+const saoLuuPage = page(PAGES.saoLuu);
 
 export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .title('NocoEdu - Quản trị')
@@ -115,7 +122,8 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .grant(
     thanhToan.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
   )
-  .grant(soDu.reference().grant({ view: { data: ALL } }))
+  // `adjust` came later: `202611160002_edu_so_du_adjust_grant` adds it to the grant that is already there.
+  .grant(soDu.reference().grant({ view: { data: ALL }, adjust: { data: ALL } }))
   .grant(
     nhanXet.reference().grant({ view: { data: ALL }, write: { data: ALL } }),
   )
@@ -135,6 +143,15 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
     hoSoGv.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
   )
   .grant(sachHoc.reference().grant({ view: { data: ALL } }))
+  .grant(doiSoatPage)
+  .grant(saoLuuPage)
+  .grant(heThong.reference().grant({ backup: { data: ALL } }))
+  // The parents' private links came last: `202611160005_edu_cong_phu_huynh_grant`.
+  .grant(
+    congPhuHuynh
+      .reference()
+      .grant({ view: { data: ALL }, manage: { data: ALL } }),
+  )
   .build();
 
 export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
@@ -233,6 +250,13 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
     }),
   )
   .grant(sachHoc.reference().grant({ view: { data: MY_BRANCHES } }))
+  .grant(doiSoatPage)
+  .grant(
+    congPhuHuynh.reference().grant({
+      view: { data: MY_BRANCHES },
+      manage: { data: MY_BRANCHES },
+    }),
+  )
   .build();
 
 export const eduHlv = definePermissionSet('edu_hlv')
@@ -300,13 +324,15 @@ export const eduKeToan = definePermissionSet('edu_ke_toan')
   .grant(
     thanhToan.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
   )
-  .grant(soDu.reference().grant({ view: { data: ALL } }))
+  // `adjust` came later: `202611160002_edu_so_du_adjust_grant` adds it to the grant that is already there.
+  .grant(soDu.reference().grant({ view: { data: ALL }, adjust: { data: ALL } }))
   .grant(baoCao.reference().grant({ export: { data: ALL } }))
   .grant(sachPage)
   .grant(sach.reference().grant({ view: { data: ALL } }))
   .grant(phatSachPage)
   .grant(phatSach.reference().grant({ view: { data: ALL } }))
   .grant(sachHoc.reference().grant({ view: { data: ALL } }))
+  .grant(doiSoatPage)
   .build();
 
 export const eduApiDoc = definePermissionSet('edu_api_doc')

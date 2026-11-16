@@ -158,6 +158,7 @@ function EditCoSo({ row, onChanged, onClose }: DialogProps): ReactElement {
     ten: text(row.ten),
     diaChi: text(row.diaChi),
     truBuoiVangCoPhep: row.truBuoiVangCoPhep === true,
+    nguongNhacBuoi: text(row.nguongNhacBuoi) || '2',
     trangThai: text(row.trangThai),
   }));
   return (
@@ -170,6 +171,7 @@ function EditCoSo({ row, onChanged, onClose }: DialogProps): ReactElement {
           ten: form.ten.trim(),
           diaChi: form.diaChi.trim() || null,
           truBuoiVangCoPhep: form.truBuoiVangCoPhep,
+          nguongNhacBuoi: Number(form.nguongNhacBuoi),
           trangThai: form.trangThai,
         });
         onChanged();
@@ -197,6 +199,15 @@ function EditCoSo({ row, onChanged, onClose }: DialogProps): ReactElement {
         />
         {t('edu.coSo.truBuoi')}
       </label>
+      <TextField
+        id='sua-co-so-nguong-nhac'
+        label={t('edu.coSo.nguongNhac')}
+        hint={t('edu.coSo.nguongNhacHint')}
+        type='number'
+        value={form.nguongNhacBuoi}
+        required
+        onChange={(nguongNhacBuoi) => setForm({ ...form, nguongNhacBuoi })}
+      />
       {statusField(
         'coSo',
         form.trangThai,

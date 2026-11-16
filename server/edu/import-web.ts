@@ -9,7 +9,7 @@ import {
   type ImportProblem,
 } from './import-csv.js';
 import { levelOrder } from './levels.js';
-import { asText, codeFromId } from './names.js';
+import { asText, codeFromId, temporaryCode } from './names.js';
 
 /**
  * Import of students and their parents from a CSV file uploaded on the students page: a preview that writes nothing,
@@ -445,7 +445,7 @@ export async function applyImport(
           .withPolicy(policies.hocVien)
           .createOne({
             values: {
-              ma: `TMP-${crypto.randomUUID()}`,
+              ma: temporaryCode(),
               hoTen: row.hoTen,
               namSinh: row.namSinh,
               levelKey: row.levelKey,
@@ -469,7 +469,7 @@ export async function applyImport(
       if (parentId === undefined) {
         const parent = await connection.repository('eduPhuHuynh').createOne({
           values: {
-            ma: `TMP-${crypto.randomUUID()}`,
+            ma: temporaryCode(),
             hoTen: row.parentName,
             soDienThoai: row.phone,
             zalo: row.zalo,

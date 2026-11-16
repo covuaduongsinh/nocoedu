@@ -62,6 +62,45 @@ export default [
         });
       },
     );
+    router.use('/quanLy/danhSach', auth.required(), authz.middleware());
+    router.post(
+      '/quanLy/danhSach',
+      describeRoute({
+        tags: ['NocoEdu'],
+        summary: 'Accounts that hold the branch manager role',
+        operationId: 'listBranchManagers',
+        responses: {
+          '200': dataResponse(z.object({}).passthrough()),
+          ...apiErrorResponses,
+        },
+      }),
+      // Whoever may name a branch's managers may pick from the accounts that hold the branch manager set.
+      needs('edu.coSoQuanLy', 'manage'),
+      async (c) => {
+        const query = database.connection().query;
+        const assigned = await query
+          .selectFrom('authorizationPermissionSetAssignments')
+          .select('subjectId')
+          .where('subjectType', '=', 'user')
+          .where('permissionSetKey', '=', 'edu_quan_ly_co_so')
+          .execute();
+        const ids = assigned.map((row) => asText(row.subjectId));
+        const users = ids.length
+          ? await query
+              .selectFrom('user')
+              .select(['id', 'name'])
+              .where('id', 'in', ids)
+              .orderBy('name')
+              .execute()
+          : [];
+        return c.json({
+          data: users.map((user) => ({
+            id: asText(user.id),
+            name: asText(user.name),
+          })),
+        });
+      },
+    );
     return new Hono().route('/', router);
   }),
 ];

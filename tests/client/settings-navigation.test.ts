@@ -234,19 +234,43 @@ describe('System settings navigation', () => {
       buildRouteNavigation(routes, new Set()).map(({ route }) => route.name),
     ).toEqual([
       'home',
-      'edu-coSo',
-      'edu-lop',
-      'edu-hocVien',
-      'edu-phuHuynh',
-      'edu-diemDanh',
-      'edu-hocPhi',
-      'edu-nhanXet',
-      'edu-baoCao',
-      'edu-sach',
-      'edu-phatSach',
-      'edu-tuyenSinh',
-      'edu-hoSoGv',
+      'edu-nav-operations',
+      'edu-nav-catalogue',
       'settingsHome',
+    ]);
+    // The two sections hold the application's pages, in the order of their `order`.
+    const sections = buildRouteNavigation(routes, new Set());
+    expect(
+      sections.map(({ route, children }) => [
+        route.name,
+        children.map((child) => child.route.name),
+      ]),
+    ).toEqual([
+      ['home', []],
+      [
+        'edu-nav-operations',
+        [
+          'edu-diemDanh',
+          'edu-doi-soat',
+          'edu-hocPhi',
+          'edu-nhanXet',
+          'edu-tuyenSinh',
+          'edu-hocVien',
+          'edu-baoCao',
+        ],
+      ],
+      [
+        'edu-nav-catalogue',
+        [
+          'edu-lop',
+          'edu-coSo',
+          'edu-hoSoGv',
+          'edu-sach',
+          'edu-phatSach',
+          'edu-sao-luu',
+        ],
+      ],
+      ['settingsHome', []],
     ]);
   });
 });

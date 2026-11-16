@@ -34,12 +34,12 @@ export function AppBrand(inputProps: AppBrandProps): ReactElement {
         <span className='h-8 min-w-0 overflow-hidden'>
           <img
             src={resolveAssetUrl('/assets/logo.png')}
-            alt='NocoBase'
+            alt={t('app.title', { defaultValue: 'NocoBase' })}
             className='h-full w-auto object-contain dark:hidden'
           />
           <img
             src={resolveAssetUrl('/assets/logo-dark.png')}
-            alt='NocoBase'
+            alt={t('app.title', { defaultValue: 'NocoBase' })}
             className='hidden h-full w-auto object-contain dark:block'
           />
         </span>

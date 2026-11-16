@@ -6,7 +6,7 @@ import { createAppTest } from '@nocobase/app-testing/server';
 
 import { createStandaloneServer } from '../../server/standalone.js';
 
-export const test = createAppTest({
+export const eduTestOptions = {
   createServer: createStandaloneServer,
   connections: ['main'],
   config: {
@@ -17,7 +17,9 @@ export const test = createAppTest({
     },
     users: { initialAdmin: DEFAULT_ADMIN_CREDENTIALS },
   },
-});
+} as const;
+
+export const test = createAppTest(eduTestOptions);
 
 type TestApp = Parameters<typeof signIn>[0];
 type Session = Awaited<ReturnType<typeof signIn>>;
@@ -107,6 +109,7 @@ export async function seedSchool(
   const q = connection.query;
   // The file shares one application, so start every case from an empty school.
   for (const table of [
+    'eduCongPhuHuynh',
     'eduSachHoc',
     'eduLienHe',
     'eduHoSoGv',

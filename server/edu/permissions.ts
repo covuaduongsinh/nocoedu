@@ -29,6 +29,7 @@ export const COLLECTIONS = {
   lienHe: { name: 'eduLienHe', title: 'Liên hệ tuyển sinh' },
   hoSoGv: { name: 'eduHoSoGv', title: 'Hồ sơ giáo viên' },
   sachHoc: { name: 'eduSachHoc', title: 'Sách đã và đang học' },
+  congPhuHuynh: { name: 'eduCongPhuHuynh', title: 'Link riêng của phụ huynh' },
 } as const;
 
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -43,6 +44,7 @@ export const FIELDS = {
       'diaChi',
       'nguoiPhuTrachId',
       'truBuoiVangCoPhep',
+      'nguongNhacBuoi',
       'trangThai',
     ],
     write: [
@@ -51,6 +53,7 @@ export const FIELDS = {
       'diaChi',
       'nguoiPhuTrachId',
       'truBuoiVangCoPhep',
+      'nguongNhacBuoi',
       'trangThai',
     ],
   },
@@ -245,6 +248,8 @@ export const FIELDS = {
       'thang',
       'noiDungCk',
       'nguoiGhiNhanId',
+      // Read only: the receipt number is given by the server when a payment is recorded (`ghi-so-du.ts`).
+      'soPhieu',
     ],
     write: [
       'goiHocId',
@@ -301,6 +306,20 @@ export const FIELDS = {
   },
   sachHoc: {
     read: ['id', 'hocVienId', 'sachId', 'trangThai'],
+    write: [],
+  },
+  // Never `tokenHash`: not even a hash of a link leaves the server. Rows are written only by `edu-cong-phu-huynh.ts`.
+  congPhuHuynh: {
+    read: [
+      'id',
+      'hocVienId',
+      'phuHuynhId',
+      'hanLuc',
+      'thuHoiLuc',
+      'xemCuoiLuc',
+      'soLanXem',
+      'createdAt',
+    ],
     write: [],
   },
   hoSoGv: {
@@ -412,6 +431,15 @@ export const sachHoc = defineCompositeResource('edu.sachHoc', (r) =>
   r
     .title('Sách đã và đang học')
     .action('view', (a) => a.title('Xem').grant('data', sachHocRead)),
+);
+// The private link of a parent (stage 3). `view` lists the links of a student and when each was last opened; `manage`
+// makes and revokes them (`POST /congPhuHuynh/taoLink`, `/thuHoi`), which write the rows themselves: the record API
+// never creates or changes one, and never returns the hash of a token.
+export const congPhuHuynh = simple(
+  'edu.congPhuHuynh',
+  'Link riêng của phụ huynh',
+  'congPhuHuynh',
+  {},
 );
 // Coach profile and pay per session (DS-61 phase F). Pay is the club's private matter: only the administrator holds
 // this resource; the account itself (`userId`) cannot be changed after the profile is made.
@@ -635,11 +663,18 @@ export const phatSach = defineCompositeResource('edu.phatSach', (r) =>
     ),
 );
 
-/** The balance ledger of a student. Rows are written only by the services that change a balance. */
+/**
+ * The balance ledger of a student. Rows are written only by the services that change a balance. `adjust` is the one
+ * action that sets a balance by hand (a correction, a refund of sessions, settling a balance that disagrees with the
+ * ledger): the route writes the ledger row itself, with the reason the person typed.
+ */
 export const soDu = defineCompositeResource('edu.soDu', (r) =>
   r
     .title('Nhật ký số dư buổi')
-    .action('view', (a) => a.title('Xem').grant('data', soDuRead)),
+    .action('view', (a) => a.title('Xem').grant('data', soDuRead))
+    .action('adjust', (a) =>
+      a.title('Điều chỉnh số dư buổi (có ghi lý do)').grant('data', soDuRead),
+    ),
 );
 
 const nhanXetRead = perm('nhanXetThang', FIELDS.nhanXetThang);
@@ -673,6 +708,21 @@ export const baoCao = defineCompositeResource('edu.baoCao', (r) =>
     .action('export', (a) =>
       a
         .title('Xuất báo cáo ra tệp CSV')
+        .grant('data', perm('xuatDuLieu', FIELDS.xuatDuLieu)),
+    ),
+);
+
+/**
+ * Taking a whole copy of the training data out of the application. It is its own action, held by the administrator
+ * only: the copy carries every student, parent phone number and payment. Like `edu.baoCao` the grant is over the export
+ * log, where each copy leaves a row; the route checks the action itself.
+ */
+export const heThong = defineCompositeResource('edu.heThong', (r) =>
+  r
+    .title('Sao lưu dữ liệu')
+    .action('backup', (a) =>
+      a
+        .title('Xuất bản sao lưu toàn bộ dữ liệu')
         .grant('data', perm('xuatDuLieu', FIELDS.xuatDuLieu)),
     ),
 );

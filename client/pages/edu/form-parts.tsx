@@ -1,3 +1,8 @@
+import {
+  PendingSubmissionError,
+  SubmissionTimeoutError,
+  useSubmission,
+} from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
 import { useState, type ReactElement, type ReactNode } from 'react';
 
@@ -13,7 +18,7 @@ import {
 import { Input } from '#components/ui/input';
 import { Label } from '#components/ui/label';
 
-import { useErrorMessage } from './kit.js';
+import { useErrorMessage, type Operation } from './kit.js';
 
 export function Field({
   id,
@@ -93,32 +98,48 @@ export function SelectField(props: {
   );
 }
 
-/** A dialog around a form: Enter or the save button submits once; the error is shown inside the dialog. */
+/**
+ * A dialog around a form. Enter and the save button are one submission: the controller takes the lock before anything
+ * is sent, so a double click sends one request, and `onSubmit` receives the operation whose key every attempt shares.
+ * A form that writes money or a balance passes that operation to `post` and gives its values as `snapshot`: after an
+ * answer that never arrived, only the same values may be sent again under the same key. The error shows in the dialog.
+ */
 export function FormDialog(props: {
   readonly open: boolean;
   readonly title: string;
   readonly description?: string;
   readonly onClose: () => void;
-  readonly onSubmit: () => Promise<void>;
+  readonly onSubmit: (operation: Operation) => Promise<void>;
+  /** The values the form sends, for a form whose write joins the operation key. */
+  readonly snapshot?: unknown;
   /** The text of the submit button; "Save" by default. */
   readonly submitLabel?: string;
   readonly children?: ReactNode;
 }): ReactElement {
   const { t } = useTranslation();
   const message = useErrorMessage();
-  const [busy, setBusy] = useState(false);
+  const submission = useSubmission();
+  const busy = submission.submitting;
   const [error, setError] = useState<string>();
   const submit = async (): Promise<void> => {
-    if (busy) return;
-    setBusy(true);
     setError(undefined);
     try {
-      await props.onSubmit();
-      props.onClose();
+      const done = await submission.run(
+        props.snapshot ?? null,
+        async (key, signal) => {
+          await props.onSubmit({ key, signal });
+          return true;
+        },
+      );
+      // `undefined` means another entry point already holds the lock.
+      if (done) props.onClose();
     } catch (cause) {
-      setError(message(cause));
-    } finally {
-      setBusy(false);
+      setError(
+        cause instanceof PendingSubmissionError ||
+          cause instanceof SubmissionTimeoutError
+          ? t('edu.errors.unknownOutcome')
+          : message(cause),
+      );
     }
   };
   return (

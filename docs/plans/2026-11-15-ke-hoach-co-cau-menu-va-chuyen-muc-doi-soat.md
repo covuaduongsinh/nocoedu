@@ -11,6 +11,7 @@
 Ý kiến của bạn về việc **tách riêng Học viên** và **đặt trọng tâm quản lý Phụ huynh ở NocoCRM** là **CỰC KỲ CHUẨN XÁC VỀ KIẾN TRÚC DOANH NGHIỆP**:
 
 ### Phân định Rõ ràng Trách nhiệm Hệ thống (Domain Separation):
+
 1. **NocoCRM (Quản lý Khách hàng & Vòng đời Phụ huynh)**:
    - Phụ huynh chính là **Khách hàng trả tiền (Customer / Buyer)**.
    - NocoCRM quản lý: Phễu tuyển sinh (Leads), Lịch sử tư vấn, Chiến dịch Marketing, Hợp đồng, Chăm sóc khách hàng (CSKH), Tương tác qua Zalo OA/Lark, Lịch sử khiếu nại, Khảo sát hài lòng.
@@ -60,6 +61,7 @@
 Chuyên mục này giải quyết trọn vẹn điểm nghẽn của dạng Modal, cung cấp **100% diện tích màn hình**:
 
 ### 3.1. Chế độ 1: Bảng điều khiển đối soát toàn trung tâm (Audit Hub)
+
 - **Thống kê nhanh toàn trường**:
   - 🔴 **Vượt gói / Cần thu kỳ mới**: Học viên có số buổi âm (đã học vượt số buổi nộp).
   - 🟡 **Sắp hết buổi (1–2 buổi)**: Cần chuẩn bị gửi thông báo thu học phí kỳ tiếp.
@@ -69,6 +71,7 @@ Chuyên mục này giải quyết trọn vẹn điểm nghẽn của dạng Moda
 - **Bảng danh sách đối soát nhanh**: Thể hiện Số buổi nộp, Đã học, Số buổi còn lại/vượt, Tình trạng học phí, Tồn nợ sách + Nút `[📋 Xem đối soát chi tiết]`.
 
 ### 3.2. Chế độ 2: Không gian đối soát chi tiết học viên (Student Audit Workspace)
+
 - **Header học viên**: Họ tên, Mã HV, Lớp đang học, Cơ sở, Phụ huynh liên hệ, SĐT, Số buổi hiện tại (`🔴 Vượt 21 buổi`).
 - **Thao tác góc phải**:
   - `🖨️ In phiếu đối soát A4`: Kích hoạt định dạng in chuẩn có logo Cờ Vua Dương Sinh và chữ ký xác nhận gửi phụ huynh.
@@ -78,9 +81,9 @@ Chuyên mục này giải quyết trọn vẹn điểm nghẽn của dạng Moda
   1. **Tab 1: 📊 Tổng hợp đối soát & Tiến độ từng kỳ**:
      - Thẻ KPI: Đã mua bao nhiêu buổi, Đã học bao nhiêu buổi, Số buổi còn lại/vượt.
      - Cột mốc Timeline phân bổ buổi học vào từng kỳ nộp:
-       - *Kỳ 1 (24 buổi)*: Học từ 01/01/2025 → 30/03/2025. **Tiến độ: 24/24 (100%) - Đã hoàn thành**.
-       - *Kỳ 2 (24 buổi)*: Học từ 01/04/2025 → 30/06/2025. **Tiến độ: 24/24 (100%) - Đã hoàn thành**.
-       - *Vượt gói (21 buổi)*: Học từ 01/07/2025 → Nay. **Cảnh báo: Cần thu học phí kỳ 3**.
+       - _Kỳ 1 (24 buổi)_: Học từ 01/01/2025 → 30/03/2025. **Tiến độ: 24/24 (100%) - Đã hoàn thành**.
+       - _Kỳ 2 (24 buổi)_: Học từ 01/04/2025 → 30/06/2025. **Tiến độ: 24/24 (100%) - Đã hoàn thành**.
+       - _Vượt gói (21 buổi)_: Học từ 01/07/2025 → Nay. **Cảnh báo: Cần thu học phí kỳ 3**.
   2. **Tab 2: 📅 Lịch sử buổi học & Chỉnh sửa trực tiếp (Quick Edit)**:
      - Bảng full màn hình, sticky header, không bị tràn hay cắt chữ.
      - Bộ lọc: Lọc theo kỳ, theo tháng, theo lớp, theo trạng thái (Có mặt / Vắng / Học bù).
@@ -112,11 +115,11 @@ Chuyên mục này giải quyết trọn vẹn điểm nghẽn của dạng Moda
 
 ## 5. Lộ trình Triển khai Chi tiết
 
-| Giai đoạn | Nội dung công việc | File ảnh hưởng | Thời gian |
-| :--- | :--- | :--- | :--- |
-| **Giai đoạn 1** | **Cơ cấu lại Menu**: Tách riêng Học viên (bỏ mục Phụ huynh ở sidebar, đưa về hồ sơ học viên / CRM), nhóm danh mục ít đổi, thêm route `doiSoat` và `duLieu` | `client/routes.ts`, `client/locales/en-US.ts`, `client/locales/zh-CN.ts`, `page-permission-titles.ts` | 30 phút |
-| **Giai đoạn 2** | **Backend API**: Xây dựng API tổng quan đối soát, chi tiết học viên, API sửa nhanh buổi học (recalculate balance) và xuất Excel | `server/routes/edu-doi-soat.ts`, `server/routes/index.ts` | 35 phút |
-| **Giai đoạn 3** | **Frontend Đối Soát**: Hoàn thiện trang `/main/doi-soat` với 2 chế độ (Tổng quan trung tâm + Chi tiết học viên 4 tab) | `client/pages/edu/doi-soat.tsx` | 45 phút |
-| **Giai đoạn 4** | **In ấn & Xuất file**: Thiết kế CSS Print chuẩn A4 cho Phiếu đối soát Cờ Vua Dương Sinh + Tích hợp nút xuất Excel | `client/pages/edu/doi-soat.tsx` | 25 phút |
-| **Giai đoạn 5** | **Sao lưu & Dữ liệu**: Xây dựng trang `/main/du-lieu` hỗ trợ backup snapshot, export/import Excel từng bảng | `client/pages/edu/du-lieu.tsx`, `server/routes/edu-backup.ts` | 40 phút |
-| **Giai đoạn 6** | **Kiểm thử & Deploy VPS**: Chạy `tsc`, tests, build Docker và cập nhật lên VPS `https://nocoedu.dsc.edu.vn/main` | VPS `217.15.160.118` | 25 phút |
+| Giai đoạn       | Nội dung công việc                                                                                                                                         | File ảnh hưởng                                                                                        | Thời gian |
+| :-------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- | :-------- |
+| **Giai đoạn 1** | **Cơ cấu lại Menu**: Tách riêng Học viên (bỏ mục Phụ huynh ở sidebar, đưa về hồ sơ học viên / CRM), nhóm danh mục ít đổi, thêm route `doiSoat` và `duLieu` | `client/routes.ts`, `client/locales/en-US.ts`, `client/locales/zh-CN.ts`, `page-permission-titles.ts` | 30 phút   |
+| **Giai đoạn 2** | **Backend API**: Xây dựng API tổng quan đối soát, chi tiết học viên, API sửa nhanh buổi học (recalculate balance) và xuất Excel                            | `server/routes/edu-doi-soat.ts`, `server/routes/index.ts`                                             | 35 phút   |
+| **Giai đoạn 3** | **Frontend Đối Soát**: Hoàn thiện trang `/main/doi-soat` với 2 chế độ (Tổng quan trung tâm + Chi tiết học viên 4 tab)                                      | `client/pages/edu/doi-soat.tsx`                                                                       | 45 phút   |
+| **Giai đoạn 4** | **In ấn & Xuất file**: Thiết kế CSS Print chuẩn A4 cho Phiếu đối soát Cờ Vua Dương Sinh + Tích hợp nút xuất Excel                                          | `client/pages/edu/doi-soat.tsx`                                                                       | 25 phút   |
+| **Giai đoạn 5** | **Sao lưu & Dữ liệu**: Xây dựng trang `/main/du-lieu` hỗ trợ backup snapshot, export/import Excel từng bảng                                                | `client/pages/edu/du-lieu.tsx`, `server/routes/edu-backup.ts`                                         | 40 phút   |
+| **Giai đoạn 6** | **Kiểm thử & Deploy VPS**: Chạy `tsc`, tests, build Docker và cập nhật lên VPS `https://nocoedu.dsc.edu.vn/main`                                           | VPS `217.15.160.118`                                                                                  | 25 phút   |

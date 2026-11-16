@@ -16,7 +16,14 @@ import {
 import { Textarea } from '#components/ui/textarea';
 
 import { SelectField, TextField } from './form-parts.js';
-import { post, text, todayVn, useErrorMessage, useRows, type Row } from './kit.js';
+import {
+  post,
+  text,
+  todayVn,
+  useErrorMessage,
+  useRows,
+  type Row,
+} from './kit.js';
 
 /**
  * Monthly comments. A coach writes one comment per student for the month; "Export text" builds the message to paste
@@ -74,7 +81,10 @@ export default function NhanXetPage(): ReactElement {
   } | null>(null);
   const [aiLoading, setAiLoading] = useState<Record<number, boolean>>({});
 
+  // A draft put together from the student's sessions of the period by fixed rules on the server (attendance, homework,
+  // the awareness score and the coach's own session comments). No language model is involved, and the coach edits it.
   const generateAiReview = async (student: Row): Promise<void> => {
+    setError(undefined);
     setAiLoading((prev) => ({ ...prev, [student.id]: true }));
     try {
       const res = await api.request<{ data: { goiY: string } }>({
@@ -83,14 +93,15 @@ export default function NhanXetPage(): ReactElement {
         json: { hocVienId: student.id, thang: month },
       });
       setDrafts((prev) => ({ ...prev, [student.id]: res.data.goiY }));
-    } catch (err) {
-      console.error(err);
+    } catch (cause) {
+      setError(message(cause));
     } finally {
       setAiLoading((prev) => ({ ...prev, [student.id]: false }));
     }
   };
 
   const openHistory = async (student: Row): Promise<void> => {
+    setError(undefined);
     try {
       const res = await api.request<{
         data: {
@@ -120,8 +131,8 @@ export default function NhanXetPage(): ReactElement {
         json: { hocVienId: student.id, thang: month },
       });
       setHistoryModal({ student, data: res.data });
-    } catch (err) {
-      console.error(err);
+    } catch (cause) {
+      setError(message(cause));
     }
   };
 
@@ -282,18 +293,20 @@ export default function NhanXetPage(): ReactElement {
                     onClick={() => void openHistory(student)}
                     className='h-7 text-xs font-medium gap-1'
                   >
-                    🔍 Xem lịch sử {month}
+                    {t('edu.nhanXet.history', { ky: month })}
                   </Button>
                   {canWrite ? (
                     <Button
                       size='sm'
                       type='button'
-                      variant='default'
+                      variant='outline'
                       disabled={aiLoading[student.id]}
                       onClick={() => void generateAiReview(student)}
-                      className='h-7 text-xs font-medium gap-1 bg-violet-600 hover:bg-violet-700 text-white'
+                      className='h-7 text-xs font-medium gap-1'
                     >
-                      {aiLoading[student.id] ? '⏳ Đang phân tích...' : '✨ AI Gợi ý nhận xét'}
+                      {aiLoading[student.id]
+                        ? t('edu.nhanXet.suggesting')
+                        : t('edu.nhanXet.suggest')}
                     </Button>
                   ) : null}
                 </div>
@@ -305,7 +318,7 @@ export default function NhanXetPage(): ReactElement {
                 rows={4}
                 placeholder={
                   kind === 'thang'
-                    ? 'Nhập nhận xét tháng hoặc bấm "✨ AI Gợi ý nhận xét" để hệ thống tự động tổng hợp từ các buổi học...'
+                    ? t('edu.nhanXet.draftHint')
                     : t('edu.nhanXet.templateText')
                 }
                 maxLength={3000}
@@ -321,18 +334,23 @@ export default function NhanXetPage(): ReactElement {
                       {t('edu.common.save')}
                     </Button>
                     {status[student.id] === 'saved' ? (
-                      <span className='text-xs font-medium text-emerald-600 flex items-center gap-1'>
-                        ✅ Đã lưu nhận xét
+                      <span className='text-xs font-medium text-(--status-success) flex items-center gap-1'>
+                        {t('edu.nhanXet.savedComment')}
                       </span>
                     ) : null}
                     {status[student.id] === 'error' ? (
-                      <span role='alert' className='text-xs font-medium text-destructive'>
+                      <span
+                        role='alert'
+                        className='text-xs font-medium text-destructive'
+                      >
                         {t('edu.common.saveError')}
                       </span>
                     ) : null}
                   </div>
                   <span className='text-[11px] text-muted-foreground'>
-                    {(drafts[student.id] ?? '').length}/3000 ký tự
+                    {t('edu.nhanXet.charCount', {
+                      n: (drafts[student.id] ?? '').length,
+                    })}
                   </span>
                 </div>
               ) : null}
@@ -381,12 +399,14 @@ export default function NhanXetPage(): ReactElement {
         <DialogContent className='max-w-2xl max-h-[85vh] overflow-y-auto'>
           <DialogHeader className='border-b pb-3'>
             <DialogTitle className='text-lg font-bold'>
-              📋 Lịch Sử Nhận Xét Các Buổi Học ({month})
+              {t('edu.nhanXet.historyTitle', { ky: month })}
             </DialogTitle>
             <DialogDescription>
               {historyModal ? (
                 <span>
-                  Học viên: <strong>{text(historyModal.student.hoTen)}</strong> ({text(historyModal.student.ma)})
+                  {t('edu.nhanXet.studentLabel')}{' '}
+                  <strong>{text(historyModal.student.hoTen)}</strong> (
+                  {text(historyModal.student.ma)})
                 </span>
               ) : null}
             </DialogDescription>
@@ -397,27 +417,44 @@ export default function NhanXetPage(): ReactElement {
               {/* Thống kê chỉ số */}
               <div className='grid grid-cols-2 gap-2 sm:grid-cols-4'>
                 <div className='rounded-md border bg-muted/40 p-2 text-center'>
-                  <span className='block text-[11px] text-muted-foreground'>Số buổi tham gia</span>
+                  <span className='block text-[11px] text-muted-foreground'>
+                    {t('edu.nhanXet.stat.attended')}
+                  </span>
                   <span className='font-bold text-sm text-foreground'>
-                    {historyModal.data.thongKe.soBuoiCoMat}/{historyModal.data.thongKe.tongBuoi} buổi
+                    {t('edu.nhanXet.stat.attendedValue', {
+                      present: historyModal.data.thongKe.soBuoiCoMat,
+                      total: historyModal.data.thongKe.tongBuoi,
+                    })}
                   </span>
                 </div>
                 <div className='rounded-md border bg-muted/40 p-2 text-center'>
-                  <span className='block text-[11px] text-muted-foreground'>Số buổi vắng</span>
-                  <span className={`font-bold text-sm ${historyModal.data.thongKe.soBuoiVang > 0 ? 'text-destructive' : 'text-emerald-600'}`}>
-                    {historyModal.data.thongKe.soBuoiVang} buổi
+                  <span className='block text-[11px] text-muted-foreground'>
+                    {t('edu.nhanXet.stat.absent')}
+                  </span>
+                  <span
+                    className={`font-bold text-sm ${historyModal.data.thongKe.soBuoiVang > 0 ? 'text-destructive' : 'text-(--status-success)'}`}
+                  >
+                    {t('edu.nhanXet.stat.sessionsN', {
+                      n: historyModal.data.thongKe.soBuoiVang,
+                    })}
                   </span>
                 </div>
                 <div className='rounded-md border bg-muted/40 p-2 text-center'>
-                  <span className='block text-[11px] text-muted-foreground'>Tỷ lệ làm BTVN</span>
+                  <span className='block text-[11px] text-muted-foreground'>
+                    {t('edu.nhanXet.stat.homeworkRate')}
+                  </span>
                   <span className='font-bold text-sm text-primary'>
                     {historyModal.data.thongKe.tyLeLamBtvn}%
                   </span>
                 </div>
                 <div className='rounded-md border bg-muted/40 p-2 text-center'>
-                  <span className='block text-[11px] text-muted-foreground'>Điểm ý thức TB</span>
-                  <span className='font-bold text-sm text-amber-600'>
-                    {historyModal.data.thongKe.diemYThucTb != null ? `${historyModal.data.thongKe.diemYThucTb}/10` : '—'}
+                  <span className='block text-[11px] text-muted-foreground'>
+                    {t('edu.nhanXet.stat.awareness')}
+                  </span>
+                  <span className='font-bold text-sm text-(--status-warning)'>
+                    {historyModal.data.thongKe.diemYThucTb != null
+                      ? `${historyModal.data.thongKe.diemYThucTb}/10`
+                      : '—'}
                   </span>
                 </div>
               </div>
@@ -425,11 +462,11 @@ export default function NhanXetPage(): ReactElement {
               {/* Dòng thời gian chi tiết các buổi */}
               <div>
                 <h4 className='mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground'>
-                  Ghi chú & Nhận xét từng buổi của giáo viên
+                  {t('edu.nhanXet.timelineTitle')}
                 </h4>
                 {historyModal.data.danhSach.length === 0 ? (
                   <p className='rounded border border-dashed p-4 text-center text-xs text-muted-foreground'>
-                    Không có buổi học nào trong giai đoạn này.
+                    {t('edu.nhanXet.noSessions')}
                   </p>
                 ) : (
                   <div className='flex flex-col gap-2'>
@@ -440,22 +477,48 @@ export default function NhanXetPage(): ReactElement {
                       >
                         <div className='flex items-center justify-between font-medium'>
                           <span className='text-foreground font-semibold'>
-                            📅 {buoi.ngay} ({buoi.gioBatDau?.slice(0, 5)}) · {buoi.lopTen}
+                            {buoi.ngay} ({buoi.gioBatDau?.slice(0, 5)}) ·{' '}
+                            {buoi.lopTen}
                           </span>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                            buoi.trangThai === 'co_mat' || buoi.trangThai === 'hoc_bu'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-destructive/10 text-destructive'
-                          }`}>
-                            {buoi.trangThai === 'co_mat' ? 'Có mặt' : buoi.trangThai === 'hoc_bu' ? 'Học bù' : 'Vắng'}
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                              buoi.trangThai === 'co_mat' ||
+                              buoi.trangThai === 'hoc_bu'
+                                ? 'bg-(--status-success-background) text-(--status-success)'
+                                : 'bg-destructive/10 text-destructive'
+                            }`}
+                          >
+                            {buoi.trangThai === 'co_mat'
+                              ? t('edu.diemDanh.s.co_mat')
+                              : buoi.trangThai === 'hoc_bu'
+                                ? t('edu.diemDanh.s.hoc_bu')
+                                : t('edu.nhanXet.absent')}
                           </span>
                         </div>
                         <div className='flex items-center gap-3 text-muted-foreground text-[11px]'>
-                          <span>BTVN: {buoi.daLamBtvn ? '✅ Đã làm' : '❌ Chưa làm'}</span>
-                          {buoi.yThucDiem != null ? <span>Ý thức: <strong>{buoi.yThucDiem}/10</strong></span> : null}
+                          <span>
+                            {t('edu.nhanXet.homework', {
+                              state: buoi.daLamBtvn
+                                ? t('edu.nhanXet.homeworkDone')
+                                : t('edu.nhanXet.homeworkNotDone'),
+                            })}
+                          </span>
+                          {buoi.yThucDiem != null ? (
+                            <span>
+                              {t('edu.nhanXet.awareness')}{' '}
+                              <strong>{buoi.yThucDiem}/10</strong>
+                            </span>
+                          ) : null}
                         </div>
                         <div className='mt-1 rounded bg-muted/50 p-2 text-foreground font-sans'>
-                          💬 {buoi.nhanXet ? buoi.nhanXet : <em className='text-muted-foreground'>Không có ghi chú riêng</em>}
+                          💬{' '}
+                          {buoi.nhanXet ? (
+                            buoi.nhanXet
+                          ) : (
+                            <em className='text-muted-foreground'>
+                              {t('edu.nhanXet.noOwnNote')}
+                            </em>
+                          )}
                         </div>
                       </div>
                     ))}

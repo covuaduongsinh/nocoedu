@@ -82,4 +82,34 @@ Tài khoản Quản trị là tài khoản quản trị ban đầu của ứng d
 
 ## Biến môi trường của NocoEdu
 
-`EDU_VIETQR_BANK_ID`, `EDU_VIETQR_ACCOUNT_NO`, `EDU_VIETQR_ACCOUNT_NAME` (mã VietQR), `EDU_IMPORT_CSV` (file nhập), `EDU_TRU_BUOI_VANG_KHONG_PHEP` (`true` thì vắng không phép trừ 1 buổi; mặc định không trừ), `LARK_APP_ID` / `LARK_APP_SECRET` / `LARK_DOMAIN` / `LARK_CLI` (chỉ lệnh nhập từ Lark, xem `docs/lark/nhap-production.md`), `EDU_SAMPLE_PASSWORD` (mật khẩu tài khoản mẫu), `APP_SAMPLE_DATA`.
+`EDU_VIETQR_BANK_ID`, `EDU_VIETQR_ACCOUNT_NO`, `EDU_VIETQR_ACCOUNT_NAME` (mã VietQR), `EDU_IMPORT_CSV` (file nhập), `EDU_TRU_BUOI_VANG_KHONG_PHEP` (`true` thì vắng không phép trừ 1 buổi; mặc định không trừ), `LARK_APP_ID` / `LARK_APP_SECRET` / `LARK_DOMAIN` / `LARK_CLI` (chỉ lệnh nhập từ Lark, xem `docs/lark/nhap-production.md`), `EDU_SAMPLE_PASSWORD` (mật khẩu tài khoản mẫu), `APP_SAMPLE_DATA`. `EDU_CRM_WEBHOOK_TOKEN` (mã bí mật của đường nhận liên hệ từ NocoCRM, ít nhất 24 ký tự, NocoCRM gửi trong header `x-crm-token`; chưa đặt thì `POST /api/edu/crm/lead-sync` trả 404 và không nhận gì. Không có giá trị mặc định: đặt biến này trên máy chủ rồi nhập cùng giá trị bên NocoCRM).
+
+## Nhắc thu học phí tự động
+
+Mỗi ngày lúc 08:00 (giờ Việt Nam) hệ thống gửi vào **Hộp thư** của từng người thu học phí một thông báo: học viên đã hết buổi, sắp hết buổi (kèm **mã học viên**, tối đa 15 mã mỗi dòng) và số học viên còn nợ học phí, không có họ tên hay số tiền. Bấm vào thông báo là mở mục Học phí › Cần thu.
+
+- **Ai nhận:** tài khoản đang hoạt động, đã được gán bộ quyền, được xem cả Thanh toán lẫn Học viên (Quản trị, Kế toán, Quản lý cơ sở). Mỗi người chỉ thấy học viên trong phạm vi của mình. Huấn luyện viên không nhận.
+- **Một lần mỗi tuần** cho cùng một nội dung; danh sách đổi thì có thông báo mới.
+- **Ngưỡng "sắp hết buổi"** đặt ở từng cơ sở: trang Cơ sở, ô "Nhắc khi còn (buổi)" (mặc định 2, từ 0 đến 50; chỉ Quản trị sửa). Ngưỡng này cũng quyết định cảnh báo ở điểm danh, trang chủ, báo cáo "Sắp hết buổi" và mục Cần thu.
+- **Điều kiện để job chạy:** phải có kênh thông báo kiểu trong ứng dụng. Trong `config.yml` (mẫu ở `config.example.yml`):
+
+```yaml
+notification:
+  channels:
+    inbox:
+      type: in-app
+```
+
+Không có kênh này thì job không được lên lịch và không có gì được gửi (ứng dụng vẫn chạy bình thường). Đổi cấu hình thì khởi động lại. Chạy nhiều bản của ứng dụng thì cần `jobs.default` là Redis, nếu không mỗi bản tự gửi một lần (khoá gửi theo tuần giúp không trùng thông báo, nhưng không nên dựa vào đó).
+
+- **Xem lại nội dung mẫu:** Cài đặt hệ thống › Quản lý thông báo › Mẫu thông báo, mẫu `edu.nhac-hoc-phi` (chỉ xem trước bằng dữ liệu giả, không gửi gì).
+
+## Link riêng cho phụ huynh
+
+Phụ huynh đọc nhật ký học của con **không cần tài khoản**, qua một đường dẫn riêng dạng `https://<tên miền>/<đường dẫn ứng dụng>/ph#<mã>`.
+
+- **Ai tạo:** Quản trị (mọi học viên) và Quản lý cơ sở (học viên của cơ sở mình). Vào hồ sơ học viên, tab **Phụ huynh**, khối "Link riêng cho phụ huynh": **Tạo link** → bấm **Sao chép** rồi gửi cho phụ huynh (Zalo, tin nhắn). Link **chỉ hiện một lần**: hệ thống không lưu mã, chỉ lưu bản băm, nên đóng cửa sổ là không xem lại được. Quên thì bấm **Tạo link mới** (link cũ ngừng dùng được ngay).
+- **Hạn dùng:** 90 ngày kể từ lúc tạo. **Thu hồi** bất cứ lúc nào. Mỗi lần phụ huynh mở, hệ thống ghi số lần và lần cuối (thấy ở khối này).
+- **Phụ huynh thấy gì:** tên gọi rút gọn (ví dụ "Nguyễn M. An"), cấp độ, lớp, số buổi còn lại, 10 buổi gần nhất (có mặt/vắng, bài về nhà, ý thức, kiến thức mới, bài giao về nhà, nhận xét của HLV) và nhận xét tháng gần nhất. **Không có**: ngày sinh, số điện thoại, tiền học phí, mã học viên, họ tên đầy đủ, ghi chú riêng của HLV.
+- **An toàn:** mã nằm sau dấu `#` nên không vào nhật ký máy chủ; đường dẫn sai, hết hạn hay đã thu hồi đều báo cùng một thông báo; trang không bị công cụ tìm kiếm lập chỉ mục; mỗi địa chỉ chỉ mở tối đa 30 lần mỗi phút.
+- **Quyền:** bộ quyền `edu.congPhuHuynh` do seed `202611160005_edu_cong_phu_huynh_grant` cấp cho Quản trị và Quản lý cơ sở (Kế toán, HLV không có). Trên bản đang chạy, chạy `pnpm nocobase db apply` để thêm bảng và quyền; không gán bộ quyền cho ai.

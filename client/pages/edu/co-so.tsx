@@ -7,13 +7,20 @@ import { Button } from '#components/ui/button';
 import { Checkbox } from '#components/ui/checkbox';
 import { StatusBadge } from '#components/status-badge';
 
+import { BranchManagersButton } from './co-so-quan-ly.js';
 import { FormDialog, TextField } from './form-parts.js';
 import { GenericImportDialog } from './generic-import-dialog.js';
-import { createOne, useListState, usePagedRows } from './kit.js';
+import { createOne, text, useListState, usePagedRows } from './kit.js';
 import { ListPage } from './list-page.js';
 import { RowManage } from './sua-xoa.js';
 
-const EMPTY = { ma: '', ten: '', diaChi: '', truBuoiVangCoPhep: false };
+const EMPTY = {
+  ma: '',
+  ten: '',
+  diaChi: '',
+  truBuoiVangCoPhep: false,
+  nguongNhacBuoi: '2',
+};
 
 export default function CoSoPage(): ReactElement {
   const { t } = useTranslation();
@@ -40,7 +47,10 @@ export default function CoSoPage(): ReactElement {
         loaded={loaded}
         onRetry={reload}
         rowActions={(row) => (
-          <RowManage kind='coSo' row={row} onChanged={reload} />
+          <>
+            <BranchManagersButton branch={row} />
+            <RowManage kind='coSo' row={row} onChanged={reload} />
+          </>
         )}
         paging={{ page: list.page, total, onPage: list.setPage }}
         search={{
@@ -50,14 +60,11 @@ export default function CoSoPage(): ReactElement {
         }}
         actions={
           <div className='flex items-center gap-2'>
-            <GenericImportDialog
-              entity='coSo'
-              title='Nhập danh sách Cơ sở từ CSV'
-              buttonLabel='Nhập Cơ sở CSV'
-              onSuccess={reload}
-            />
+            <GenericImportDialog entity='coSo' onSuccess={reload} />
             {canManage ? (
-              <Button onClick={() => setForm(EMPTY)}>{t('edu.coSo.new')}</Button>
+              <Button onClick={() => setForm(EMPTY)}>
+                {t('edu.coSo.new')}
+              </Button>
             ) : null}
           </div>
         }
@@ -72,6 +79,11 @@ export default function CoSoPage(): ReactElement {
               row.truBuoiVangCoPhep === true
                 ? t('edu.common.yes')
                 : t('edu.common.no'),
+          },
+          {
+            key: 'nguongNhacBuoi',
+            label: t('edu.coSo.nguongNhac'),
+            render: (row) => text(row.nguongNhacBuoi),
           },
           {
             key: 'trangThai',
@@ -97,6 +109,7 @@ export default function CoSoPage(): ReactElement {
               ten: form.ten.trim(),
               diaChi: form.diaChi.trim() || null,
               truBuoiVangCoPhep: form.truBuoiVangCoPhep,
+              nguongNhacBuoi: Number(form.nguongNhacBuoi),
             });
             reload();
           }}
@@ -130,6 +143,15 @@ export default function CoSoPage(): ReactElement {
             />
             {t('edu.coSo.truBuoi')}
           </label>
+          <TextField
+            id='co-so-nguong-nhac'
+            label={t('edu.coSo.nguongNhac')}
+            hint={t('edu.coSo.nguongNhacHint')}
+            type='number'
+            value={form.nguongNhacBuoi}
+            required
+            onChange={(nguongNhacBuoi) => setForm({ ...form, nguongNhacBuoi })}
+          />
         </FormDialog>
       ) : null}
     </>

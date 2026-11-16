@@ -12,7 +12,9 @@ import eduPhatSach from './edu-phat-sach.js';
 import eduNoiDungBuoi from './edu-noi-dung-buoi.js';
 import eduLienHe from './edu-lien-he.js';
 import eduNhanXet from './edu-nhan-xet.js';
-import eduCrmBackup from './edu-crm-backup.js';
+import eduCrm from './edu-crm.js';
+import eduCongPhuHuynh from './edu-cong-phu-huynh.js';
+import eduSaoLuu from './edu-sao-luu.js';
 import eduXuatCsv from './edu-xuat-csv.js';
 import eduTraCuu from './edu-tra-cuu.js';
 import eduDoiSoat from './edu-doi-soat.js';
@@ -24,7 +26,9 @@ const routes: readonly AppRouteContribution<Application>[] = [
   ...eduHocPhi,
   ...eduLienHe,
   ...eduNhanXet,
-  ...eduCrmBackup,
+  ...eduCrm,
+  ...eduCongPhuHuynh,
+  ...eduSaoLuu,
   ...eduHoSoGv,
   ...eduPhatSach,
   ...eduNoiDungBuoi,

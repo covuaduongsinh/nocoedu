@@ -11,11 +11,13 @@ import {
   baoCao,
   buoiHoc,
   coSo,
+  congPhuHuynh,
   coSoQuanLy,
   diemDanh,
   dongY,
   ext,
   goiHoc,
+  heThong,
   hocVien,
   lienKet,
   lop,
@@ -78,7 +80,9 @@ export default class EduAuthorizationProvider extends ServiceProvider<AppPluginA
     authz.ui.place(authz.compositeResources.define(tuyenSinh), section);
     authz.ui.place(authz.compositeResources.define(hoSoGv), section);
     authz.ui.place(authz.compositeResources.define(sachHoc), section);
+    authz.ui.place(authz.compositeResources.define(congPhuHuynh), section);
     authz.ui.place(authz.compositeResources.define(ext), section);
+    authz.ui.place(authz.compositeResources.define(heThong), section);
     return Promise.resolve();
   }
 }
