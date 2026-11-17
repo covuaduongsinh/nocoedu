@@ -82,4 +82,4 @@ Tài khoản Quản trị là tài khoản quản trị ban đầu của ứng d
 
 ## Biến môi trường của NocoEdu
 
-`EDU_VIETQR_BANK_ID`, `EDU_VIETQR_ACCOUNT_NO`, `EDU_VIETQR_ACCOUNT_NAME` (mã VietQR), `EDU_IMPORT_CSV` (file nhập), `EDU_TRU_BUOI_VANG_KHONG_PHEP` (`true` thì vắng không phép trừ 1 buổi; mặc định không trừ), `LARK_APP_ID` / `LARK_APP_SECRET` / `LARK_DOMAIN` / `LARK_CLI` (chỉ lệnh nhập từ Lark, xem `docs/lark/nhap-production.md`), `EDU_SAMPLE_PASSWORD` (mật khẩu tài khoản mẫu), `APP_SAMPLE_DATA`.
+`EDU_VIETQR_BANK_ID`, `EDU_VIETQR_ACCOUNT_NO`, `EDU_VIETQR_ACCOUNT_NAME` (mã VietQR), `EDU_IMPORT_CSV` (file nhập), `EDU_TRU_BUOI_VANG_KHONG_PHEP` (`true` thì vắng không phép trừ 1 buổi; mặc định không trừ), `LARK_APP_ID` / `LARK_APP_SECRET` / `LARK_DOMAIN` / `LARK_CLI` (chỉ lệnh nhập từ Lark, xem `docs/lark/nhap-production.md`), `EDU_SAMPLE_PASSWORD` (mật khẩu tài khoản mẫu), `APP_SAMPLE_DATA`, `EDU_CRM_WEBHOOK_TOKEN` (mã bí mật của webhook NocoCRM `POST /api/edu/crm/lead-sync`, gửi trong header `X-CRM-Token`; không đặt thì máy chủ từ chối mọi lời gọi, không có mã mặc định).

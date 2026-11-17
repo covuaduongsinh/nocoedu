@@ -68,6 +68,11 @@ export default function HocPhiPage(): ReactElement {
   const api = useApiClient();
   const message = useErrorMessage();
 
+  // Downloading is a separate action from viewing (`edu.baoCao` `export`).
+  const { can: canExport } = useCan({
+    resource: { type: 'composite', id: 'edu.baoCao' },
+    action: 'export',
+  });
   const { can: canSell } = useCan({
     resource: { type: 'composite', id: 'edu.goiHoc' },
     action: 'manage',
@@ -283,13 +288,15 @@ export default function HocPhiPage(): ReactElement {
   // Xuất CSV học phí
   const exportTuitionCsv = async (): Promise<void> => {
     try {
-      const res = await api.request({
+      const stream = await api.stream({
         path: '/hocPhi/xuatCsv',
         method: 'POST',
         json: {},
       });
-      const blob = new Blob([res as unknown as string], { type: 'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
+      const blob = await new Response(stream).blob();
+      const url = URL.createObjectURL(
+        new Blob([blob], { type: 'text/csv;charset=utf-8' }),
+      );
       const a = document.createElement('a');
       a.href = url;
       a.download = `hoc-phi-${todayVn()}.csv`;
@@ -322,10 +329,12 @@ export default function HocPhiPage(): ReactElement {
                 if (activeTab === 'ledger') loadPayments();
               }}
             />
-            <Button variant='outline' size='sm' onClick={() => void exportTuitionCsv()} className='gap-1.5'>
-              <Download className='h-4 w-4' />
-              Xuất CSV
-            </Button>
+            {canExport ? (
+              <Button variant='outline' size='sm' onClick={() => void exportTuitionCsv()} className='gap-1.5'>
+                <Download className='h-4 w-4' />
+                Xuất CSV
+              </Button>
+            ) : null}
           </div>
         }
       />

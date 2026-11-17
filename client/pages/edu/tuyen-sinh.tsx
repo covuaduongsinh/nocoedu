@@ -102,29 +102,7 @@ export default function TuyenSinhPage(): ReactElement {
   const [removing, setRemoving] = useState<number>();
   const [purging, setPurging] = useState(false);
   const [crmOpen, setCrmOpen] = useState(false);
-  const [crmTesting, setCrmTesting] = useState(false);
-  const [crmResult, setCrmResult] = useState<string>();
   const today = todayVn();
-
-  const testCrmSync = async (): Promise<void> => {
-    setCrmTesting(true);
-    setCrmResult(undefined);
-    try {
-      const res = await post(api, '/edu/crm/lead-sync', {
-        hoTen: 'Phụ huynh Test NocoCRM',
-        soDienThoai: '0988776655',
-        coSoId: branchRows[0]?.id ? Number(branchRows[0].id) : 1,
-        kenhTiepNhan: 'nococrm',
-        ghiChu: 'Khách hàng quan tâm khóa học cờ vua tiểu học (Test sync)',
-      }) as { data: { thongBao: string } };
-      setCrmResult(`✅ ${res.data.thongBao}`);
-      reload();
-    } catch (err) {
-      setCrmResult(`❌ Lỗi đồng bộ: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setCrmTesting(false);
-    }
-  };
 
   const blank = (): Form => ({
     hoTen: '',
@@ -663,7 +641,7 @@ export default function TuyenSinhPage(): ReactElement {
           description={t('edu.tuyenSinh.purgeHint')}
           onClose={() => setPurging(false)}
           onSubmit={async () => {
-            await post(api, '/lienHe/donDep', {});
+            await post(api, '/lienHe/donQuaHan', {});
             reload();
           }}
         >
@@ -694,9 +672,9 @@ export default function TuyenSinhPage(): ReactElement {
 
             <div className='rounded-lg border bg-muted/30 p-3 flex flex-col gap-1.5'>
               <span className='text-xs font-semibold uppercase text-muted-foreground'>X-CRM-Token (Header)</span>
-              <code className='rounded bg-muted px-2 py-1 font-mono text-xs text-foreground select-all'>
-                nocoedu-crm-secret
-              </code>
+              <p className='text-xs text-muted-foreground'>
+                {t('edu.tuyenSinh.crmTokenHint')}
+              </p>
             </div>
 
             <div className='rounded-lg border p-3 text-xs text-muted-foreground space-y-1.5'>
@@ -710,22 +688,7 @@ export default function TuyenSinhPage(): ReactElement {
               </ul>
             </div>
 
-            {crmResult ? (
-              <div className='rounded-md border p-2.5 text-xs font-medium bg-muted/50'>
-                {crmResult}
-              </div>
-            ) : null}
-
-            <div className='flex items-center justify-between pt-2 border-t'>
-              <Button
-                variant='outline'
-                size='sm'
-                disabled={crmTesting}
-                onClick={() => void testCrmSync()}
-                className='text-xs font-medium'
-              >
-                {crmTesting ? 'Đang gửi...' : '🚀 Bắn thử 1 Lead mẫu từ CRM'}
-              </Button>
+            <div className='flex items-center justify-end pt-2 border-t'>
               <Button size='sm' onClick={() => setCrmOpen(false)}>
                 Đóng
               </Button>

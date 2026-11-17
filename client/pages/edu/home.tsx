@@ -361,7 +361,7 @@ export default function EduHome(): ReactElement {
                     <span className='text-muted-foreground'>→</span>
                   </Link>
                   <Link
-                    to='/ho-so-gv'
+                    to='/giao-vien'
                     className='flex items-center justify-between rounded-lg border p-2.5 text-sm font-medium transition-colors hover:bg-muted'
                   >
                     <span>👨‍🏫 Hồ sơ giáo viên</span>

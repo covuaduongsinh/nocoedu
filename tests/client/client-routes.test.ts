@@ -181,26 +181,30 @@ describe('app client routes', () => {
     const resolved = resolveRoutes();
 
     // The landing page and the inbox opted out of page authorization, so they are reachable by every signed-in user.
-    // The four NocoEdu pages each need their own page grant, given by the NocoEdu permission sets; the Users and
+    // Every NocoEdu page needs its own page grant, given by the NocoEdu permission sets; the Users and
     // Permission management pages stay behind the platform's own user and permission-set permissions.
     expect(pageAuthorizations(resolved.routes)).toEqual([
       { name: 'home', authorizedAs: null },
       // The student file and the class page open with the grant of their list.
       { name: 'edu-lop-chi-tiet', authorizedAs: 'edu.lop' },
       { name: 'edu-hocVien-chi-tiet', authorizedAs: 'edu.hocVien' },
-      { name: 'inbox', authorizedAs: null },
-      { name: 'edu-coSo', authorizedAs: 'edu.coSo' },
-      { name: 'edu-lop', authorizedAs: 'edu.lop' },
-      { name: 'edu-hocVien', authorizedAs: 'edu.hocVien' },
       { name: 'edu-phuHuynh', authorizedAs: 'edu.phuHuynh' },
+      { name: 'inbox', authorizedAs: null },
       { name: 'edu-diemDanh', authorizedAs: 'edu.diemDanh' },
+      // The reconciliation page is a money page: it opens with the grant of the tuition page.
+      { name: 'edu-doi-soat', authorizedAs: 'edu.hocPhi' },
       { name: 'edu-hocPhi', authorizedAs: 'edu.hocPhi' },
       { name: 'edu-nhanXet', authorizedAs: 'edu.nhanXet' },
+      { name: 'edu-tuyenSinh', authorizedAs: 'edu.tuyenSinh' },
+      { name: 'edu-hocVien', authorizedAs: 'edu.hocVien' },
       { name: 'edu-baoCao', authorizedAs: 'edu.baoCao' },
+      { name: 'edu-lop', authorizedAs: 'edu.lop' },
+      { name: 'edu-coSo', authorizedAs: 'edu.coSo' },
+      { name: 'edu-hoSoGv', authorizedAs: 'edu.hoSoGv' },
       { name: 'edu-sach', authorizedAs: 'edu.sach' },
       { name: 'edu-phatSach', authorizedAs: 'edu.phatSach' },
-      { name: 'edu-tuyenSinh', authorizedAs: 'edu.tuyenSinh' },
-      { name: 'edu-hoSoGv', authorizedAs: 'edu.hoSoGv' },
+      // Backup and restore of the whole database: the administrator's page grant, never skipped.
+      { name: 'edu-sao-luu', authorizedAs: 'edu.heThong' },
       { name: 'settingsHome', authorizedAs: null },
       ...managementPages,
     ]);

@@ -10,6 +10,7 @@ import {
   dongY,
   ext,
   goiHoc,
+  heThong,
   hocVien,
   lienKet,
   lop,
@@ -49,7 +50,8 @@ const everyPage = Object.entries(PAGES)
       key !== 'sach' &&
       key !== 'phatSach' &&
       key !== 'tuyenSinh' &&
-      key !== 'hoSoGv',
+      key !== 'hoSoGv' &&
+      key !== 'heThong',
   )
   .map(([, id]) => page(id));
 const sachPage = page(PAGES.sach);
@@ -59,6 +61,8 @@ const phatSachPage = page(PAGES.phatSach);
 const tuyenSinhPage = page(PAGES.tuyenSinh);
 // The coach profile page is the last: `202611140005_edu_ho_so_gv_grant` (administrator only).
 const hoSoGvPage = page(PAGES.hoSoGv);
+// The backup page is the last: `202611170001_edu_he_thong_grant` (administrator only).
+const heThongPage = page(PAGES.heThong);
 
 export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .title('NocoEdu - Quản trị')
@@ -135,6 +139,13 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
     hoSoGv.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
   )
   .grant(sachHoc.reference().grant({ view: { data: ALL } }))
+  // Backup and restore of the whole database: the administrator only (`202611170001_edu_he_thong_grant`).
+  .grant(heThongPage)
+  .grant(
+    heThong
+      .reference()
+      .grant({ backup: { data: ALL }, restore: { data: ALL } }),
+  )
   .build();
 
 export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')

@@ -112,4 +112,11 @@ describe('home page', () => {
       api.mock.calls.some(([request]) => request.path === 'lienHe/findMany'),
     ).toBe(false);
   });
+
+  it('links the coach profiles shortcut to the page that exists', async () => {
+    await render(<EduHome />, '/', '/');
+    const link = await screen.findByRole('link', { name: /Hồ sơ giáo viên/u });
+    // The coach profiles page lives at /giao-vien (client/routes.ts); /ho-so-gv leads nowhere.
+    expect(link).toHaveAttribute('href', '/giao-vien');
+  });
 });
