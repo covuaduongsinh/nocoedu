@@ -117,8 +117,58 @@ Hiện `pnpm check` đỏ ở bước lint: `main` có 154 lỗi, PR #43 còn 10
 
 Mỗi PR theo quy tắc chung của kế hoạch tổng: test trong `tests/`, chạy từng tệp liên quan, chạy `authorization-assignment-safety` khi đụng quyền, cập nhật `.agents/rules/edu.md`.
 
-## 9. Điểm cần Thầy quyết
+## 9. Đã quyết và còn mở
 
-- Bản chạy thật `nocoedu.dsc.edu.vn` đang dùng PostgreSQL hay SQLite? Nếu SQLite thì mục C hạ xuống "nên làm".
-- Có còn dùng sao lưu JSON làm bản sao lưu duy nhất không? Nếu có, mục D phải làm **trước** GĐ 1; nếu đã có sao lưu cơ sở dữ liệu ở tầng máy chủ (pg_dump hằng ngày), mục D làm sau đều được.
-- Ai có quyền `workflows` trên GitHub để thêm job PostgreSQL vào CI (mục C) và bật check bắt buộc (mục E)?
+| Điều | Trạng thái |
+|---|---|
+| Bản chạy thật dùng PostgreSQL | **Đã xác nhận** (Thầy Tường). Mục C bắt buộc. |
+| Làm D (sao lưu đủ bảng), E (CI xanh), F (đo hiệu năng) | **Đã đồng ý** làm trước các giai đoạn sau. |
+| Sao lưu JSON trong app có đang là bản sao lưu duy nhất không | **Chưa rõ** — xem mục 10 để kiểm tra trên máy chủ. |
+| Ai thêm job PostgreSQL vào CI, bật check bắt buộc | Đề xuất ở mục 11. |
+
+## 10. Kiểm tra: sao lưu JSON có là bản sao lưu duy nhất không
+
+Điều đã biết từ repo (không truy cập được máy chủ): ứng dụng chạy trong container, quản lý bằng Dokploy, cơ sở dữ liệu là PostgreSQL trong một container riêng (`docs/lark/nhap-production.md`, bước 5). Tài liệu đó chỉ dặn **tự chạy `pg_dump` trước khi nhập Lark** hoặc "dùng chức năng sao lưu của Dokploy"; không có tệp nào trong repo cho thấy sao lưu tự động theo lịch đã được bật. Nghĩa là chưa có bằng chứng về sao lưu định kỳ, và chỉ người có quyền vào Dokploy mới xác nhận được.
+
+Việc cần làm trên Dokploy (~15 phút, người có quyền vào máy chủ):
+
+1. Mở dịch vụ PostgreSQL của NocoEdu → tab **Backups**. Ghi lại: có lịch không, chạy mấy giờ, giữ bao nhiêu bản, **đích lưu** (ổ cùng máy chủ hay S3/kho ngoài), lần chạy gần nhất thành công không.
+2. Nếu đích lưu là cùng máy chủ với cơ sở dữ liệu: coi như chưa an toàn (máy chủ hỏng là mất cả hai). Cần một đích ngoài (S3 tương thích, Backblaze B2, hoặc máy khác).
+3. **Thử khôi phục** một bản vào cơ sở dữ liệu tạm và chạy ứng dụng với nó; sao lưu chưa từng được khôi phục thử thì chưa tính là có.
+4. Không có lịch: bật sao lưu hằng ngày (giờ thấp điểm, ví dụ 02:00), giữ ≥ 14 bản ngày + 8 bản tuần, mã hoá hoặc kho riêng tư (dump chứa dữ liệu trẻ em: ngày sinh, số điện thoại).
+5. Ghi kết quả vào mô tả PR của mục D.
+
+Cách đọc kết quả:
+
+- Có sao lưu `pg_dump` hằng ngày ra kho ngoài **và** đã thử khôi phục → sao lưu JSON trong app chỉ là tiện ích phụ; mục D làm sau GĐ 1 được.
+- Không có, hoặc chưa thử khôi phục → sao lưu JSON hiện là bản duy nhất; bật sao lưu `pg_dump` ngay (bước 4) và mục D làm **trước** GĐ 1.
+
+## 11. Đề xuất: quyền `workflows`, job PostgreSQL và check bắt buộc
+
+### Tình hình thực tế (đọc từ GitHub)
+
+- Repo `covuaduongsinh/nocoedu` là repo **công khai** của tài khoản cá nhân `covuaduongsinh`, **chỉ có một người dùng với quyền admin: chính tài khoản đó**. Không có team hay cộng tác viên khác.
+- `workflows` không phải vai trò trong repo: là **quyền của chìa khoá/token** dùng để đẩy tệp trong `.github/workflows/`. Chủ repo (admin) luôn sửa được các tệp này qua giao diện web hoặc bằng chìa khoá có quyền đó. Ứng dụng GitHub dùng cho phiên làm việc tự động này **không có** quyền `workflows`, nên không đẩy được tệp workflow (đúng như ghi trong `docs/ci-postgres-job.md`).
+- Vì repo công khai, **Rulesets/bảo vệ nhánh và GitHub Actions đều miễn phí**.
+
+### Đề xuất: người có quyền = chủ repo, làm bằng giao diện web
+
+Không cấp quyền `workflows` cho ứng dụng tự động. Một ứng dụng sửa được workflow có thể đọc mọi bí mật của CI; để nó chỉ viết nội dung, chủ repo duyệt và lưu. Các bước (~20 phút, tài khoản `covuaduongsinh`):
+
+1. **Job PostgreSQL.** Mở tệp `.github/workflows/ds-check.yml` trên GitHub → bút chì (Edit) → dán job `postgres` từ `docs/ci-postgres-job.md` vào dưới `jobs:`. Danh sách tệp test trong bước cuối của job: thay bằng danh sách ở mục C (tệp của GĐ 0 và các tệp cũ) sau khi chúng đã pass trên PostgreSQL cục bộ. Chọn "Create a new branch and start a pull request" → mở PR; CI chạy bằng chính tệp mới trong PR đó.
+2. **Chờ job `postgres` xanh** trong PR. Nếu đỏ: gửi log cho phiên làm việc để sửa test hoặc mã (không ép qua).
+3. **Chỉ sau khi cả `check` (mục E) và `postgres` xanh** mới bật check bắt buộc, nếu không mọi PR bị chặn: *Settings → Rules → Rulesets → New ruleset → New branch ruleset*:
+   - Name: `main`; Enforcement: **Active**; Target: *Default branch*.
+   - **Require a pull request before merging**: số phê duyệt **0** (chỉ có một admin, đặt 1 thì không tự merge được); bật *Require conversation resolution*.
+   - **Require status checks to pass**: thêm `check` và `postgres` (tên đúng như hiện trong tab Checks của PR); bật *Require branches to be up to date*.
+   - **Block force pushes** và **Restrict deletions**.
+   - Bypass list: để trống (kỷ luật tốt hơn); chỉ khi khẩn cấp mới tạm chuyển Enforcement sang *Disabled*.
+4. **Bảo mật tài khoản chủ repo** (vì đây là điểm duy nhất): bật xác thực hai lớp (2FA) và khoá khôi phục; *Settings → Code security*: bật **Secret scanning** và **Push protection** (miễn phí cho repo công khai). Lịch sử git vẫn chứa mã `nocoedu-crm-secret` cũ nên mã đó phải xoay vòng (mục A), không dựa vào việc xoá khỏi lịch sử.
+5. **Actions**: *Settings → Actions → General*: Workflow permissions = *Read repository contents*; Fork pull request workflows = *Require approval for first-time contributors* (repo công khai, chống chạy mã lạ).
+
+### Phương án khác (chỉ khi cần)
+
+- **Thêm người thứ hai** (ví dụ cộng sự kỹ thuật tin cậy) làm admin để không phụ thuộc một tài khoản; hoặc chuyển repo vào một **GitHub Organization** (miễn phí) để dùng team, quyền theo vai và chủ sở hữu thứ hai. Làm khi có người thật sự cần.
+- **Chìa khoá riêng chỉ để đẩy workflow** (PAT hạn chế một repo, quyền Workflows: read/write, hết hạn 30 ngày) đặt trong máy của chủ repo: dùng được nhưng thêm rủi ro rò rỉ; chỉ chọn nếu muốn phiên làm việc tự động đẩy workflow.
+
+Mục tiêu cuối: mọi thay đổi vào `main` đi qua PR, `check` và `postgres` xanh, và không ai (kể cả chủ repo) vô tình đẩy thẳng lên `main`.
