@@ -245,17 +245,17 @@ export default function HocVienPage(): ReactElement {
                       className: 'h-7 text-xs',
                     })}
                   >
-                    Hồ sơ 360°
+                    {t('edu.nav.hoSo360')}
                   </Link>
                   <Link
-                    to={`/doi-soat?hocVienId=${row.id}`}
+                    to={`/hoc-vien/${row.id}?tab=buoi-hoc`}
                     className={buttonVariants({
                       variant: 'ghost',
                       size: 'sm',
                       className: 'h-7 text-xs text-primary font-medium',
                     })}
                   >
-                    Đối soát
+                    {t('edu.hoSo.tab.buoi-hoc')}
                   </Link>
                   <Link
                     to={`/hoc-phi?search=${encodeURIComponent(text(row.ma))}`}
@@ -265,7 +265,7 @@ export default function HocVienPage(): ReactElement {
                       className: 'h-7 text-xs text-muted-foreground',
                     })}
                   >
-                    Thu phí
+                    {t('edu.hoSo.collect')}
                   </Link>
                 </div>
                 <div className='flex items-center gap-1'>
@@ -388,14 +388,14 @@ export default function HocVienPage(): ReactElement {
               </Button>
             ) : null}
             <Link
-              to={`/doi-soat?hocVienId=${row.id}`}
+              to={`/hoc-vien/${row.id}?tab=buoi-hoc`}
               className={buttonVariants({
                 variant: 'outline',
                 size: 'sm',
                 className: 'h-8 px-2 text-xs text-primary font-medium',
               })}
             >
-              Đối soát
+              {t('edu.hoSo.tab.buoi-hoc')}
             </Link>
             <RowManage kind='hocVien' row={row} onChanged={reload} />
           </div>

@@ -309,20 +309,28 @@ test('a student with two sessions left or fewer is warned about', async ({
 
   const warned = await post(hlvA.session, '/soDu/canhBao', {});
   expect(warned.status).toBe(200);
-  const list = ((await warned.json()) as { data: { ma: string }[] }).data;
-  // Only the coach's own class: student B (1 left) is in another class.
-  expect(list.map((r) => r.ma)).toEqual(['HS-A']);
-  const other = (
-    (await (await post(hlvB.session, '/soDu/canhBao', {})).json()) as {
-      data: { ma: string }[];
+  const list = (
+    (await warned.json()) as {
+      data: { tong: number; nguong: number; hocVien: { ma: string }[] };
     }
   ).data;
-  expect(other.map((r) => r.ma)).toEqual(['HS-B']);
+  // Only the coach's own class: student B (1 left) is in another class.
+  expect(list.hocVien.map((r) => r.ma)).toEqual(['HS-A']);
+  expect(list).toMatchObject({ tong: 1, nguong: 2 });
+  const other = (
+    (await (await post(hlvB.session, '/soDu/canhBao', {})).json()) as {
+      data: { hocVien: { ma: string }[] };
+    }
+  ).data;
+  expect(other.hocVien.map((r) => r.ma)).toEqual(['HS-B']);
 
   // Above the threshold: not listed.
   await resetStudent(connection, ids.hocVienA, 6);
   const none = await post(hlvA.session, '/soDu/canhBao', {});
-  expect(((await none.json()) as { data: unknown[] }).data).toEqual([]);
+  expect(
+    ((await none.json()) as { data: { tong: number; hocVien: unknown[] } })
+      .data,
+  ).toMatchObject({ tong: 0, hocVien: [] });
 });
 
 test('an accountant cannot change attendance and a coach cannot change tuition or reach another class', async ({

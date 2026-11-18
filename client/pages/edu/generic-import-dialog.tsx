@@ -21,6 +21,7 @@ import {
 import { Input } from '#components/ui/input';
 import { Label } from '#components/ui/label';
 
+import { saveText } from './download.js';
 import { post, useErrorMessage } from './kit.js';
 
 export interface GenericImportDialogProps {
@@ -97,15 +98,7 @@ export function GenericImportDialog({
       });
       const data = res?.data;
       if (data?.csv) {
-        const blob = new Blob([data.csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `mau_import_${entity}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        saveText(data.csv, `mau_import_${entity}.csv`);
       }
     } catch (err) {
       setErrorMessage(message(err));

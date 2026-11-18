@@ -14,6 +14,7 @@ import {
 } from '#components/ui/card';
 import { Input } from '#components/ui/input';
 
+import { saveText } from './download.js';
 import { todayVn } from './kit.js';
 
 interface BackupData {
@@ -53,13 +54,11 @@ export default function SaoLuuPage(): ReactElement {
         json: {},
       });
       const dataStr = JSON.stringify(res.data, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `nocoedu-backup-${todayVn()}-${Date.now().toString().slice(-4)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      saveText(
+        dataStr,
+        `nocoedu-backup-${todayVn()}-${Date.now().toString().slice(-4)}.json`,
+        'application/json',
+      );
       setStatusMessage({
         type: 'success',
         text: `Đã tạo và tải bản sao lưu thành công (${res.data.soBanGhi} bản ghi trên ${res.data.tongSoBang} bảng dữ liệu).`,

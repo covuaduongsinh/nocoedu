@@ -48,6 +48,7 @@ import {
   useRows,
   type Row,
 } from './kit.js';
+import { saveCsvStream } from './download.js';
 
 const STATUSES = [
   'co_mat',
@@ -365,15 +366,7 @@ export default function DiemDanhPage(): ReactElement {
           lopId: filterLop !== 'all' ? Number(filterLop) : undefined,
         },
       });
-      const blob = await new Response(stream).blob();
-      const url = URL.createObjectURL(
-        new Blob([blob], { type: 'text/csv;charset=utf-8' }),
-      );
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `diem-danh-${todayVn()}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveCsvStream(stream, `diem-danh-${todayVn()}.csv`);
     } catch (err) {
       console.error(err);
     }

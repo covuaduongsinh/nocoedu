@@ -15,7 +15,8 @@ import { z } from 'zod';
 
 import { toCsv } from '../edu/csv.js';
 import { asText } from '../edu/names.js';
-import { LOW_BALANCE_THRESHOLD, addDays, todayVn } from '../edu/so-du.js';
+import { needsCollection } from '../edu/can-thu.js';
+import { addDays, todayVn } from '../edu/so-du.js';
 import {
   currentUserId,
   eduError,
@@ -286,11 +287,7 @@ export default [
         }
         case 'sapHetBuoi': {
           const rows = students
-            .filter(
-              (s) =>
-                s.trangThai === 'dang_hoc' &&
-                num(s.soBuoiConLai) <= LOW_BALANCE_THRESHOLD,
-            )
+            .filter((s) => needsCollection(s))
             .sort((a, b) => num(a.soBuoiConLai) - num(b.soBuoiConLai))
             .map((s) => ({
               ma: asText(s.ma),
