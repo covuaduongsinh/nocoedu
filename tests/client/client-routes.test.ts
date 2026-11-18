@@ -58,6 +58,7 @@ describe('app client routes', () => {
     expect(pagePaths(built.routes)).toEqual([
       '/settings/notifications/logs',
       '/settings/notifications/templates',
+      '/settings/notifications/templates/:templateId',
     ]);
     expect(built.routes[0].children[0].children).toHaveLength(1);
     const created = includeNotificationTemplateRoutes([shell], true);
@@ -130,10 +131,13 @@ describe('app client routes', () => {
     expect(pagePaths(built.routes)).toEqual([
       '/settings/notification-logs',
       '/settings/notifications/templates',
+      '/settings/notifications/templates/:templateId',
     ]);
     expect(pageAuthorizations(built.routes)).toEqual([
       { name: 'notificationLogs', authorizedAs: 'existing.notification.logs' },
       { name: 'notificationTemplates', authorizedAs: 'notification.templates' },
+      // A template's own address keeps the list page's grant.
+      { name: 'notificationTemplate', authorizedAs: 'notification.templates' },
     ]);
     expect(built.routes[0].children).toHaveLength(1);
   });
@@ -188,21 +192,24 @@ describe('app client routes', () => {
       // The student file and the class page open with the grant of their list.
       { name: 'edu-lop-chi-tiet', authorizedAs: 'edu.lop' },
       { name: 'edu-hocVien-chi-tiet', authorizedAs: 'edu.hocVien' },
-      { name: 'inbox', authorizedAs: null },
-      { name: 'edu-coSo', authorizedAs: 'edu.coSo' },
-      { name: 'edu-lop', authorizedAs: 'edu.lop' },
-      { name: 'edu-hocVien', authorizedAs: 'edu.hocVien' },
       { name: 'edu-phuHuynh', authorizedAs: 'edu.phuHuynh' },
+      { name: 'inbox', authorizedAs: null },
       { name: 'edu-diemDanh', authorizedAs: 'edu.diemDanh' },
+      { name: 'edu-doi-soat', authorizedAs: 'edu.hocPhi' },
       { name: 'edu-hocPhi', authorizedAs: 'edu.hocPhi' },
       { name: 'edu-nhanXet', authorizedAs: 'edu.nhanXet' },
+      { name: 'edu-tuyenSinh', authorizedAs: 'edu.tuyenSinh' },
+      { name: 'edu-hocVien', authorizedAs: 'edu.hocVien' },
       { name: 'edu-baoCao', authorizedAs: 'edu.baoCao' },
+      { name: 'edu-lop', authorizedAs: 'edu.lop' },
+      { name: 'edu-coSo', authorizedAs: 'edu.coSo' },
+      { name: 'edu-hoSoGv', authorizedAs: 'edu.hoSoGv' },
       { name: 'edu-sach', authorizedAs: 'edu.sach' },
       { name: 'edu-phatSach', authorizedAs: 'edu.phatSach' },
-      { name: 'edu-tuyenSinh', authorizedAs: 'edu.tuyenSinh' },
-      { name: 'edu-hoSoGv', authorizedAs: 'edu.hoSoGv' },
+      { name: 'edu-sao-luu', authorizedAs: null },
       { name: 'settingsHome', authorizedAs: null },
       ...managementPages,
+      { name: 'databaseExplorer', authorizedAs: 'database-explorer' },
     ]);
   });
 
@@ -212,9 +219,11 @@ describe('app client routes', () => {
       pagePaths(built.routes).filter((path) => path.startsWith('/settings')),
     ).toEqual(expect.arrayContaining(['/settings', '/settings/users']));
     for (const entry of pageAuthorizations(built.routes)) {
-      // Only the landing page, the inbox and the settings home may skip page authorization.
+      // Only the landing page, the inbox, edu-sao-luu and the settings home may skip page authorization.
       if (entry.authorizedAs === null)
-        expect(['home', 'inbox', 'settingsHome']).toContain(entry.name);
+        expect(['home', 'inbox', 'settingsHome', 'edu-sao-luu']).toContain(
+          entry.name,
+        );
     }
     for (const loader of componentLoadersIn(built.routes))
       await expect(loader()).resolves.toMatchObject({

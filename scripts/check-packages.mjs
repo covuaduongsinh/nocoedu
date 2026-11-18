@@ -11,6 +11,7 @@ const listed = spawnSync(
   {
     cwd: root,
     encoding: 'utf8',
+    shell: true,
   },
 );
 if (listed.error) throw listed.error;
@@ -33,13 +34,14 @@ if (missing.length > 0) {
     'Every internal package must provide a non-empty check script:',
   );
   for (const entry of missing)
-    console.error(`  ${path.relative(root, entry.path)}`);
+    console.error(`  ${path.relative(root, entry.path).replace(/\\/g, '/')}`);
   process.exit(1);
 }
 if (packages.length > 0) {
   const result = spawnSync('pnpm', ['--filter', filter, 'check'], {
     cwd: root,
     stdio: 'inherit',
+    shell: true,
   });
   if (result.error) throw result.error;
   process.exitCode = result.status ?? 1;

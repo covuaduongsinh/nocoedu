@@ -1,3 +1,4 @@
+import databaseExplorerRoutes from './pages/settings/database-explorer/routes.js';
 import { createAppClientConfig } from '@nocobase/app-client';
 import { readAppClientRuntimeConfig } from '@nocobase/app-client/runtime';
 import { includeNotificationTemplateRoutes } from './pages/settings/notification-routes.js';
@@ -8,7 +9,6 @@ import {
   Building2,
   CalendarCheck,
   ClipboardCheck,
-  Contact,
   Database,
   GraduationCap,
   Home,
@@ -172,7 +172,13 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     10,
     () => import('./pages/edu/ho-so-gv.js'),
   ),
-  ...eduPage('sach', '/sach', BookOpen, 11, () => import('./pages/edu/sach.js')),
+  ...eduPage(
+    'sach',
+    '/sach',
+    BookOpen,
+    11,
+    () => import('./pages/edu/sach.js'),
+  ),
   ...eduPage(
     'phatSach',
     '/phat-sach',
@@ -266,7 +272,12 @@ export function createApplicationRoutes(
 ): readonly AppClientRouteContribution[] {
   const config = createAppClientConfig({ rawConfig });
   return includeNotificationTemplateRoutes(
-    [appRoutes, settingsShellRoutes, systemSettingsRoutes],
+    [
+      appRoutes,
+      settingsShellRoutes,
+      databaseExplorerRoutes,
+      systemSettingsRoutes,
+    ],
     config.get<boolean>('notificationTemplates.invitationConfigured') === true,
   );
 }

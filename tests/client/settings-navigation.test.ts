@@ -227,26 +227,66 @@ describe('System settings navigation', () => {
       ],
       [
         'settingsSystem',
-        [['notificationManagement', '/settings/notifications/templates']],
+        [
+          ['notificationManagement', '/settings/notifications/templates'],
+          ['databaseExplorer', '/settings/database-explorer'],
+        ],
       ],
     ]);
     expect(
       buildRouteNavigation(routes, new Set()).map(({ route }) => route.name),
     ).toEqual([
       'home',
-      'edu-coSo',
-      'edu-lop',
-      'edu-hocVien',
-      'edu-phuHuynh',
       'edu-diemDanh',
+      'edu-doi-soat',
       'edu-hocPhi',
       'edu-nhanXet',
+      'edu-tuyenSinh',
+      'edu-hocVien',
       'edu-baoCao',
+      'edu-lop',
+      'edu-coSo',
+      'edu-hoSoGv',
       'edu-sach',
       'edu-phatSach',
-      'edu-tuyenSinh',
-      'edu-hoSoGv',
+      'edu-sao-luu',
       'settingsHome',
     ]);
   });
+});
+
+it('places database browsing in System and hides its card when access is denied', () => {
+  const routes = resolveAppClientContributions([
+    {
+      packageName: app,
+      source: 'application',
+      routes: createApplicationRoutes({}),
+    },
+  ]).routes;
+  const page = find(routes, 'databaseExplorer');
+  expect(page.path).toBe('/settings/database-explorer');
+  expect(page.auth).toBe('required');
+  expect(page.authz).toEqual({
+    resource: { type: 'page', id: 'database-explorer' },
+    action: 'access',
+  });
+  expect(catalog(routes)).toEqual([
+    [
+      'settingsAccount',
+      [
+        ['settingsUsers', '/settings/users'],
+        ['permissionManagement', '/settings/roles'],
+      ],
+    ],
+    ['settingsSystem', [['databaseExplorer', '/settings/database-explorer']]],
+  ]);
+  expect(catalog(routes, new Set([routeKey(page)]))).toEqual([
+    [
+      'settingsAccount',
+      [
+        ['settingsUsers', '/settings/users'],
+        ['permissionManagement', '/settings/roles'],
+      ],
+    ],
+  ]);
 });
