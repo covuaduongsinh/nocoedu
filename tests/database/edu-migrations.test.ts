@@ -438,7 +438,7 @@ describeMigration('202611180001_edu_diem_danh_hoc_vien_index', {
   },
 });
 
-describeMigration('202611180002_edu_lop_nhom', {
+describeMigration('202611180002_create_edu_lop_nhom', {
   sources: [
     {
       packageName: 'nocoedu-migrations-test',
@@ -448,77 +448,76 @@ describeMigration('202611180002_edu_lop_nhom', {
       ),
     },
   ],
-  // Two classes exist before the migration: both must come out with the three standard groups.
-  before: async ({ connection }) => {
-    await connection.query
+  up: async ({ connection, expectCollection }) => {
+    await expectCollection('eduLopNhom').toExist();
+    await expectCollection('eduLopNhom').toHaveIndex(['lopId', 'ten'], {
+      unique: true,
+    });
+    await expectCollection('eduHocVien').toHaveField('nhomId', {
+      nullable: true,
+    });
+    await expectCollection('eduHocVien').toHaveIndex(['nhomId']);
+    await expectCollection('eduHocVienChuyenNhom').toHaveField('hocVienId', {
+      nullable: false,
+    });
+    await expectCollection('eduHocVienChuyenNhom').toHaveIndex(['hocVienId']);
+
+    // A name is unique inside a class, and a name may repeat in another class.
+    const q = connection.query;
+    await q
       .insertInto('eduCoSo')
-      .values({ ma: 'CS-NHOM', ten: 'Cơ sở Mẫu' })
+      .values({ ma: 'CS-NH', ten: 'Cơ sở Mẫu' })
       .execute();
-    const branch = await connection.query
+    const coSo = await q
       .selectFrom('eduCoSo')
       .select('id')
-      .where('ma', '=', 'CS-NHOM')
+      .where('ma', '=', 'CS-NH')
       .executeTakeFirstOrThrow();
-    for (const ma of ['L-NHOM-1', 'L-NHOM-2']) {
-      await connection.query
+    for (const ma of ['L-NH1', 'L-NH2']) {
+      await q
         .insertInto('eduLop')
         .values({
           ma,
-          ten: `Lớp Mẫu ${ma}`,
-          coSoId: Number(branch.id),
+          ten: `Lớp ${ma}`,
+          coSoId: coSo.id,
           levelKey: 'tot',
           levelOrder: 1,
         })
         .execute();
     }
-  },
-  up: async ({ connection, expectCollection }) => {
-    await expectCollection('eduLopNhom').toHaveField('ten', {
-      nullable: false,
-    });
-    await expectCollection('eduLopNhom').toHaveIndex(['lopId', 'ten'], {
-      unique: true,
-    });
-    await expectCollection('eduLopNhom').toHaveForeignKey(['lopId'], 'eduLop');
-    await expectCollection('eduHocVien').toHaveField('nhomId', {
-      nullable: true,
-    });
-    await expectCollection('eduHocVien').toHaveForeignKey(
-      ['nhomId'],
-      'eduLopNhom',
-    );
-    await expectCollection('eduHocVienChuyenNhom').toHaveField('denNhomId', {
-      nullable: true,
-    });
-    await expectCollection('eduHocVienChuyenNhom').toHaveIndex(['hocVienId']);
-
-    const groups = await connection.query
-      .selectFrom('eduLopNhom')
-      .select(['lopId', 'ten', 'thuTu', 'trangThai'])
-      .orderBy('lopId')
-      .orderBy('thuTu')
+    const lops = await q
+      .selectFrom('eduLop')
+      .select('id')
+      .where('ma', 'in', ['L-NH1', 'L-NH2'])
       .execute();
-    expect(groups).toHaveLength(6);
-    const perClass = new Map<number, string[]>();
-    for (const group of groups) {
-      expect(group.trangThai).toBe('hoat_dong');
-      perClass.set(Number(group.lopId), [
-        ...(perClass.get(Number(group.lopId)) ?? []),
-        String(group.ten),
-      ]);
-    }
-    expect(perClass.size).toBe(2);
-    for (const names of perClass.values()) {
-      expect(names).toEqual(['Nhập môn', 'Cơ bản', 'Nâng cao']);
-    }
-    // A name is unique inside a class.
-    const first = groups[0];
+    const [first, second] = lops.map((lop) => Number(lop.id)) as [
+      number,
+      number,
+    ];
+    await q
+      .insertInto('eduLopNhom')
+      .values({ lopId: first, ten: 'Nhóm A' })
+      .execute();
+    await q
+      .insertInto('eduLopNhom')
+      .values({ lopId: second, ten: 'Nhóm A' })
+      .execute();
     await expect(
-      connection.query
+      q
         .insertInto('eduLopNhom')
-        .values({ lopId: Number(first.lopId), ten: String(first.ten) })
+        .values({ lopId: first, ten: 'Nhóm A' })
         .execute(),
     ).rejects.toThrow();
+    const group = await q
+      .selectFrom('eduLopNhom')
+      .select(['trangThai', 'thuTu'])
+      .where('lopId', '=', first)
+      .executeTakeFirstOrThrow();
+    expect(group).toMatchObject({ trangThai: 'hoat_dong', thuTu: 0 });
+    // The check runs again after the migration is rolled back and applied once more: leave nothing behind.
+    await q.deleteFrom('eduLopNhom').allowAllRows().execute();
+    await q.deleteFrom('eduLop').where('coSoId', '=', coSo.id).execute();
+    await q.deleteFrom('eduCoSo').where('id', '=', coSo.id).execute();
   },
   down: async ({ expectCollection }) => {
     await expectCollection('eduLopNhom').not.toExist();

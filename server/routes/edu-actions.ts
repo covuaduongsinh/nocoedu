@@ -293,28 +293,24 @@ export default [
               );
             }
           }
+          const sameClass =
+            (student.lopId == null ? null : Number(student.lopId)) === lopId;
           // The policy of the manage action does not let the class column change through the repository; the
-          // checks above are what make this write safe. A group belongs to one class, so a real move to another class
-          // also leaves the group (`nhomId` back to null); the move is kept in the group history as `chuyen_lop`.
-          const classChanged =
-            (student.lopId == null ? null : Number(student.lopId)) !== lopId;
-          const group =
-            classChanged && student.nhomId != null
-              ? Number(student.nhomId)
-              : null;
+          // checks above are what make this write safe.
           await connection.query
             .updateTable('eduHocVien')
-            .set(classChanged ? { lopId, nhomId: null } : { lopId })
+            .set(sameClass ? { lopId } : { lopId, nhomId: null })
             .where('id', '=', id)
             .execute();
-          if (group !== null) {
+          // A group belongs to one class, so the student leaves theirs; the move is kept in the history.
+          if (student.nhomId != null && !sameClass) {
             await connection.query
               .insertInto('eduHocVienChuyenNhom')
               .values({
                 hocVienId: id,
-                tuNhomId: group,
+                tuNhomId: Number(student.nhomId),
                 denNhomId: null,
-                ngay: today(),
+                ngay: todayVn(),
                 nguoiThucHienId: currentUserId(c),
                 ghiChu: 'chuyen_lop',
               })

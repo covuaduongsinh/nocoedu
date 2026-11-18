@@ -1,5 +1,6 @@
 import { usePageBreadcrumb } from '@nocobase/app-client';
 import { useTranslation } from '@nocobase/i18n/client';
+import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useState, type ReactElement, type ReactNode } from 'react';
 import { useParams } from 'react-router';
 
@@ -12,18 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
 
 import { text, usePagedRows, useRequest, useRows, type Row } from './kit.js';
 import { RowsTable } from './list-page.js';
-import { GroupsTab } from './lop-nhom-tab.js';
+import { GroupTab } from './lop-nhom.js';
+import { useGroupNames } from './nhom.js';
 import { RowManage } from './sua-xoa.js';
 import { useUrlState } from './url-state.js';
-
-const CLASS_TABS = [
-  'info',
-  'schedule',
-  'students',
-  'nhom',
-  'sessions',
-] as const;
-type ClassTab = (typeof CLASS_TABS)[number];
 
 function Detail(props: {
   readonly label: string;
@@ -103,11 +96,20 @@ function ClassFile({
     page: 1,
     where: { lopId: lop.id },
   });
-  // The active tab lives in the address (`?tab=`); an unknown or missing value opens the details.
-  const url = useUrlState({ tab: 'info' });
-  const tab = CLASS_TABS.includes(url.values.tab as ClassTab)
-    ? url.values.tab
-    : 'info';
+  // The tab is kept in the address (`?tab=groups`); the groups tab is offered to whoever may view them.
+  const { values, set } = useUrlState({ tab: 'info' });
+  const { can: canGroups } = useCan({
+    resource: { type: 'composite', id: 'edu.lopNhom' },
+    action: 'view',
+  });
+  const tab =
+    values.tab === 'groups' && !canGroups
+      ? 'info'
+      : ['info', 'schedule', 'students', 'groups', 'sessions'].includes(
+            values.tab,
+          )
+        ? values.tab
+        : 'info';
   return (
     <PageContainer className='mx-auto max-w-6xl'>
       <PageHeader
@@ -115,10 +117,7 @@ function ClassFile({
         description={`${text(lop.ma)} · ${t(`edu.level.${text(lop.levelKey)}`)}`}
         actions={<RowManage kind='lop' row={lop} onChanged={onChanged} />}
       />
-      <Tabs
-        value={tab}
-        onValueChange={(value) => url.set({ tab: String(value) })}
-      >
+      <Tabs value={tab} onValueChange={(value) => set({ tab: String(value) })}>
         <TabsList>
           <TabsTrigger value='info'>{t('edu.lop.tab.info')}</TabsTrigger>
           <TabsTrigger value='schedule'>
@@ -127,7 +126,9 @@ function ClassFile({
           <TabsTrigger value='students'>
             {t('edu.lop.tab.students')}
           </TabsTrigger>
-          <TabsTrigger value='nhom'>{t('edu.lop.tab.nhom')}</TabsTrigger>
+          {canGroups ? (
+            <TabsTrigger value='groups'>{t('edu.lop.tab.groups')}</TabsTrigger>
+          ) : null}
           <TabsTrigger value='sessions'>
             {t('edu.lop.tab.sessions')}
           </TabsTrigger>
@@ -157,9 +158,11 @@ function ClassFile({
         <TabsContent value='students' className='pt-4'>
           <Students classId={lop.id} />
         </TabsContent>
-        <TabsContent value='nhom' className='pt-4'>
-          <GroupsTab classId={lop.id} />
-        </TabsContent>
+        {canGroups ? (
+          <TabsContent value='groups' className='pt-4'>
+            <GroupTab lop={lop} />
+          </TabsContent>
+        ) : null}
         <TabsContent value='sessions' className='pt-4'>
           <Sessions classId={lop.id} />
         </TabsContent>
@@ -209,6 +212,11 @@ function Students({ classId }: { readonly classId: number }): ReactElement {
     page,
     where: { lopId: classId },
   });
+  const groupName = useGroupNames(
+    students.loaded.state === 'ready'
+      ? students.loaded.rows.map((row) => row.nhomId)
+      : [],
+  );
   return (
     <RowsTable
       loaded={students.loaded}
@@ -226,6 +234,16 @@ function Students({ classId }: { readonly classId: number }): ReactElement {
               {text(row.hoTen)}
             </RecordLink>
           ),
+        },
+        {
+          key: 'nhom',
+          label: t('edu.nhom.label'),
+          render: (row) =>
+            groupName(row.nhomId) || (
+              <span className='text-muted-foreground'>
+                {t('edu.nhom.none')}
+              </span>
+            ),
         },
         {
           key: 'trangThai',

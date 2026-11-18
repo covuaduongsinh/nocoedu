@@ -249,8 +249,8 @@ test('--commit writes the packages without a price or a payment, recomputes the 
     'eduPhuHuynh',
     'eduHocVienChuyenNhom',
     'eduHocVien',
-    'eduLopNhom',
     'eduLopLich',
+    'eduLopNhom',
     'eduLop',
     'eduCoSo',
   ])
@@ -442,8 +442,8 @@ const ALL_TABLES = [
   'eduPhuHuynh',
   'eduHocVienChuyenNhom',
   'eduHocVien',
-  'eduLopNhom',
   'eduLopLich',
+  'eduLopNhom',
   'eduLop',
   'eduCoSo',
 ];

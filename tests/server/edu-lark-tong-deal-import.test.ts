@@ -142,8 +142,8 @@ const CLEAR = [
   'eduPhuHuynh',
   'eduHocVienChuyenNhom',
   'eduHocVien',
-  'eduLopNhom',
   'eduLopLich',
+  'eduLopNhom',
   'eduLop',
   'eduCoSo',
 ];

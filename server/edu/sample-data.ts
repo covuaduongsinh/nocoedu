@@ -2,7 +2,7 @@ import type { DatabaseManager } from '@nocobase/db';
 
 import { codeFromId, tempCode } from './names.js';
 import { levelOrder } from './levels.js';
-import { ensureDefaultGroups } from './lop-nhom.js';
+import { ensureDefaultGroups } from './nhom.js';
 import { addDays, todayVn } from './so-du.js';
 
 /**
@@ -92,6 +92,15 @@ export async function seedSampleData(
           .execute();
       }
     }
+    // The first class is sorted into its three default groups, the others are left unsorted.
+    const firstClassGroups = (
+      await q
+        .selectFrom('eduLopNhom')
+        .select('id')
+        .where('lopId', '=', classIds[0])
+        .orderBy('thuTu')
+        .execute()
+    ).map((group) => Number(group.id));
     const today = todayVn();
     for (let i = 1; i <= 10; i += 1) {
       const nn = String(i).padStart(2, '0');
@@ -105,6 +114,10 @@ export async function seedSampleData(
           levelKey: lop.level,
           levelOrder: levelOrder(lop.level) ?? 1,
           lopId: classIds[classIndex],
+          nhomId:
+            classIndex === 0
+              ? (firstClassGroups[(i - 1) % firstClassGroups.length] ?? null)
+              : null,
           coSoId: branchIds[lop.branch],
           trangThai: 'dang_hoc',
           ghiChuHlv: null,

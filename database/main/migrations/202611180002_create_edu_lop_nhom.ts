@@ -1,28 +1,27 @@
 import { defineMigration, type MigrationDefinition } from '@nocobase/db';
 
 /**
- * Skill groups inside a class (phase 3 of `docs/plans/2026-11-17-tai-cau-truc-nocoedu.md`).
+ * Groups of level inside a class (GĐ 3 of `docs/plans/2026-11-17-tai-cau-truc-nocoedu.md`).
  *
- * - `eduLopNhom`: the groups of a class (`ten`, `thuTu`, `trangThai` = `hoat_dong` or `an`). A group is hidden, never
- *   deleted, so the history below keeps pointing at it. A name is unique within its class.
- * - `eduHocVien.nhomId`: the group a student sits in (nullable: a student may be in none). It changes only through
- *   `POST /hocVien/chuyenNhom`, and `POST /hocVien/chuyenLop` resets it.
- * - `eduHocVienChuyenNhom`: append-only history of the moves (`tuNhomId` null = he had no group, `denNhomId` null = he
- *   left the groups).
+ * - `eduLopNhom`: a group of one class. Its status is `hoat_dong` or `an` (a group is hidden, never deleted: students
+ *   and their history point at it); the name is unique inside the class.
+ * - `eduHocVien.nhomId`: the group a student is in now, nullable. It changes only through `POST /hocVien/chuyenNhom`
+ *   (and `POST /hocVien/chuyenLop` sets it back to null), never through a record API.
+ * - `eduHocVienChuyenNhom`: the history of those moves, append only.
  *
- * The migration also gives every class that exists the three standard groups. The names are written out here (this file
- * must not depend on application code that may change later).
+ * Every class that exists gets the three default groups "Nhập môn", "Cơ bản" and "Nâng cao"; no student is placed
+ * in one (the head coach sorts them). Written out literally: a migration is immutable history and imports nothing.
  */
 const DEFAULT_GROUPS = ['Nhập môn', 'Cơ bản', 'Nâng cao'] as const;
 
 const migration: MigrationDefinition = defineMigration({
-  name: '202611180002_edu_lop_nhom',
+  name: '202611180002_create_edu_lop_nhom',
 
   async up({ builder, query }) {
     await builder.createCollection('eduLopNhom', (c) => {
       c.increments('id');
       c.integer('lopId', { nullable: false });
-      c.string('ten', { length: 100, nullable: false });
+      c.string('ten', { length: 60, nullable: false });
       c.integer('thuTu', { nullable: false, defaultValue: 0 });
       c.string('trangThai', {
         length: 16,
@@ -51,8 +50,8 @@ const migration: MigrationDefinition = defineMigration({
       c.integer('tuNhomId', { nullable: true });
       c.integer('denNhomId', { nullable: true });
       c.string('ngay', { length: 10, nullable: false });
-      c.string('nguoiThucHienId', { length: 64, nullable: false });
-      c.text('ghiChu', { nullable: true });
+      c.string('nguoiThucHienId', { length: 64, nullable: true });
+      c.string('ghiChu', { length: 500, nullable: true });
       c.foreignKey('hocVienId', {
         references: { collection: 'eduHocVien', fields: ['id'] },
         name: 'fk_edu_chuyen_nhom_hoc_vien',
@@ -68,22 +67,19 @@ const migration: MigrationDefinition = defineMigration({
       c.index('hocVienId', { name: 'ix_edu_chuyen_nhom_hoc_vien' });
     });
 
-    const classes = await query
-      .selectFrom('eduLop')
-      .select('id')
-      .orderBy('id')
-      .execute();
-    for (const lop of classes) {
+    const classes = await query.selectFrom('eduLop').select('id').execute();
+    const rows = classes.flatMap((lop) =>
+      DEFAULT_GROUPS.map((ten, index) => ({
+        lopId: Number(lop.id),
+        ten,
+        thuTu: index + 1,
+        trangThai: 'hoat_dong',
+      })),
+    );
+    for (let i = 0; i < rows.length; i += 200) {
       await query
         .insertInto('eduLopNhom')
-        .values(
-          DEFAULT_GROUPS.map((ten, index) => ({
-            lopId: Number(lop.id),
-            ten,
-            thuTu: index + 1,
-            trangThai: 'hoat_dong',
-          })),
-        )
+        .values(rows.slice(i, i + 200))
         .execute();
     }
   },

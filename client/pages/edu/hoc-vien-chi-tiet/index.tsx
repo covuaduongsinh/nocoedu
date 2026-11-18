@@ -19,20 +19,13 @@ import {
   SessionBalanceBadge,
 } from '../edu-ui-parts.js';
 import { saveCsvStream } from '../download.js';
-import {
-  text,
-  useErrorMessage,
-  useRequest,
-  useRowsByIds,
-  type Row,
-} from '../kit.js';
+import { text, useErrorMessage, useRequest, type Row } from '../kit.js';
 import { NoteButton, RowManage } from '../sua-xoa.js';
 import { useUrlState } from '../url-state.js';
 import { Sessions } from './buoi-hoc.js';
 import { Tuition } from './hoc-phi.js';
 import { PrintSheet } from './in-phieu.js';
 import { Knowledge } from './kien-thuc.js';
-import { GroupHistory } from './nhom-lich-su.js';
 import { Comments } from './nhan-xet.js';
 import { Parents } from './phu-huynh.js';
 import { BooksAndFund } from './sach-quy.js';
@@ -106,15 +99,6 @@ function StudentFile({
   const api = useApiClient();
   const message = useErrorMessage();
   const url = useUrlState({ tab: 'tong-quan', ky: '', trangThai: '' });
-  // The student's group (a name only; a person who may not see groups simply gets no name).
-  const groupRows = useRowsByIds(
-    'lopNhom',
-    student.nhomId == null ? [] : [Number(student.nhomId)],
-  );
-  const groupName =
-    student.nhomId == null
-      ? ''
-      : text(groupRows.get(Number(student.nhomId))?.ten);
   const profileRequest = useRequest<Profile>('/hocVien/hoSo360', {
     hocVienId: student.id,
   });
@@ -208,12 +192,10 @@ function StudentFile({
                       ? t('edu.hocVien.noClass')
                       : (profile?.hocVien.lopTen ?? t('edu.lop.detail'))}
                   </span>
-                  {student.lopId != null && groupName ? (
+                  {profile?.hocVien.nhomTen ? (
                     <>
                       <span>·</span>
-                      <span>
-                        {t('edu.nhom.col')}: {groupName}
-                      </span>
+                      <span>{profile.hocVien.nhomTen}</span>
                     </>
                   ) : null}
                   {profile?.hocVien.coSoTen ? (
@@ -306,9 +288,6 @@ function StudentFile({
           <Section request={profileRequest} profile={profile}>
             {(loaded) => <Overview profile={loaded} />}
           </Section>
-          <div className='pt-6'>
-            <GroupHistory studentId={student.id} />
-          </div>
         </TabsContent>
         {visible['buoi-hoc'] ? (
           <TabsContent value='buoi-hoc' className='pt-4'>

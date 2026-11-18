@@ -32,7 +32,6 @@ const withoutLaterActions = (grants: readonly unknown[]): unknown[] =>
         }
       : g;
   });
-// `edu.lopNhom` (groups inside a class) came with `202611180003_edu_lop_nhom_grant`.
 // The books page and the `edu.sach` grant were added later still: `202611130003_edu_sach_grant`.
 const withoutSach = (grants: readonly unknown[]): unknown[] =>
   grants.filter((grant) => {

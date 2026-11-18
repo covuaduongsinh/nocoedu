@@ -4,7 +4,6 @@ import {
 } from '@nocobase/app-plugin-authentication/testing';
 import { createAppTest } from '@nocobase/app-testing/server';
 
-import { ensureDefaultGroups } from '../../server/edu/lop-nhom.js';
 import { createStandaloneServer } from '../../server/standalone.js';
 
 export const test = createAppTest({
@@ -122,11 +121,11 @@ export async function seedSchool(
     'eduDongY',
     'eduHocVienPhuHuynh',
     'eduPhuHuynh',
-    'eduHocVienLenCap',
     'eduHocVienChuyenNhom',
+    'eduHocVienLenCap',
     'eduHocVien',
-    'eduLopNhom',
     'eduLopLich',
+    'eduLopNhom',
     'eduLop',
     'eduCoSoQuanLy',
     'eduCoSo',
@@ -179,9 +178,6 @@ export async function seedSchool(
     .execute();
   const lopA = await idOf('eduLop', 'L-A1');
   const lopB = await idOf('eduLop', 'L-B1');
-  // Every class has its three standard groups, as a class made by the application does.
-  await ensureDefaultGroups(q, lopA);
-  await ensureDefaultGroups(q, lopB);
   await q
     .insertInto('eduHocVien')
     .values({

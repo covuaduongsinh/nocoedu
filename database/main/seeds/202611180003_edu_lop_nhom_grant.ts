@@ -1,23 +1,20 @@
 import { defineSeed } from '@nocobase/db';
 
 /**
- * Gives the NocoEdu permission sets the groups inside a class (phase 3 of
- * `docs/plans/2026-11-17-tai-cau-truc-nocoedu.md`): the business resource `edu.lopNhom`. There is no page of its own
- * (the groups are a tab of the class page, which keeps the class page grant).
- *
- * - administrator: view, manage, history (the move history, read only), moveStudent over every record;
- * - branch manager: the same over their branches;
- * - coach: the same over the classes they teach;
- * - accountant: view only.
- *
- * Like the earlier grant seeds it appends the grant at the end of each set that exists and does not hold it yet, and
- * assigns nothing to anybody. Written out literally: a seed is loaded on its own and must not import application code.
+ * Gives the NocoEdu permission sets the groups of level inside a class (GĐ 3 of
+ * `docs/plans/2026-11-17-tai-cau-truc-nocoedu.md`): the business resource `edu.lopNhom`, with the scope `data` (the
+ * groups, by class). No page: the groups are a tab of the class page, which
+ * opens with the page grant of the class list. Over the same records as the class and the student: the administrator
+ * all (view and manage), the branch manager their branches (both), the coach their classes (both), the accountant
+ * all (view only). Like the earlier grant seeds it adds the grant at the end of each set that exists and does not
+ * hold it yet, and assigns nothing to anybody. Written out literally: a seed is loaded on its own and must not import
+ * application code.
  */
-const SETS: readonly { key: string; scope: string; moves: boolean }[] = [
-  { key: 'edu_quan_tri', scope: 'allRecords', moves: true },
-  { key: 'edu_quan_ly_co_so', scope: 'edu.myBranches', moves: true },
-  { key: 'edu_hlv', scope: 'edu.myClasses', moves: true },
-  { key: 'edu_ke_toan', scope: 'allRecords', moves: false },
+const SETS: readonly { key: string; scope: string; manage: boolean }[] = [
+  { key: 'edu_quan_tri', scope: 'allRecords', manage: true },
+  { key: 'edu_quan_ly_co_so', scope: 'edu.myBranches', manage: true },
+  { key: 'edu_hlv', scope: 'edu.myClasses', manage: true },
+  { key: 'edu_ke_toan', scope: 'allRecords', manage: false },
 ];
 
 interface Grant {
@@ -25,16 +22,11 @@ interface Grant {
   actions: { action: string; policy?: unknown }[];
 }
 
-const composite = (scopes: Record<string, string>) => ({
-  type: 'composite',
-  scopes,
-});
-
 export default defineSeed({
   name: '202611180003_edu_lop_nhom_grant',
   transaction: true,
   async run({ query }) {
-    for (const { key, scope, moves } of SETS) {
+    for (const { key, scope, manage } of SETS) {
       const row = await query
         .selectFrom('authorizationPermissionSets')
         .select('grants')
@@ -53,24 +45,12 @@ export default defineSeed({
         )
       )
         continue;
+      const policy = { type: 'composite', scopes: { data: scope } };
       list.push({
         resource: { type: 'composite', id: 'edu.lopNhom' },
         actions: [
-          { action: 'view', policy: composite({ data: scope }) },
-          ...(moves
-            ? [
-                { action: 'manage', policy: composite({ data: scope }) },
-                { action: 'history', policy: composite({ data: scope }) },
-                {
-                  action: 'moveStudent',
-                  policy: composite({
-                    data: scope,
-                    students: scope,
-                    history: scope,
-                  }),
-                },
-              ]
-            : []),
+          { action: 'view', policy },
+          ...(manage ? [{ action: 'manage', policy }] : []),
         ],
       });
       await query

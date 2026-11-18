@@ -124,9 +124,9 @@ function useRegisterParams() {
     xem: 'buoi',
     coSo: '',
     lop: '',
+    nhom: '',
     gv: '',
     hv: '',
-    nhom: '',
     tt: '',
   });
   const today = todayVn();
@@ -152,9 +152,9 @@ function useRegisterParams() {
   const filters = {
     coSoId: number(values.coSo),
     lopId: number(values.lop),
+    nhomId: number(values.nhom),
     hlvId: values.gv || undefined,
     hocVienId: number(values.hv),
-    nhomId: number(values.nhom),
     trangThai: (STATUSES as readonly string[]).includes(values.tt)
       ? values.tt
       : undefined,
@@ -299,12 +299,11 @@ export function SoDiemDanhTab({
   const branchRows = branches.state === 'ready' ? branches.rows : [];
   const classRows = classes.state === 'ready' ? classes.rows : [];
   const teacherRows = teachers.state === 'ready' ? teachers.data : [];
-  // The groups of the chosen class; the group filter is only meaningful with a class.
   const classGroups = useClassGroups(filters.lopId ?? 0);
-  const groupOptions = classGroups.groups.map((row) => ({
-    value: String(row.id),
-    label: text(row.ten),
-  }));
+  const groupRows =
+    filters.lopId && classGroups.loaded.state === 'ready'
+      ? classGroups.loaded.rows.filter((row) => row.trangThai === 'hoat_dong')
+      : [];
   const classOptions = filters.coSoId
     ? classRows.filter((row) => row.coSoId === filters.coSoId)
     : classRows;
@@ -330,9 +329,9 @@ export function SoDiemDanhTab({
         cheDo: view,
         ...(filters.coSoId ? { coSoId: filters.coSoId } : {}),
         ...(filters.lopId ? { lopId: filters.lopId } : {}),
+        ...(filters.nhomId ? { nhomId: filters.nhomId } : {}),
         ...(filters.hlvId ? { hlvId: filters.hlvId } : {}),
         ...(filters.hocVienId ? { hocVienId: filters.hocVienId } : {}),
-        ...(filters.nhomId ? { nhomId: filters.nhomId } : {}),
         ...(filters.trangThai ? { trangThai: filters.trangThai } : {}),
         limit: PAGE_SIZE,
         offset: pageIndex * PAGE_SIZE,
@@ -412,13 +411,6 @@ export function SoDiemDanhTab({
   );
 
   const rows = loaded.state === 'ready' ? loaded.value.data : [];
-  // The by-student view names each student's group: one lookup for the groups on this page.
-  const groupNames = useRowsByIds(
-    'lopNhom',
-    view === 'hocVien'
-      ? rows.flatMap((row) => (row.nhomId == null ? [] : [Number(row.nhomId)]))
-      : [],
-  );
 
   return (
     <PageContainer className='mx-auto max-w-6xl space-y-5'>
@@ -556,18 +548,19 @@ export function SoDiemDanhTab({
             label: t(`edu.diemDanh.s.${status}`),
           }))}
         />
-        {/* Groups belong to one class, so the filter offers the groups of the chosen class. */}
-        <FilterSelect
-          label={t('edu.nhom.filter.label')}
-          allLabel={
-            filters.lopId
-              ? t('edu.nhom.filter.all')
-              : t('edu.nhom.filter.pickClass')
-          }
-          value={filters.lopId && filters.nhomId ? String(filters.nhomId) : ''}
-          onChange={(nhom) => update({ nhom })}
-          options={filters.lopId ? groupOptions : []}
-        />
+        {/* The groups are those of one class: the filter appears once a class is chosen. */}
+        {filters.lopId ? (
+          <FilterSelect
+            label={t('edu.nhom.label')}
+            allLabel={t('edu.nhom.filter.all')}
+            value={filters.nhomId ? String(filters.nhomId) : ''}
+            onChange={(nhom) => update({ nhom })}
+            options={groupRows.map((row) => ({
+              value: String(row.id),
+              label: text(row.ten),
+            }))}
+          />
+        ) : null}
         {hasFilters ? (
           <Button
             variant='ghost'
@@ -576,9 +569,9 @@ export function SoDiemDanhTab({
               update({
                 coSo: undefined,
                 lop: undefined,
+                nhom: undefined,
                 gv: undefined,
                 hv: undefined,
-                nhom: undefined,
                 tt: undefined,
               })
             }
@@ -587,13 +580,6 @@ export function SoDiemDanhTab({
           </Button>
         ) : null}
       </div>
-
-      {/* The group filter follows the group a student sits in now. */}
-      {filters.nhomId ? (
-        <p className='text-xs text-muted-foreground'>
-          {t('edu.nhom.sessionsOnlyGroup')}
-        </p>
-      ) : null}
 
       {/* Tổng hợp */}
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
@@ -715,7 +701,6 @@ export function SoDiemDanhTab({
                   <TableHead>{t('edu.diemDanh.so.c.code')}</TableHead>
                   <TableHead>{t('edu.diemDanh.so.c.student')}</TableHead>
                   <TableHead>{t('edu.diemDanh.so.c.class')}</TableHead>
-                  <TableHead>{t('edu.nhom.col')}</TableHead>
                   {countHeads}
                   <TableHead className='text-right'>
                     {t('edu.diemDanh.so.c.total')}
@@ -776,11 +761,6 @@ export function SoDiemDanhTab({
                       </RecordLink>
                     </TableCell>
                     <TableCell>{className(row.lopId)}</TableCell>
-                    <TableCell>
-                      {row.nhomId == null
-                        ? t('edu.nhom.none')
-                        : text(groupNames.get(Number(row.nhomId))?.ten)}
-                    </TableCell>
                     {counts(row)}
                     <TableCell className='text-right font-medium tabular-nums'>
                       {text(row.tong)}

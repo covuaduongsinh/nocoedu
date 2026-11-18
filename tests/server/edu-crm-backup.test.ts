@@ -596,8 +596,22 @@ async function everyTable(
       gioKetThuc: '19:00',
     })
     .execute();
-  // The groups of the two classes come from `seedSchool`; put a student in one and keep the move.
-  const groupId = await one('eduLopNhom', ['lopId', ids.lopA]);
+  await q
+    .insertInto('eduHocVienLenCap')
+    .values({
+      hocVienId: ids.hocVienA,
+      tuLevelKey: 'tot',
+      denLevelKey: 'ma',
+      ngay: '2026-11-01',
+      nguoiXacNhanId: hlvId,
+    })
+    .execute();
+  // A group of a class, a student placed in it and the history of that move.
+  await q
+    .insertInto('eduLopNhom')
+    .values({ lopId: ids.lopA, ten: 'Nhóm Mẫu', thuTu: 1 })
+    .execute();
+  const groupId = await one('eduLopNhom', ['ten', 'Nhóm Mẫu']);
   await q
     .updateTable('eduHocVien')
     .set({ nhomId: groupId })
@@ -611,16 +625,7 @@ async function everyTable(
       denNhomId: groupId,
       ngay: '2026-11-01',
       nguoiThucHienId: hlvId,
-    })
-    .execute();
-  await q
-    .insertInto('eduHocVienLenCap')
-    .values({
-      hocVienId: ids.hocVienA,
-      tuLevelKey: 'tot',
-      denLevelKey: 'ma',
-      ngay: '2026-11-01',
-      nguoiXacNhanId: hlvId,
+      ghiChu: null,
     })
     .execute();
   await q
@@ -790,7 +795,7 @@ test('a snapshot holds all 23 tables and restoring it brings every one of them b
   await everyTable(connection, ids, hlvA.id);
 
   const before = (await (await post(admin, BACKUP, {})).json()) as Snapshot;
-  expect(before.data.phienBan).toBe('2.0');
+  expect(before.data.phienBan).toBe('2.1');
   expect(before.data.tongSoBang).toBe(23);
   for (const table of Object.keys(before.data.duLieu)) {
     expect(

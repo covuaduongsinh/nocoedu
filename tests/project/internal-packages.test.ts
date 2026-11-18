@@ -58,6 +58,7 @@ it('checks every internal package without selecting the root application and pro
         cwd: root,
         encoding: 'utf8',
         timeout: 30_000,
+        shell: true,
       });
     expect(run().status).toBe(0);
     for (const name of ['first', 'second']) {

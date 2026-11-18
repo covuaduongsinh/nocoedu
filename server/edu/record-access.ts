@@ -21,7 +21,9 @@ const SCOPED_COLLECTIONS = [
   'eduCoSo',
   'eduLop',
   'eduLopLich',
+  'eduLopNhom',
   'eduHocVien',
+  'eduHocVienChuyenNhom',
   'eduHocVienLenCap',
   'eduPhuHuynh',
   'eduHocVienPhuHuynh',
@@ -37,8 +39,6 @@ const SCOPED_COLLECTIONS = [
   'eduNhanXetThang',
   'eduCoSoQuanLy',
   'eduXuatDuLieuNhatKy',
-  'eduLopNhom',
-  'eduHocVienChuyenNhom',
 ] as const;
 
 type Query = ReturnType<DatabaseManager['connection']>['query'];
