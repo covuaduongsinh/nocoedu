@@ -238,7 +238,7 @@ function StudentFilter(props: {
     <div className='relative'>
       <Input
         aria-label={t('edu.diemDanh.so.f.student')}
-        className='h-8 w-56 text-sm'
+        className='h-8 w-64 text-sm'
         placeholder={t('edu.diemDanh.so.f.studentSearch')}
         value={search}
         onChange={(event) => setSearch(event.target.value)}
@@ -629,7 +629,7 @@ export function SoDiemDanhTab({
           ))}
         </TabsList>
       </Tabs>
-      {hasFilters && view === 'buoi' ? (
+      {(filters.hocVienId || filters.trangThai) && view === 'buoi' ? (
         <p className='text-xs text-muted-foreground'>
           {t('edu.diemDanh.so.sessionsOnly')}
         </p>

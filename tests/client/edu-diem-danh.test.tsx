@@ -485,6 +485,20 @@ describe('attendance register tab', () => {
     ).toBeInTheDocument();
   });
 
+  it('explains that a student or status filter keeps only the sessions with a matching mark, and only then', async () => {
+    const note = /chỉ gồm các ca có điểm danh khớp/u;
+    await render(<DiemDanhPage />, '/diem-danh?tab=so&lop=2', '/diem-danh');
+    await screen.findByRole('link', { name: '09/11/2026' });
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+  });
+
+  it('shows that note once a status is chosen', async () => {
+    await render(<DiemDanhPage />, '/diem-danh?tab=so&tt=co_mat', '/diem-danh');
+    expect(
+      await screen.findByText(/chỉ gồm các ca có điểm danh khớp/u),
+    ).toBeInTheDocument();
+  });
+
   it('switches back to the attendance tab with a clean address', async () => {
     await render(
       <DiemDanhPage />,
