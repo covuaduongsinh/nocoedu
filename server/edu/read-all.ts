@@ -1,5 +1,6 @@
 import type { RepositoryPolicy } from '@nocobase/db';
 
+import { anyOf } from './filters.js';
 import { eduError } from '../routes/edu-support.js';
 
 export type Row = Record<string, unknown>;
@@ -25,9 +26,7 @@ export async function readAllRows(
   filter?: unknown,
   max = 5000,
 ): Promise<Row[]> {
-  const repository = database
-    .repository(collection)
-    .withPolicy(policy) as {
+  const repository = database.repository(collection).withPolicy(policy) as {
     findMany(input: unknown): Promise<Row[]>;
   };
   const rows: Row[] = [];
@@ -59,4 +58,30 @@ export function chunksOf<T>(items: readonly T[], size: number): T[][] {
     out.push(items.slice(i, i + size));
   }
   return out;
+}
+
+/**
+ * The rows of `collection` with these ids that the policy lets through, by id. A policy of `undefined` (the caller does
+ * not hold the action) and ids outside the scope simply give no row.
+ */
+export async function readRowsByIds(
+  database: PolicyReader,
+  collection: string,
+  policy: RepositoryPolicy | undefined,
+  ids: readonly number[],
+): Promise<Map<number, Row>> {
+  const map = new Map<number, Row>();
+  if (!policy) return map;
+  for (const part of chunksOf([...new Set(ids)], PAGE)) {
+    for (const row of await readAllRows(
+      database,
+      collection,
+      policy,
+      anyOf('id', part),
+      PAGE,
+    )) {
+      map.set(Number(row.id), row);
+    }
+  }
+  return map;
 }

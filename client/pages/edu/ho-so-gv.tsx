@@ -24,6 +24,7 @@ import {
 
 import { FormDialog, SelectField, TextField } from './form-parts.js';
 import { GenericImportDialog } from './generic-import-dialog.js';
+import { formatMoney } from './format.js';
 import {
   createOne,
   text,
@@ -52,8 +53,7 @@ interface PayRow {
   tong: number;
 }
 
-const money = (value: unknown): string =>
-  Number(value ?? 0).toLocaleString('vi-VN');
+const money = formatMoney;
 
 interface CoachSession {
   readonly id: number;
@@ -84,9 +84,7 @@ function CoachSessionsDialog(props: {
           <DialogTitle>
             {`${props.coachName} · ${t('edu.hoSoGv.chiTietTitle')} (${props.thang})`}
           </DialogTitle>
-          <DialogDescription>
-            {t('edu.hoSoGv.chiTietHint')}
-          </DialogDescription>
+          <DialogDescription>{t('edu.hoSoGv.chiTietHint')}</DialogDescription>
         </DialogHeader>
         {result.state === 'loading' ? (
           <p role='status' className='text-sm text-muted-foreground'>

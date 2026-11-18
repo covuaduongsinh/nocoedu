@@ -18,7 +18,7 @@ import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import HocVienChiTietPage from '../../client/pages/edu/hoc-vien-chi-tiet.js';
+import HocVienChiTietPage from '../../client/pages/edu/hoc-vien-chi-tiet/index.js';
 import LopChiTietPage from '../../client/pages/edu/lop-chi-tiet.js';
 import viVN from '../../client/locales/vi-VN.js';
 import packageMetadata from '../../package.json' with { type: 'json' };
@@ -37,7 +37,117 @@ const student = {
   soBuoiConLai: 4,
 };
 
+const profile = {
+  hocVien: {
+    id: 7,
+    ma: 'HS00007',
+    hoTen: 'Học viên Mẫu 07',
+    levelKey: 'ma',
+    trangThai: 'dang_hoc',
+    lopId: 3,
+    lopTen: 'Lớp Mẫu 3',
+    coSoId: 1,
+    coSoTen: 'Cơ sở Mẫu 1',
+  },
+  phuHuynhChinh: {
+    id: 11,
+    hoTen: 'Phụ huynh Mẫu 11',
+    soDienThoai: '0900000011',
+    quanHe: 'me',
+  },
+  tongHop: {
+    soBuoiConLai: 4,
+    dai: 'binh_thuong',
+    canThu: false,
+    tongSoBuoiDaMua: 12,
+    tongSoBuoiDaHoc: 8,
+    vuotSoDu: 0,
+    tongTienHocPhi: 1800000,
+    tongDaThanhToan: 1000000,
+    tongConNoHocPhi: 800000,
+    tienSachDaPhat: 40000,
+    tienSachDaNop: 10000,
+    quySach: -30000,
+    congNoSach: 30000,
+  },
+  hocPhi: {
+    cacKy: [
+      {
+        kySo: 1,
+        goiHocId: 41,
+        loai: 'mua',
+        trangThaiGoi: 'hieu_luc',
+        ngayMua: '2026-10-01',
+        soBuoi: 12,
+        donGia: 150000,
+        thanhTien: 1800000,
+        daThanhToan: 1000000,
+        conNo: 800000,
+        daDung: 8,
+        conLai: 4,
+        tienDo: 67,
+      },
+    ],
+  },
+  buoiHoc: [
+    {
+      diemDanhId: 21,
+      buoiHocId: 31,
+      stt: 1,
+      ngay: '2026-11-03',
+      gioBatDau: '18:00',
+      gioKetThuc: '19:30',
+      lopId: 3,
+      lopTen: 'Lớp Mẫu 3',
+      trangThai: 'co_mat',
+      daLamBtvn: true,
+      yThucDiem: 8,
+      nhanXet: 'Nhận xét mẫu của buổi học',
+      soBuoiDaTru: 1,
+      kySo: 1,
+      vuotSoDu: false,
+    },
+    {
+      diemDanhId: 22,
+      buoiHocId: 32,
+      stt: 2,
+      ngay: '2026-11-05',
+      gioBatDau: '18:00',
+      gioKetThuc: '19:30',
+      lopId: 3,
+      lopTen: 'Lớp Mẫu 3',
+      trangThai: 'vang_co_phep',
+      daLamBtvn: false,
+      yThucDiem: null,
+      nhanXet: '',
+      soBuoiDaTru: 0,
+      kySo: null,
+      vuotSoDu: false,
+    },
+  ],
+  sach: {
+    cacLanPhat: [
+      {
+        id: 1,
+        sachId: 5,
+        kyHieu: 'CT1',
+        tenSach: 'Sách Mẫu 1',
+        ngay: '2026-10-02',
+        giaBia: 60000,
+        uuDai: 10000,
+        tienSach: 40000,
+        ghiChu: '',
+      },
+    ],
+    daPhat: 40000,
+    daNop: 10000,
+    conLai: -30000,
+    congNo: 30000,
+  },
+};
+
 let studentFound = true;
+let profileAnswer: unknown = profile;
 let permissions: AuthorizationSnapshot = {
   unrestricted: true,
   permissions: [],
@@ -48,6 +158,23 @@ const api = vi.fn(({ method, path, json }: ApiCall) => {
     return { data: permissions };
   if (path === 'hocVien/findOne')
     return { data: studentFound ? student : null };
+  if (path === 'hocVien/hoSo360') return { data: profileAnswer };
+  if (path === 'doiSoat/capNhatBuoiHoc') return { data: { success: true } };
+  if (path === 'nhanXetThang/findMany')
+    return {
+      data: [
+        {
+          id: 1,
+          hocVienId: 7,
+          thang: '2026-10',
+          noiDung: 'Con tiến bộ rõ rệt',
+          trangThai: 'nhap',
+        },
+      ],
+    };
+  if (path === 'nhanXetThang/count') return { data: 1 };
+  if (path === 'sachHoc/findMany') return { data: [] };
+  if (path === 'sachHoc/count') return { data: 0 };
   if (path === 'lop/findOne')
     return {
       data: {
@@ -215,64 +342,119 @@ describe('student file', () => {
   beforeEach(() => {
     api.mockClear();
     studentFound = true;
+    profileAnswer = profile;
     permissions = { unrestricted: true, permissions: [] };
   });
 
-  it('shows the details, the parents, every session with its comment, the packages and the balance history', async () => {
+  it('opens on the overview with the numbers of the server and the milestones of each term', async () => {
     await render('/hoc-vien/7');
     expect(
       await screen.findByRole('heading', { name: 'Học viên Mẫu 07' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Ghi chú mẫu')).toBeInTheDocument();
-    expect(
-      await screen.findByRole('link', { name: 'Lớp Mẫu 3' }),
-    ).toHaveAttribute('href', expect.stringMatching(/\/lop\/3$/));
-    // The student is read by id, never as one of a list.
+    // The student is read by id, never as one of a list; the numbers come from the one answer of the file.
     expect(callsTo('hocVien/findOne')[0]?.json).toMatchObject({
       filter: { id: 7 },
+    });
+    expect(callsTo('hocVien/hoSo360')[0]?.json).toEqual({ hocVienId: 7 });
+    // The A4 sheet is in the page too (shown on paper only), so look inside the open tab.
+    const overview = within(await screen.findByRole('tabpanel'));
+    expect(await overview.findByText('Kỳ 1 (12 buổi)')).toBeInTheDocument();
+    expect(overview.getByText('Đã học 8 / 12 buổi')).toBeInTheDocument();
+    expect(overview.getByText('Đã nộp: 1.000.000 đ')).toBeInTheDocument();
+    expect(overview.getByText('Còn nợ: 800.000 đ')).toBeInTheDocument();
+    // Seven tabs for a person who may view everything.
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Tổng quan',
+      'Buổi học',
+      'Học phí',
+      'Sách & quỹ',
+      'Kiến thức',
+      'Nhận xét',
+      'Phụ huynh',
+    ]);
+  });
+
+  it('keeps the active tab in the address and opens a tab named by it', async () => {
+    await render('/hoc-vien/7?tab=buoi-hoc&ky=1');
+    // The term filter of the address applies: the session of term 1 is there, the one that deducted nothing is not.
+    const link = await screen.findByText('2026-11-03', { selector: 'a' });
+    const sessions = within(link.closest('[role="tabpanel"]') as HTMLElement);
+    expect(
+      await sessions.findByText('Nhận xét mẫu của buổi học'),
+    ).toBeInTheDocument();
+    expect(sessions.getByText('2026-11-03')).toBeInTheDocument();
+    expect(sessions.queryByText('2026-11-05')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Buổi học' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Học phí' }));
+    expect(await screen.findByText('1.800.000')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Học phí' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    // The balance history is read page by page, newest first.
+    expect(callsTo('soDuNhatKy/findMany')[0]?.json).toMatchObject({
+      limit: 25,
+      offset: 0,
+    });
+    expect(await screen.findByText('Điểm danh')).toBeInTheDocument();
+    // A term opens its sessions on the sessions tab, filtered to it.
+    expect(screen.getByRole('link', { name: 'Xem buổi' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('tab=buoi-hoc&ky=1'),
+    );
+  });
+
+  it('shows the books and the fund, the comments, the parents and the empty knowledge tab', async () => {
+    await render('/hoc-vien/7?tab=sach-quy');
+    expect(
+      await screen.findByText('Sách Mẫu 1', { exact: false }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('-30.000')).toBeInTheDocument();
+    // The fund is part of the student file: the report of every student's fund is not asked for.
+    expect(callsTo('quySach/xem')).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Nhận xét' }));
+    expect(await screen.findByText('Con tiến bộ rõ rệt')).toBeInTheDocument();
+    expect(callsTo('nhanXetThang/findMany')[0]?.json).toMatchObject({
+      limit: 25,
     });
 
     await userEvent.click(screen.getByRole('tab', { name: 'Phụ huynh' }));
     expect(await screen.findByText('Phụ huynh Mẫu 11')).toBeInTheDocument();
     expect(screen.getByText('Mẹ')).toBeInTheDocument();
 
-    await userEvent.click(
-      screen.getByRole('tab', { name: 'Buổi học và nhận xét' }),
-    );
-    expect(
-      await screen.findByText('Nhận xét mẫu của buổi học'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('2026-11-03')).toBeInTheDocument();
-    expect(screen.getByText('Có mặt')).toBeInTheDocument();
-    // Attendance is asked for this student only, newest first, a page at a time.
-    expect(JSON.stringify(callsTo('diemDanh/findMany')[0]?.json)).toContain(
-      '"value":7',
-    );
-    expect(callsTo('diemDanh/findMany')[0]?.json).toMatchObject({
-      limit: 25,
-      offset: 0,
-    });
-
-    await userEvent.click(screen.getByRole('tab', { name: 'Gói học' }));
-    expect(await screen.findByText('Còn hiệu lực')).toBeInTheDocument();
-    expect(screen.getByText('1.800.000')).toBeInTheDocument();
-    // A package opens the sessions the server deducted from it.
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Xem buổi đã trừ' }),
-    );
-    expect(
-      await screen.findByText('Đã dùng 1 buổi, còn 11 buổi.'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('2026-11-03 · Có mặt')).toBeInTheDocument();
-    expect(callsTo('goiHoc/chiTiet')[0]?.json).toEqual({ goiHocId: 41 });
-    await userEvent.keyboard('{Escape}');
-
-    await userEvent.click(screen.getByRole('tab', { name: 'Sổ số dư' }));
-    expect(await screen.findByText('-1')).toBeInTheDocument();
-    expect(screen.getByText('Điểm danh')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: 'Kiến thức' }));
+    expect(await screen.findByText(/giai đoạn 4/u)).toBeInTheDocument();
   });
 
-  it('offers a coach only the tabs they may view, and asks for no tuition', async () => {
+  it('quick-edits a session and reads the file again', async () => {
+    await render('/hoc-vien/7?tab=buoi-hoc');
+    const row = (
+      await screen.findByText('2026-11-03', { selector: 'a' })
+    ).closest('tr') as HTMLElement;
+    await userEvent.click(
+      within(row).getByRole('button', { name: 'Sửa thông tin buổi học' }),
+    );
+    const comment = await screen.findByLabelText('Nhận xét của giáo viên');
+    await userEvent.clear(comment);
+    await userEvent.type(comment, 'Con làm bài tốt');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+    await waitFor(() =>
+      expect(callsTo('doiSoat/capNhatBuoiHoc')).toHaveLength(1),
+    );
+    expect(callsTo('doiSoat/capNhatBuoiHoc')[0]?.json).toMatchObject({
+      diemDanhId: 21,
+      trangThai: 'co_mat',
+      nhanXet: 'Con làm bài tốt',
+    });
+    await waitFor(() => expect(callsTo('hocVien/hoSo360')).toHaveLength(2));
+  });
+
+  it('offers a coach only the tabs they may view and shows no tuition', async () => {
     permissions = {
       unrestricted: false,
       permissions: [
@@ -282,23 +464,42 @@ describe('student file', () => {
         },
       ],
     };
+    profileAnswer = { ...profile, hocPhi: null, sach: null };
     await render('/hoc-vien/7');
-    expect(await screen.findByRole('tab', { name: 'Thông tin' })).toBeVisible();
-    expect(
-      await screen.findByRole('tab', { name: 'Buổi học và nhận xét' }),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole('tab', { name: 'Phụ huynh' }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('tab', { name: 'Gói học' }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('tab', { name: 'Sổ số dư' }),
-    ).not.toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'Tổng quan' })).toBeVisible();
+    expect(await screen.findByRole('tab', { name: 'Buổi học' })).toBeVisible();
+    for (const hidden of ['Học phí', 'Sách & quỹ', 'Nhận xét', 'Phụ huynh'])
+      expect(
+        screen.queryByRole('tab', { name: hidden }),
+      ).not.toBeInTheDocument();
+    // A tab the person may not open falls back to the overview, whatever the address says.
     expect(callsTo('goiHoc/findMany')).toHaveLength(0);
     expect(callsTo('soDuNhatKy/findMany')).toHaveLength(0);
     expect(callsTo('lienKet/findMany')).toHaveLength(0);
+    expect(
+      screen.queryByRole('link', { name: 'Thu phí' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Xuất CSV' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('falls back to the overview when the address names a tab the person may not open', async () => {
+    permissions = {
+      unrestricted: false,
+      permissions: [
+        {
+          resource: { type: 'composite', id: 'edu.diemDanh' },
+          actions: ['view'],
+        },
+      ],
+    };
+    profileAnswer = { ...profile, hocPhi: null, sach: null };
+    await render('/hoc-vien/7?tab=hoc-phi');
+    expect(
+      await screen.findByRole('tab', { name: 'Tổng quan' }),
+    ).toHaveAttribute('aria-selected', 'true');
+    expect(callsTo('soDuNhatKy/findMany')).toHaveLength(0);
   });
 
   it('says "not found" for a student the person may not see, and keeps the other tabs closed', async () => {
@@ -308,8 +509,8 @@ describe('student file', () => {
       await screen.findByRole('heading', { name: 'Không tìm thấy học viên' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(callsTo('hocVien/hoSo360')).toHaveLength(0);
     expect(callsTo('diemDanh/findMany')).toHaveLength(0);
-    expect(callsTo('goiHoc/findMany')).toHaveLength(0);
   });
 });
 

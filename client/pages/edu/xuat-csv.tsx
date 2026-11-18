@@ -13,6 +13,7 @@ import {
 } from '#components/ui/dialog';
 
 import { SelectField } from './form-parts.js';
+import { saveCsvStream } from './download.js';
 import { useErrorMessage, useRows } from './kit.js';
 
 const STATUSES = ['dang_hoc', 'tam_nghi', 'da_nghi', 'hoc_thu'] as const;
@@ -54,15 +55,7 @@ export function ExportCsv(): ReactElement {
           ...(trangThai ? { trangThai } : {}),
         },
       });
-      const blob = await new Response(stream).blob();
-      const url = URL.createObjectURL(
-        new Blob([blob], { type: 'text/csv;charset=utf-8' }),
-      );
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'hoc-vien.csv';
-      link.click();
-      URL.revokeObjectURL(url);
+      await saveCsvStream(stream, 'hoc-vien.csv');
       setOpen(false);
     } catch (cause) {
       setError(message(cause));

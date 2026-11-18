@@ -28,7 +28,8 @@ const api = vi.fn(({ method, path }: ApiCall) => {
     return { data: permissions };
   if (path === 'trangChu/tomTat')
     return { data: { homNay: [], chuaDiemDanh: [] } };
-  if (path === 'soDu/canhBao') return { data: [] };
+  if (path === 'soDu/canhBao')
+    return { data: { nguong: 2, tong: 0, hocVien: [] } };
   if (path === 'hocVien/count' || path === 'lop/count') return { data: 3 };
   if (path === 'lienHe/findMany')
     return {

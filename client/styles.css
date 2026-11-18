@@ -614,3 +614,11 @@ label:has(> .sr-only:focus-visible),
       transparent;
   }
 }
+
+/* Printing a sheet that a page renders for it (`data-print-sheet`, the A4 reconciliation sheet of the student file):
+   everything else on the page, the sidebar and the header included, stays off the paper. */
+@media print {
+  body > *:not(:has([data-print-sheet])) {
+    display: none !important;
+  }
+}

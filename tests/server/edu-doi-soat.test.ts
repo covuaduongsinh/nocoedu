@@ -9,7 +9,7 @@ import {
 } from '../helpers/edu.js';
 
 const TONG_QUAN = '/doiSoat/tongQuan';
-const CHI_TIET = '/doiSoat/chiTietHocVien';
+const CAN_THU = '/soDu/canhBao';
 const CAP_NHAT = '/doiSoat/capNhatBuoiHoc';
 const LICH_SU = '/nhanXet/lichSuBuoiHoc';
 const AI_GOI_Y = '/nhanXet/aiGoiY';
@@ -224,7 +224,7 @@ test('the reconciliation and history routes answer 401 without a session', async
   request,
 }) => {
   await setup(testApp, connection);
-  for (const path of [TONG_QUAN, CHI_TIET, CAP_NHAT, LICH_SU, AI_GOI_Y]) {
+  for (const path of [TONG_QUAN, CAP_NHAT, LICH_SU, AI_GOI_Y, CAN_THU]) {
     const response = await request(path, {
       method: 'POST',
       headers: {
@@ -288,66 +288,61 @@ test('the overview shows the scope of the caller, sums the sessions deducted and
   ]);
 });
 
-test('the student detail answers "not found" outside the scope and reads the parent relation', async ({
+test('the overview pages the list, keeps the counters whole and agrees with the "need to pay" list', async ({
   testApp,
   connection,
 }) => {
-  const { admin, hlvA, managerA, keToan, ids } = await setup(
-    testApp,
-    connection,
-  );
+  const { admin, hlvA, managerA, ids } = await setup(testApp, connection);
   await fixture(connection, ids);
 
-  expect(
-    (await post(hlvA.session, CHI_TIET, { hocVienId: ids.hocVienA })).status,
-  ).toBe(403);
-  expect(
-    (await post(managerA.session, CHI_TIET, { hocVienId: ids.hocVienB }))
-      .status,
-  ).toBe(404);
-
-  const detail = await json(
-    await post(managerA.session, CHI_TIET, { hocVienId: ids.hocVienA }),
+  // Page size 1: the list is cut on the server, the counters still cover everyone the caller sees.
+  const first = await json(await post(admin, TONG_QUAN, { limit: 1 }));
+  expect(first.data.danhSach).toHaveLength(1);
+  expect(first.data.tong).toBe(2);
+  expect(first.data.thongKe.tongHocVien).toBe(2);
+  const second = await json(
+    await post(admin, TONG_QUAN, { limit: 1, trang: 2 }),
   );
-  expect(detail.data.hocVien.phuHuynh).toMatchObject({
-    hoTen: 'Phụ huynh Mẫu A',
-    soDienThoai: '0900000011',
-    // The relation is the `quanHe` column of the link.
-    moiQuanHe: 'me',
-  });
-  expect(detail.data.tongHop).toMatchObject({
-    tongSoBuoiDaMua: 12,
-    // Same figure as the overview: the sum of what was deducted.
-    tongSoBuoiDaHoc: 1,
-    tongTienHocPhi: 1200000,
-    tongDaThanhToan: 600000,
-    tongConNo: 600000,
-    tongTienSachDaPhat: 40000,
-    tienSachTon: -40000,
-  });
-  expect(detail.data.sachDaPhat).toMatchObject([
-    { tenSach: 'Sách Mẫu 1', thanhTien: 40000, giaBia: 60000 },
+  expect(second.data.danhSach).toHaveLength(1);
+  expect(second.data.danhSach[0].id).not.toBe(first.data.danhSach[0].id);
+  expect(
+    (await json(await post(admin, TONG_QUAN, { limit: 1, trang: 3 }))).data
+      .danhSach,
+  ).toEqual([]);
+  expect((await post(admin, TONG_QUAN, { limit: 101 })).status).toBe(400);
+
+  // Filtering by a band and the "need to pay" list name the same students with the same threshold.
+  const owing = await json(
+    await post(admin, TONG_QUAN, { trangThaiLoc: 'vuot_goi' }),
+  );
+  expect(owing.data.danhSach.map((r: { ma: string }) => r.ma)).toEqual([
+    'HS-B',
   ]);
-  expect(detail.data.danhSachBuoiHoc).toHaveLength(3);
-  expect(
-    detail.data.danhSachBuoiHoc.map((s: { trangThai: string }) => s.trangThai),
-  ).toEqual(['co_mat', 'hoc_bu', 'vang_co_phep']);
-  // The awareness score comes back for a row the caller may read.
-  expect(detail.data.danhSachBuoiHoc[0].yThucDiem).toBe(8);
+  const collect = await json(await post(admin, CAN_THU, {}));
+  expect(collect.data.nguong).toBe(2);
+  expect(collect.data.tong).toBe(first.data.thongKe.soHocVienCanThu);
+  expect(collect.data.hocVien.map((r: { ma: string }) => r.ma)).toEqual([
+    'HS-B',
+  ]);
+  // A student who left is not chased for a next term, and the list is cut by `limit`.
+  await connection.query
+    .updateTable('eduHocVien')
+    .set({ trangThai: 'da_nghi' })
+    .where('id', '=', ids.hocVienB)
+    .execute();
+  const left = await json(await post(admin, CAN_THU, {}));
+  expect(left.data).toMatchObject({ tong: 0, hocVien: [] });
+  const stats = await json(await post(admin, TONG_QUAN, {}));
+  expect(stats.data.thongKe).toMatchObject({
+    soHocVienVuotGoi: 0,
+    soHocVienCanThu: 0,
+  });
 
-  // The overview and the detail agree on the number.
-  const overview = await json(await post(admin, TONG_QUAN, {}));
-  const same = overview.data.danhSach.find(
-    (r: { ma: string }) => r.ma === 'HS-A',
-  );
-  expect(same.tongSoBuoiDaHoc).toBe(detail.data.tongHop.tongSoBuoiDaHoc);
-
+  // The branch manager gets their own branch; a coach is refused the overview.
   expect(
-    (await post(keToan.session, CHI_TIET, { hocVienId: ids.hocVienB })).status,
-  ).toBe(200);
-  expect((await post(admin, CHI_TIET, { hocVienId: 999_999 })).status).toBe(
-    404,
-  );
+    (await json(await post(managerA.session, CAN_THU, {}))).data.hocVien,
+  ).toEqual([]);
+  expect((await post(hlvA.session, TONG_QUAN, {})).status).toBe(403);
 });
 
 test('the quick edit is limited to the scope, moves the balance only through the ledger and keeps the rule of the session', async ({

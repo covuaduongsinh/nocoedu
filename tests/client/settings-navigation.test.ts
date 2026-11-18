@@ -227,26 +227,27 @@ describe('System settings navigation', () => {
       ],
       [
         'settingsSystem',
-        [['notificationManagement', '/settings/notifications/templates']],
+        [
+          ['notificationManagement', '/settings/notifications/templates'],
+          // The backup of the whole database is an administration page: a card here, not a sidebar entry.
+          ['edu-sao-luu', '/settings/sao-luu'],
+        ],
       ],
     ]);
+    // The working menu: home, the sections with the pages inside them, the reports; the settings entry last.
     expect(
-      buildRouteNavigation(routes, new Set()).map(({ route }) => route.name),
+      buildRouteNavigation(routes, new Set()).map(({ route, children }) => [
+        route.name,
+        children.map((child) => child.route.name),
+      ]),
     ).toEqual([
-      'home',
-      'edu-coSo',
-      'edu-lop',
-      'edu-hocVien',
-      'edu-phuHuynh',
-      'edu-diemDanh',
-      'edu-hocPhi',
-      'edu-nhanXet',
-      'edu-baoCao',
-      'edu-sach',
-      'edu-phatSach',
-      'edu-tuyenSinh',
-      'edu-hoSoGv',
-      'settingsHome',
+      ['home', []],
+      ['edu-nhomHangNgay', ['edu-diemDanh', 'edu-nhanXet', 'edu-tuyenSinh']],
+      ['edu-nhomHocVien', ['edu-hocVien', 'edu-hoSo360']],
+      ['edu-nhomHocPhiSach', ['edu-hocPhi', 'edu-doi-soat', 'edu-phatSach']],
+      ['edu-nhomDanhMuc', ['edu-lop', 'edu-coSo', 'edu-hoSoGv', 'edu-sach']],
+      ['edu-baoCao', []],
+      ['settingsHome', []],
     ]);
   });
 });

@@ -14,6 +14,7 @@ import {
 import { Input } from '#components/ui/input';
 import { Label } from '#components/ui/label';
 
+import { saveText } from './download.js';
 import { post, useErrorMessage } from './kit.js';
 
 /** The file the server accepts: about 500 KB. It is checked here too so a big file is not read into the page. */
@@ -117,14 +118,7 @@ export function ImportCsv(props: {
       const answer = (await post(api, 'hocVien/nhapCsv/mau', {})) as {
         data: { csv: string };
       };
-      const url = URL.createObjectURL(
-        new Blob([answer.data.csv], { type: 'text/csv;charset=utf-8' }),
-      );
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'mau-nhap-hoc-vien.csv';
-      link.click();
-      URL.revokeObjectURL(url);
+      saveText(answer.data.csv, 'mau-nhap-hoc-vien.csv');
     } catch (cause) {
       setError(message(cause));
     }

@@ -43,6 +43,7 @@ import {
   useRows,
   type Row,
 } from './kit.js';
+import { saveCsvStream } from './download.js';
 
 const STATUSES = [
   'co_mat',
@@ -108,7 +109,9 @@ export default function DiemDanhPage(): ReactElement {
   const [busy, setBusy] = useState(false);
   const [content, setContent] = useState<Content>(EMPTY_CONTENT);
   const [scores, setScores] = useState<Record<number, string>>({});
-  const [registered, setRegistered] = useState<ReadonlySet<number>>(() => new Set());
+  const [registered, setRegistered] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
   const [contentBusy, setContentBusy] = useState(false);
   const [contentSaved, setContentSaved] = useState(false);
   const [generate, setGenerate] = useState<{
@@ -118,11 +121,16 @@ export default function DiemDanhPage(): ReactElement {
   }>();
 
   // Teacher-Centric Fast Filters
-  const [timeFilter, setTimeFilter] = useState<'today' | 'yesterday' | 'this_week' | 'all'>('today');
+  const [timeFilter, setTimeFilter] = useState<
+    'today' | 'yesterday' | 'this_week' | 'all'
+  >('today');
   const [filterLop, setFilterLop] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'chua_diem_danh' | 'da_diem_danh'>('all');
+  const [filterStatus, setFilterStatus] = useState<
+    'all' | 'chua_diem_danh' | 'da_diem_danh'
+  >('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [showSessionSelector, setShowSessionSelector] = useState<boolean>(!selectedId);
+  const [showSessionSelector, setShowSessionSelector] =
+    useState<boolean>(!selectedId);
 
   const todayStr = todayVn();
   const classRows = classes.state === 'ready' ? classes.rows : [];
@@ -131,9 +139,10 @@ export default function DiemDanhPage(): ReactElement {
   const ordered = useMemo(
     () =>
       loadedSessions.state === 'ready'
-        ? [...loadedSessions.rows].sort((a, b) =>
-            text(b.ngay).localeCompare(text(a.ngay)) ||
-            text(a.gioBatDau).localeCompare(text(b.gioBatDau)),
+        ? [...loadedSessions.rows].sort(
+            (a, b) =>
+              text(b.ngay).localeCompare(text(a.ngay)) ||
+              text(a.gioBatDau).localeCompare(text(b.gioBatDau)),
           )
         : [],
     [loadedSessions],
@@ -167,11 +176,14 @@ export default function DiemDanhPage(): ReactElement {
       const d = text(row.ngay);
       if (timeFilter === 'today' && d !== todayStr) return false;
       if (timeFilter === 'yesterday' && d !== yesterdayStr) return false;
-      if (timeFilter === 'this_week' && (d < monStr || d > sunStr)) return false;
+      if (timeFilter === 'this_week' && (d < monStr || d > sunStr))
+        return false;
 
       if (filterLop !== 'all' && String(row.lopId) !== filterLop) return false;
-      if (filterStatus === 'da_diem_danh' && row.trangThai !== 'da_diem_danh') return false;
-      if (filterStatus === 'chua_diem_danh' && row.trangThai === 'da_diem_danh') return false;
+      if (filterStatus === 'da_diem_danh' && row.trangThai !== 'da_diem_danh')
+        return false;
+      if (filterStatus === 'chua_diem_danh' && row.trangThai === 'da_diem_danh')
+        return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -180,7 +192,15 @@ export default function DiemDanhPage(): ReactElement {
       }
       return true;
     });
-  }, [ordered, timeFilter, todayStr, filterLop, filterStatus, searchQuery, classRows]);
+  }, [
+    ordered,
+    timeFilter,
+    todayStr,
+    filterLop,
+    filterStatus,
+    searchQuery,
+    classRows,
+  ]);
 
   const session = ordered.find((row) => row.id === selectedId);
   const roster: Row[] =
@@ -335,15 +355,7 @@ export default function DiemDanhPage(): ReactElement {
           lopId: filterLop !== 'all' ? Number(filterLop) : undefined,
         },
       });
-      const blob = await new Response(stream).blob();
-      const url = URL.createObjectURL(
-        new Blob([blob], { type: 'text/csv;charset=utf-8' }),
-      );
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `diem-danh-${todayVn()}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveCsvStream(stream, `diem-danh-${todayVn()}.csv`);
     } catch (err) {
       console.error(err);
     }
@@ -399,7 +411,12 @@ export default function DiemDanhPage(): ReactElement {
               onSuccess={() => sessions.reload()}
             />
             {canExport ? (
-              <Button variant='outline' size='sm' onClick={() => void exportCsv()} className='gap-1.5'>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => void exportCsv()}
+                className='gap-1.5'
+              >
                 <Download className='h-4 w-4' />
                 Xuất CSV
               </Button>
@@ -429,7 +446,9 @@ export default function DiemDanhPage(): ReactElement {
         </p>
       ) : sessions.loaded.state === 'error' ? (
         <div role='alert' className='flex flex-col items-start gap-3'>
-          <p className='text-sm text-destructive'>{t('edu.common.loadError')}</p>
+          <p className='text-sm text-destructive'>
+            {t('edu.common.loadError')}
+          </p>
           <Button variant='outline' onClick={sessions.reload}>
             {t('edu.common.retry')}
           </Button>
@@ -453,13 +472,16 @@ export default function DiemDanhPage(): ReactElement {
                 </div>
               </div>
               <div className='text-xs text-muted-foreground flex items-center gap-1 font-medium'>
-                <Clock className='h-3.5 w-3.5 text-primary' /> Giúp giáo viên vào nhanh lớp dạy
+                <Clock className='h-3.5 w-3.5 text-primary' /> Giúp giáo viên
+                vào nhanh lớp dạy
               </div>
             </div>
 
             {todaySessions.length === 0 ? (
               <div className='rounded-xl border border-dashed p-4 text-center text-xs text-muted-foreground bg-background/50'>
-                Hôm nay không có ca học nào được lên lịch sẵn. Giáo viên có thể bấm bộ lọc &quot;Tuần này&quot; hoặc &quot;Tất cả ca học&quot; bên dưới để điểm danh bù.
+                Hôm nay không có ca học nào được lên lịch sẵn. Giáo viên có thể
+                bấm bộ lọc &quot;Tuần này&quot; hoặc &quot;Tất cả ca học&quot;
+                bên dưới để điểm danh bù.
               </div>
             ) : (
               <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3'>
@@ -493,7 +515,8 @@ export default function DiemDanhPage(): ReactElement {
                       <div className='mt-2 flex items-center justify-between text-xs text-muted-foreground'>
                         <span className='flex items-center gap-1 font-medium'>
                           <Clock className='h-3.5 w-3.5 text-primary' />
-                          {text(row.gioBatDau)?.slice(0, 5)} - {text(row.gioKetThuc)?.slice(0, 5) || '20:00'}
+                          {text(row.gioBatDau)?.slice(0, 5)} -{' '}
+                          {text(row.gioKetThuc)?.slice(0, 5) || '20:00'}
                         </span>
                         <span className='font-semibold text-primary group-hover:underline'>
                           {isSelected ? '✓ Đang chọn' : '👉 Vào điểm danh'}
@@ -518,12 +541,31 @@ export default function DiemDanhPage(): ReactElement {
                     <span className='text-base font-bold text-foreground'>
                       Lớp: {className(session.lopId)}
                     </span>
-                    <StatusBadge tone={session.trangThai === 'da_diem_danh' ? 'success' : 'warning'}>
-                      {session.trangThai === 'da_diem_danh' ? 'Đã lưu điểm danh' : 'Chưa lưu'}
+                    <StatusBadge
+                      tone={
+                        session.trangThai === 'da_diem_danh'
+                          ? 'success'
+                          : 'warning'
+                      }
+                    >
+                      {session.trangThai === 'da_diem_danh'
+                        ? 'Đã lưu điểm danh'
+                        : 'Chưa lưu'}
                     </StatusBadge>
                   </div>
                   <p className='text-xs text-muted-foreground mt-0.5'>
-                    📅 Ngày dạy: <strong className='text-foreground'>{text(session.ngay)}</strong> | ⏰ Giờ: <strong className='text-foreground'>{text(session.gioBatDau)?.slice(0, 5)}</strong> | Sĩ số: <strong className='text-foreground'>{roster.length} học viên</strong>
+                    📅 Ngày dạy:{' '}
+                    <strong className='text-foreground'>
+                      {text(session.ngay)}
+                    </strong>{' '}
+                    | ⏰ Giờ:{' '}
+                    <strong className='text-foreground'>
+                      {text(session.gioBatDau)?.slice(0, 5)}
+                    </strong>{' '}
+                    | Sĩ số:{' '}
+                    <strong className='text-foreground'>
+                      {roster.length} học viên
+                    </strong>
                   </p>
                 </div>
               </div>
@@ -551,7 +593,9 @@ export default function DiemDanhPage(): ReactElement {
                     type='button'
                     onClick={() => setTimeFilter('today')}
                     className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
-                      timeFilter === 'today' ? 'bg-background shadow text-primary' : 'text-muted-foreground hover:text-foreground'
+                      timeFilter === 'today'
+                        ? 'bg-background shadow text-primary'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     🌟 Hôm nay
@@ -560,7 +604,9 @@ export default function DiemDanhPage(): ReactElement {
                     type='button'
                     onClick={() => setTimeFilter('yesterday')}
                     className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
-                      timeFilter === 'yesterday' ? 'bg-background shadow text-primary' : 'text-muted-foreground hover:text-foreground'
+                      timeFilter === 'yesterday'
+                        ? 'bg-background shadow text-primary'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     ⏪ Hôm qua
@@ -569,7 +615,9 @@ export default function DiemDanhPage(): ReactElement {
                     type='button'
                     onClick={() => setTimeFilter('this_week')}
                     className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
-                      timeFilter === 'this_week' ? 'bg-background shadow text-primary' : 'text-muted-foreground hover:text-foreground'
+                      timeFilter === 'this_week'
+                        ? 'bg-background shadow text-primary'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     📅 Tuần này
@@ -578,7 +626,9 @@ export default function DiemDanhPage(): ReactElement {
                     type='button'
                     onClick={() => setTimeFilter('all')}
                     className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
-                      timeFilter === 'all' ? 'bg-background shadow text-primary' : 'text-muted-foreground hover:text-foreground'
+                      timeFilter === 'all'
+                        ? 'bg-background shadow text-primary'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     🔍 Tất cả ({ordered.length})
@@ -589,13 +639,17 @@ export default function DiemDanhPage(): ReactElement {
               {/* Bộ lọc chi tiết theo Lớp, Trạng thái, Tìm kiếm */}
               <div className='grid grid-cols-1 sm:grid-cols-3 gap-2.5'>
                 <div>
-                  <label className='mb-1 block text-xs font-medium text-muted-foreground'>Lớp học</label>
+                  <label className='mb-1 block text-xs font-medium text-muted-foreground'>
+                    Lớp học
+                  </label>
                   <select
                     value={filterLop}
                     onChange={(e) => setFilterLop(e.target.value)}
                     className='h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm'
                   >
-                    <option value='all'>Tất cả các lớp ({classRows.length})</option>
+                    <option value='all'>
+                      Tất cả các lớp ({classRows.length})
+                    </option>
                     {classRows.map((c) => (
                       <option key={c.id} value={String(c.id)}>
                         {text(c.ten)}
@@ -605,7 +659,9 @@ export default function DiemDanhPage(): ReactElement {
                 </div>
 
                 <div>
-                  <label className='mb-1 block text-xs font-medium text-muted-foreground'>Trạng thái điểm danh</label>
+                  <label className='mb-1 block text-xs font-medium text-muted-foreground'>
+                    Trạng thái điểm danh
+                  </label>
                   <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value as any)}
@@ -618,7 +674,9 @@ export default function DiemDanhPage(): ReactElement {
                 </div>
 
                 <div>
-                  <label className='mb-1 block text-xs font-medium text-muted-foreground'>Tìm nhanh theo ngày / tên lớp</label>
+                  <label className='mb-1 block text-xs font-medium text-muted-foreground'>
+                    Tìm nhanh theo ngày / tên lớp
+                  </label>
                   <Input
                     placeholder='VD: 2026-11 hoặc K1...'
                     value={searchQuery}
@@ -724,17 +782,27 @@ export default function DiemDanhPage(): ReactElement {
                   <TableRow>
                     <TableHead className='w-48'>Học viên</TableHead>
                     <TableHead className='w-36'>Trạng thái</TableHead>
-                    <TableHead className='w-24 text-center'>Đã làm BTVN</TableHead>
-                    <TableHead className='min-w-[280px]'>Nhận xét của giáo viên</TableHead>
-                    <TableHead className='w-20 text-center'>Ý thức (0-10)</TableHead>
-                    <TableHead className='w-32 text-center'>Số buổi còn lại</TableHead>
+                    <TableHead className='w-24 text-center'>
+                      Đã làm BTVN
+                    </TableHead>
+                    <TableHead className='min-w-[280px]'>
+                      Nhận xét của giáo viên
+                    </TableHead>
+                    <TableHead className='w-20 text-center'>
+                      Ý thức (0-10)
+                    </TableHead>
+                    <TableHead className='w-32 text-center'>
+                      Số buổi còn lại
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {roster.map((student) => {
                     const mark = markOf(student.id);
                     const result = saved[student.id];
-                    const num = result ? result.soBuoiConLai : Number(student.soBuoiConLai);
+                    const num = result
+                      ? result.soBuoiConLai
+                      : Number(student.soBuoiConLai);
 
                     return (
                       <TableRow key={student.id} className='hover:bg-muted/30'>
@@ -754,7 +822,8 @@ export default function DiemDanhPage(): ReactElement {
                             {/* Cảnh báo nhanh nếu học viên âm hoặc sắp hết */}
                             {num < 0 && (
                               <span className='inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400'>
-                                <AlertCircle className='h-3 w-3' /> Đang nợ {Math.abs(num)} buổi
+                                <AlertCircle className='h-3 w-3' /> Đang nợ{' '}
+                                {Math.abs(num)} buổi
                               </span>
                             )}
                             {num >= 0 && num <= 2 && (
@@ -780,10 +849,10 @@ export default function DiemDanhPage(): ReactElement {
                               mark.trangThai === 'co_mat'
                                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400'
                                 : mark.trangThai === 'vang_co_phep'
-                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400'
-                                : mark.trangThai === 'vang_khong_phep'
-                                ? 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400'
-                                : 'bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-400'
+                                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400'
+                                  : mark.trangThai === 'vang_khong_phep'
+                                    ? 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400'
+                                    : 'bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-400'
                             }`}
                           >
                             {STATUSES.map((status) => (
@@ -948,7 +1017,9 @@ export default function DiemDanhPage(): ReactElement {
                     disabled={contentBusy}
                     className='text-xs font-semibold'
                   >
-                    {contentBusy ? t('edu.common.saving') : 'Lưu nội dung bài dạy'}
+                    {contentBusy
+                      ? t('edu.common.saving')
+                      : 'Lưu nội dung bài dạy'}
                   </Button>
                 </div>
               ) : null}

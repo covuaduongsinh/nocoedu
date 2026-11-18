@@ -102,6 +102,8 @@ export interface PagedOptions {
   readonly where?: Readonly<Record<string, number | string>>;
   /** Newest first (highest id first). */
   readonly descending?: boolean;
+  /** Only rows with one of these ids (at most 100 are sent); an empty list matches no row. */
+  readonly ids?: readonly number[];
 }
 
 /** The filter of a page request: the equality conditions, and the search text in any one of its fields. */
@@ -109,13 +111,23 @@ export function pageFilter(options: PagedOptions): unknown {
   const term = (options.search ?? '').trim();
   const fields = options.searchFields ?? [];
   const where = Object.entries(options.where ?? {});
-  if (!term && where.length === 0) return undefined;
+  if (!term && where.length === 0 && options.ids === undefined)
+    return undefined;
   return buildFilter((f) => {
     const nodes: FilterNode[] = where.map(([field, value]) =>
       typeof value === 'number'
         ? f.number(field).eq(value)
         : f.string(field).eq(value),
     );
+    if (options.ids !== undefined) {
+      // No id at all matches nothing: a number no row has, never "no condition".
+      const wanted = options.ids.slice(0, SERVER_LIMIT);
+      nodes.push(
+        f.or(
+          (wanted.length > 0 ? wanted : [0]).map((id) => f.number('id').eq(id)),
+        ),
+      );
+    }
     if (term && fields.length > 0)
       nodes.push(
         f.or(

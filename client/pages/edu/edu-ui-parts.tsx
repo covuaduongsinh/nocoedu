@@ -3,8 +3,10 @@ import { cn } from 'cn';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
 
+import { StatusBadge } from '#components/status-badge';
 import { Badge } from '#components/ui/badge';
 import { Card, CardContent } from '#components/ui/card';
+import { balanceBand } from './format.js';
 import { text } from './kit.js';
 
 const CHESS_ICONS: Record<string, string> = {
@@ -63,10 +65,9 @@ export function LevelBadge({
 }
 
 /**
- * 3-stage color alert badge for remaining student session balance:
- * - > 4 sessions: Green (Safe)
- * - 1..3 sessions: Amber (Warning: Running low)
- * - <= 0 sessions: Rose/Red (Alert: Exhausted / In debt)
+ * The remaining sessions of a student as a coloured badge, in the three bands the server uses for "who needs to pay"
+ * (`balanceBand`, threshold `LOW_BALANCE_THRESHOLD`): green above the threshold, amber from 0 up to it, red when the
+ * student attended more than they paid for. Every page that shows a balance uses this one component.
  */
 export function SessionBalanceBadge({
   balance,
@@ -81,32 +82,67 @@ export function SessionBalanceBadge({
   if (balance == null) {
     return <span className='text-muted-foreground'>–</span>;
   }
-
-  let style = 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
-  let dotColor = 'bg-emerald-500';
-
-  if (balance <= 0) {
-    style = 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300 font-semibold';
-    dotColor = 'bg-rose-500';
-  } else if (balance <= 3) {
-    style = 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium';
-    dotColor = 'bg-amber-500';
-  }
+  const band = balanceBand(balance);
+  const tone = band === 'binh_thuong' ? 'success' : 'warning';
+  const label =
+    band === 'vuot_goi'
+      ? t('edu.balance.over', { count: Math.abs(balance) })
+      : balance === 0
+        ? t('edu.balance.none')
+        : t('edu.balance.left', { count: balance });
 
   return (
-    <Badge
-      variant='outline'
-      data-size={size === 'sm' ? 'sm' : undefined}
+    <StatusBadge
+      tone={tone}
+      size={size === 'sm' ? 'sm' : undefined}
+      data-band={band}
       className={cn(
         'inline-flex items-center gap-1.5',
-        style,
-        size === 'sm' ? 'px-1.5 py-0.5 text-xs' : 'px-2 py-0.5 text-xs',
+        band === 'vuot_goi'
+          ? 'border-destructive/30 bg-destructive/10 font-semibold text-destructive'
+          : undefined,
         className,
       )}
     >
-      <span className={cn('h-1.5 w-1.5 rounded-full', dotColor)} />
-      <span>{balance} {t('edu.home.sessionsLeft', { count: balance })}</span>
-    </Badge>
+      <span className='size-1.5 rounded-full bg-current' aria-hidden='true' />
+      <span>{label}</span>
+    </StatusBadge>
+  );
+}
+
+const ATTENDANCE_TONES = {
+  co_mat: 'success',
+  hoc_bu: 'success',
+  vang_co_phep: 'warning',
+  vang_khong_phep: 'neutral',
+} as const;
+
+/** The attendance status of a session, labelled in the person's language (`edu.diemDanh.s.*`) and toned by meaning. */
+export function AttendanceStatusBadge({
+  status,
+  size,
+}: {
+  readonly status: unknown;
+  readonly size?: 'sm';
+}): ReactElement {
+  const { t } = useTranslation();
+  const key = text(status);
+  const tone =
+    (ATTENDANCE_TONES as Record<string, 'success' | 'warning' | 'neutral'>)[
+      key
+    ] ?? 'neutral';
+  return (
+    <StatusBadge
+      tone={tone}
+      size={size}
+      className={
+        key === 'vang_khong_phep'
+          ? 'border-destructive/30 bg-destructive/10 text-destructive'
+          : undefined
+      }
+    >
+      {t(`edu.diemDanh.s.${key}`, { defaultValue: key })}
+    </StatusBadge>
   );
 }
 
@@ -196,7 +232,8 @@ export function MetricCard({
   readonly badgeText?: string;
   readonly onClick?: () => void;
   readonly className?: string;
-  readonly tone?: 'neutral' | 'primary' | 'warning' | 'success' | 'destructive' | 'info';
+  readonly tone?:
+    'neutral' | 'primary' | 'warning' | 'success' | 'destructive' | 'info';
 }): ReactElement {
   const toneClasses = {
     neutral: 'hover:border-border',
@@ -276,7 +313,8 @@ export function CapacityProgressBar({
   readonly label?: string;
   readonly className?: string;
 }): ReactElement {
-  const percent = max > 0 ? Math.min(Math.round((current / max) * 100), 100) : 0;
+  const percent =
+    max > 0 ? Math.min(Math.round((current / max) * 100), 100) : 0;
   let barColor = 'bg-emerald-500';
   if (percent >= 100) {
     barColor = 'bg-rose-500';
