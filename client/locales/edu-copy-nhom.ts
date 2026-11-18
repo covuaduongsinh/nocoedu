@@ -1,0 +1,111 @@
+/**
+ * NocoEdu wording for the groups of level inside a class (GĐ 3). Same shape as `./edu-copy.ts`:
+ * `[key, Tiếng Việt, English, 中文]`.
+ */
+export const EDU_NHOM_ROWS: readonly (readonly [
+  string,
+  string,
+  string,
+  string,
+])[] = [
+  ['lop.tab.groups', 'Nhóm', 'Groups', '分组'],
+  ['nhom.label', 'Nhóm', 'Group', '分组'],
+  [
+    'nhom.title',
+    'Nhóm trình độ trong lớp',
+    'Level groups of the class',
+    '班内水平分组',
+  ],
+  [
+    'nhom.hint',
+    'Chia lớp thành các nhóm theo trình độ để dạy và điểm danh theo từng khối. Một học viên ở một nhóm của đúng lớp mình.',
+    'Split the class into groups by level to teach and take attendance block by block. A student is in one group of their own class.',
+    '按水平把班级分成若干小组，便于分块授课和点名。每位学员只属于本班的一个小组。',
+  ],
+  ['nhom.add', 'Thêm nhóm', 'Add a group', '新增分组'],
+  ['nhom.rename', 'Sửa nhóm', 'Edit group', '编辑分组'],
+  ['nhom.name', 'Tên nhóm', 'Group name', '分组名称'],
+  ['nhom.order', 'Thứ tự hiển thị', 'Display order', '显示顺序'],
+  ['nhom.hide', 'Ẩn', 'Hide', '隐藏'],
+  ['nhom.show', 'Hiện lại', 'Show again', '重新显示'],
+  ['nhom.hidden', 'Đã ẩn', 'Hidden', '已隐藏'],
+  ['nhom.active', 'Đang dùng', 'In use', '使用中'],
+  ['nhom.members', 'Học viên', 'Students', '学员'],
+  ['nhom.status', 'Trạng thái', 'Status', '状态'],
+  ['nhom.none', 'Chưa phân nhóm', 'No group yet', '未分组'],
+  [
+    'nhom.noGroups',
+    'Lớp này chưa có nhóm nào.',
+    'This class has no group yet.',
+    '该班级还没有分组。',
+  ],
+  [
+    'nhom.createDefaults',
+    'Tạo 3 nhóm mặc định (Nhập môn, Cơ bản, Nâng cao)',
+    'Create the 3 default groups (Beginner, Basic, Advanced)',
+    '创建 3 个默认分组（入门、基础、进阶）',
+  ],
+  [
+    'nhom.studentsTitle',
+    'Xếp học viên vào nhóm',
+    'Place students in groups',
+    '安排学员入组',
+  ],
+  [
+    'nhom.noStudents',
+    'Lớp chưa có học viên đang học.',
+    'There are no active students in this class.',
+    '该班级暂无在读学员。',
+  ],
+  ['nhom.moved', 'Đã chuyển nhóm.', 'The student was moved.', '已调整分组。'],
+  [
+    'nhom.blockCount',
+    '{{count}} học viên',
+    '{{count}} students',
+    '{{count}} 名学员',
+  ],
+  ['nhom.filter.all', 'Tất cả nhóm', 'All groups', '全部分组'],
+  [
+    'nhom.filter.hint',
+    'Chọn một lớp để lọc theo nhóm của lớp đó.',
+    'Pick a class to filter by its groups.',
+    '选择班级后可按该班的分组筛选。',
+  ],
+  ['nhom.kpiTitle', 'Nhóm', 'Group', '分组'],
+  [
+    'errors.EDU_GROUP_NOT_IN_CLASS',
+    'Nhóm này không thuộc lớp của học viên.',
+    'The group does not belong to the class of this student.',
+    '该分组不属于学员所在的班级。',
+  ],
+  [
+    'errors.EDU_GROUP_HIDDEN',
+    'Nhóm này đang bị ẩn.',
+    'This group is hidden.',
+    '该分组已隐藏。',
+  ],
+  [
+    'errors.EDU_GROUP_NOT_EMPTY',
+    'Hãy chuyển hết học viên ra khỏi nhóm trước khi ẩn.',
+    'Move the students out of this group before hiding it.',
+    '请先把学员移出该分组再隐藏。',
+  ],
+  [
+    'errors.EDU_GROUP_NAME_TAKEN',
+    'Lớp đã có một nhóm trùng tên.',
+    'A group of this class already has this name.',
+    '该班级已有同名分组。',
+  ],
+  [
+    'errors.EDU_GROUP_NOT_FOUND',
+    'Không tìm thấy nhóm.',
+    'Group not found.',
+    '未找到分组。',
+  ],
+  [
+    'errors.EDU_CLASS_NOT_FOUND',
+    'Không tìm thấy lớp.',
+    'Class not found.',
+    '未找到班级。',
+  ],
+];

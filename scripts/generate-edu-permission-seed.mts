@@ -42,7 +42,8 @@ const withoutSach = (grants: readonly unknown[]): unknown[] =>
       g.resource.id !== 'edu.tuyenSinh' &&
       g.resource.id !== 'edu.hoSoGv' &&
       g.resource.id !== 'edu.sachHoc' &&
-      g.resource.id !== 'edu.heThong'
+      g.resource.id !== 'edu.heThong' &&
+      g.resource.id !== 'edu.lopNhom'
     );
   });
 const literal = JSON.stringify(

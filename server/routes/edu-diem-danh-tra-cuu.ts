@@ -65,6 +65,7 @@ const Input = z
     lopId: Id.optional(),
     hlvId: z.string().trim().min(1).max(64).optional(),
     hocVienId: Id.optional(),
+    nhomId: Id.optional(),
     trangThai: z.enum(ATTENDANCE_STATUSES).optional(),
     cheDo: z.enum(REGISTER_MODES),
     limit: z.coerce.number().int().min(1).max(100).default(25),
@@ -224,7 +225,9 @@ export default [
         const input = c.req.valid('json');
         const attendance = reader('eduDiemDanh', policyOf(c, 'eduDiemDanh'));
         const sessionsPolicy = await policyFor(c, 'edu.buoiHoc', 'eduBuoiHoc');
-        const hasAttendanceFilter = Boolean(input.hocVienId || input.trangThai);
+        const hasAttendanceFilter = Boolean(
+          input.hocVienId || input.trangThai || input.nhomId,
+        );
 
         const classes = await visibleClasses(c, input);
         const empty = {
@@ -240,6 +243,23 @@ export default [
         // A branch or class that is not visible matches nothing; with neither filter the session policy alone decides.
         if ((input.coSoId || input.lopId) && classes.length === 0)
           return c.json(empty);
+
+        // A group is a set of students: the marks counted are those of the students the caller sees in that group. A
+        // group that is not visible, or has nobody in it, matches nothing.
+        let groupStudentIds: number[] | undefined;
+        if (input.nhomId) {
+          groupStudentIds = (
+            await readAll(
+              reader(
+                'eduHocVien',
+                await policyFor(c, 'edu.hocVien', 'eduHocVien'),
+              ),
+              buildFilter((f) => f.number('nhomId').eq(input.nhomId as number)),
+              MAX_CLASSES,
+            )
+          ).map((row) => num(row.id));
+          if (groupStudentIds.length === 0) return c.json(empty);
+        }
 
         const classIds = classes.map((row) => num(row.id));
         const sessions: Session[] = (
@@ -283,6 +303,9 @@ export default [
               ),
               ...(input.hocVienId
                 ? [f.number('hocVienId').eq(input.hocVienId)]
+                : []),
+              ...(groupStudentIds
+                ? [anyOfNode(f, 'hocVienId', groupStudentIds)]
                 : []),
               ...(input.trangThai
                 ? [f.string('trangThai').eq(input.trangThai)]

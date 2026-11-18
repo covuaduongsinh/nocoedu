@@ -4,6 +4,7 @@ import {
   CalendarCheck,
   GraduationCap,
   Layers,
+  Users,
   Wallet,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
@@ -39,6 +40,14 @@ export function Overview({
           icon={CalendarCheck}
           tone={sum.dai === 'binh_thuong' ? 'success' : 'warning'}
         />
+        {profile.hocVien.lopId !== null ? (
+          <MetricCard
+            title={t('edu.nhom.kpiTitle')}
+            value={profile.hocVien.nhomTen ?? t('edu.nhom.none')}
+            subtitle={profile.hocVien.lopTen ?? undefined}
+            icon={Users}
+          />
+        ) : null}
         {sum.tongSoBuoiDaHoc !== null ? (
           <MetricCard
             title={t('edu.hoSo.kpi.daHoc')}

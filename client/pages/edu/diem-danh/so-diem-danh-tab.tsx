@@ -48,6 +48,7 @@ import { MetricCard } from '../edu-ui-parts.js';
 import { FilterSelect } from '../filter-select.js';
 import { formatTime } from '../format.js';
 import { Pager } from '../list-page.js';
+import { useClassGroups } from '../nhom.js';
 import { useUrlState } from '../url-state.js';
 import {
   PAGE_SIZE,
@@ -123,6 +124,7 @@ function useRegisterParams() {
     xem: 'buoi',
     coSo: '',
     lop: '',
+    nhom: '',
     gv: '',
     hv: '',
     tt: '',
@@ -150,6 +152,7 @@ function useRegisterParams() {
   const filters = {
     coSoId: number(values.coSo),
     lopId: number(values.lop),
+    nhomId: number(values.nhom),
     hlvId: values.gv || undefined,
     hocVienId: number(values.hv),
     trangThai: (STATUSES as readonly string[]).includes(values.tt)
@@ -296,6 +299,11 @@ export function SoDiemDanhTab({
   const branchRows = branches.state === 'ready' ? branches.rows : [];
   const classRows = classes.state === 'ready' ? classes.rows : [];
   const teacherRows = teachers.state === 'ready' ? teachers.data : [];
+  const classGroups = useClassGroups(filters.lopId ?? 0);
+  const groupRows =
+    filters.lopId && classGroups.loaded.state === 'ready'
+      ? classGroups.loaded.rows.filter((row) => row.trangThai === 'hoat_dong')
+      : [];
   const classOptions = filters.coSoId
     ? classRows.filter((row) => row.coSoId === filters.coSoId)
     : classRows;
@@ -321,6 +329,7 @@ export function SoDiemDanhTab({
         cheDo: view,
         ...(filters.coSoId ? { coSoId: filters.coSoId } : {}),
         ...(filters.lopId ? { lopId: filters.lopId } : {}),
+        ...(filters.nhomId ? { nhomId: filters.nhomId } : {}),
         ...(filters.hlvId ? { hlvId: filters.hlvId } : {}),
         ...(filters.hocVienId ? { hocVienId: filters.hocVienId } : {}),
         ...(filters.trangThai ? { trangThai: filters.trangThai } : {}),
@@ -499,7 +508,7 @@ export function SoDiemDanhTab({
           label={t('edu.diemDanh.so.f.branch')}
           allLabel={t('edu.diemDanh.so.f.allBranches')}
           value={filters.coSoId ? String(filters.coSoId) : ''}
-          onChange={(coSo) => update({ coSo, lop: undefined })}
+          onChange={(coSo) => update({ coSo, lop: undefined, nhom: undefined })}
           options={branchRows.map((row) => ({
             value: String(row.id),
             label: text(row.ten),
@@ -509,7 +518,7 @@ export function SoDiemDanhTab({
           label={t('edu.diemDanh.so.f.class')}
           allLabel={t('edu.diemDanh.so.f.allClasses')}
           value={filters.lopId ? String(filters.lopId) : ''}
-          onChange={(lop) => update({ lop })}
+          onChange={(lop) => update({ lop, nhom: undefined })}
           options={classOptions.map((row) => ({
             value: String(row.id),
             label: text(row.ten),
@@ -539,10 +548,19 @@ export function SoDiemDanhTab({
             label: t(`edu.diemDanh.s.${status}`),
           }))}
         />
-        {/*
-          Phase 3 (class groups) adds the "Nhóm" filter here: one more FilterSelect, the `nhom` key of `useUrlState`
-          in `useRegisterParams`, and `nhomId` in the request body of `POST /diemDanh/traCuu`.
-        */}
+        {/* The groups are those of one class: the filter appears once a class is chosen. */}
+        {filters.lopId ? (
+          <FilterSelect
+            label={t('edu.nhom.label')}
+            allLabel={t('edu.nhom.filter.all')}
+            value={filters.nhomId ? String(filters.nhomId) : ''}
+            onChange={(nhom) => update({ nhom })}
+            options={groupRows.map((row) => ({
+              value: String(row.id),
+              label: text(row.ten),
+            }))}
+          />
+        ) : null}
         {hasFilters ? (
           <Button
             variant='ghost'
@@ -551,6 +569,7 @@ export function SoDiemDanhTab({
               update({
                 coSo: undefined,
                 lop: undefined,
+                nhom: undefined,
                 gv: undefined,
                 hv: undefined,
                 tt: undefined,
@@ -629,7 +648,8 @@ export function SoDiemDanhTab({
           ))}
         </TabsList>
       </Tabs>
-      {(filters.hocVienId || filters.trangThai) && view === 'buoi' ? (
+      {(filters.hocVienId || filters.trangThai || filters.nhomId) &&
+      view === 'buoi' ? (
         <p className='text-xs text-muted-foreground'>
           {t('edu.diemDanh.so.sessionsOnly')}
         </p>

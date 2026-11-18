@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import {
+  Fragment,
   useEffect,
   useMemo,
   useState,
@@ -42,6 +43,7 @@ import { Field, FormDialog, SelectField, TextField } from '../form-parts.js';
 import { GenericImportDialog } from '../generic-import-dialog.js';
 import { formatTime } from '../format.js';
 import { Pager } from '../list-page.js';
+import { groupBlocks, useClassGroups } from '../nhom.js';
 import {
   post,
   text,
@@ -271,6 +273,14 @@ export function DiemDanhTab({
       : undefined;
   const rosterState = useRoster(session ? Number(session.lopId) : 0);
   const roster: Row[] = rosterState.state === 'ready' ? rosterState.value : [];
+  // The class is taught in blocks by group: one header per group that has students, the unsorted ones last. A class
+  // whose students are in no group stays one plain list.
+  const classGroups = useClassGroups(session ? Number(session.lopId) : 0);
+  const blocks = groupBlocks(
+    roster,
+    classGroups.loaded.state === 'ready' ? classGroups.loaded.rows : [],
+    t('edu.nhom.none'),
+  );
 
   const reloadSessions = (): void => {
     todayList.reload();
@@ -888,170 +898,199 @@ export function DiemDanhTab({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {roster.map((student) => {
-                    const mark = markOf(student.id);
-                    const result = saved[student.id];
-                    const num = result
-                      ? result.soBuoiConLai
-                      : Number(student.soBuoiConLai);
-
-                    return (
-                      <TableRow key={student.id} className='hover:bg-muted/30'>
-                        <TableCell>
-                          <div className='flex flex-col gap-0.5'>
-                            <RecordLink
-                              to={`/hoc-vien/${student.id}`}
-                              target='_blank'
-                              className='text-sm font-bold text-foreground hover:underline'
-                            >
-                              {text(student.hoTen)}
-                            </RecordLink>
-                            <span className='font-mono text-[11px] text-muted-foreground'>
-                              {t('edu.diemDanh.take.code', {
-                                code: text(student.ma) || `HV-${student.id}`,
-                              })}
-                            </span>
-                            {num < 0 && (
-                              <span className='inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400'>
-                                <AlertCircle className='h-3 w-3' />{' '}
-                                {t('edu.diemDanh.take.owes', {
-                                  count: Math.abs(num),
-                                })}
-                              </span>
-                            )}
-                            {num >= 0 && num <= 2 && (
-                              <span className='inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400'>
-                                ⚠️{' '}
-                                {t('edu.diemDanh.take.lowWarn', { count: num })}
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
-
-                        <TableCell>
-                          <select
-                            aria-label={t('edu.diemDanh.status')}
-                            value={mark.trangThai}
-                            disabled={!canRecord}
-                            onChange={(event) =>
-                              change(student.id, {
-                                trangThai: event.target.value as Status,
-                              })
-                            }
-                            className={`h-8 w-full rounded-md border px-2 text-xs font-semibold ${
-                              mark.trangThai === 'co_mat'
-                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                                : mark.trangThai === 'vang_co_phep'
-                                  ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                                  : mark.trangThai === 'vang_khong_phep'
-                                    ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400'
-                                    : 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400'
-                            }`}
+                  {blocks.map((block) => (
+                    <Fragment key={block.key}>
+                      {block.title ? (
+                        <TableRow className='bg-muted/50 hover:bg-muted/50'>
+                          <TableCell
+                            colSpan={6}
+                            className='py-1.5 text-xs font-semibold text-foreground'
                           >
-                            {STATUSES.map((status) => (
-                              <option key={status} value={status}>
-                                {t(`edu.diemDanh.s.${status}`)}
-                              </option>
-                            ))}
-                          </select>
-                        </TableCell>
-
-                        <TableCell className='text-center'>
-                          <Checkbox
-                            aria-label={t('edu.diemDanh.homework')}
-                            checked={mark.daLamBtvn}
-                            disabled={!canRecord}
-                            onCheckedChange={(checked) =>
-                              change(student.id, {
-                                daLamBtvn: checked === true,
-                              })
-                            }
-                            className='h-5 w-5'
-                          />
-                        </TableCell>
-
-                        <TableCell className='min-w-[280px]'>
-                          <Input
-                            aria-label={t('edu.diemDanh.comment')}
-                            value={mark.nhanXet}
-                            maxLength={500}
-                            placeholder={t(
-                              'edu.diemDanh.take.commentPlaceholder',
-                            )}
-                            disabled={!canRecord}
-                            onChange={(event) =>
-                              change(student.id, {
-                                nhanXet: event.target.value,
-                              })
-                            }
-                            className='h-8 text-xs'
-                          />
-                          {canRecord ? (
-                            <div className='mt-1.5 flex flex-wrap gap-1'>
-                              {QUICK_TAGS.map((n) => {
-                                const tag = t(`edu.diemDanh.take.tag.${n}`);
-                                return (
-                                  <button
-                                    key={n}
-                                    type='button'
-                                    onClick={() => appendTag(student.id, tag)}
-                                    className='rounded-md border border-muted bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary'
-                                  >
-                                    +{tag}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          ) : null}
-                        </TableCell>
-
-                        <TableCell className='text-center'>
-                          <Input
-                            aria-label={t('edu.diemDanh.awareness')}
-                            title={t('edu.diemDanh.awarenessHint')}
-                            type='number'
-                            min={0}
-                            max={10}
-                            step={1}
-                            className='mx-auto h-8 w-14 text-center text-sm font-bold'
-                            value={scores[student.id] ?? ''}
-                            disabled={!canRecord || !registered.has(student.id)}
-                            onChange={(event) =>
-                              setScores((current) => ({
-                                ...current,
-                                [student.id]: event.target.value,
-                              }))
-                            }
-                          />
-                        </TableCell>
-
-                        <TableCell className='text-center'>
-                          {num < 0 ? (
-                            <span className='inline-block rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-xs font-bold text-rose-700 dark:text-rose-400'>
-                              🔴{' '}
-                              {t('edu.diemDanh.take.balanceOwe', {
-                                count: Math.abs(num),
+                            {block.title}
+                            <span className='ml-2 font-normal text-muted-foreground'>
+                              {t('edu.nhom.blockCount', {
+                                count: block.students.length,
                               })}
                             </span>
-                          ) : num <= 2 ? (
-                            <span className='inline-block rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-400'>
-                              🟡{' '}
-                              {t('edu.diemDanh.take.balanceLeft', {
-                                count: num,
-                              })}
-                            </span>
-                          ) : (
-                            <span className='inline-block rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400'>
-                              🟢{' '}
-                              {t('edu.diemDanh.take.balanceLeft', {
-                                count: num,
-                              })}
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                          </TableCell>
+                        </TableRow>
+                      ) : null}
+                      {block.students.map((student) => {
+                        const mark = markOf(student.id);
+                        const result = saved[student.id];
+                        const num = result
+                          ? result.soBuoiConLai
+                          : Number(student.soBuoiConLai);
+
+                        return (
+                          <TableRow
+                            key={student.id}
+                            className='hover:bg-muted/30'
+                          >
+                            <TableCell>
+                              <div className='flex flex-col gap-0.5'>
+                                <RecordLink
+                                  to={`/hoc-vien/${student.id}`}
+                                  target='_blank'
+                                  className='text-sm font-bold text-foreground hover:underline'
+                                >
+                                  {text(student.hoTen)}
+                                </RecordLink>
+                                <span className='font-mono text-[11px] text-muted-foreground'>
+                                  {t('edu.diemDanh.take.code', {
+                                    code:
+                                      text(student.ma) || `HV-${student.id}`,
+                                  })}
+                                </span>
+                                {num < 0 && (
+                                  <span className='inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400'>
+                                    <AlertCircle className='h-3 w-3' />{' '}
+                                    {t('edu.diemDanh.take.owes', {
+                                      count: Math.abs(num),
+                                    })}
+                                  </span>
+                                )}
+                                {num >= 0 && num <= 2 && (
+                                  <span className='inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400'>
+                                    ⚠️{' '}
+                                    {t('edu.diemDanh.take.lowWarn', {
+                                      count: num,
+                                    })}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+
+                            <TableCell>
+                              <select
+                                aria-label={t('edu.diemDanh.status')}
+                                value={mark.trangThai}
+                                disabled={!canRecord}
+                                onChange={(event) =>
+                                  change(student.id, {
+                                    trangThai: event.target.value as Status,
+                                  })
+                                }
+                                className={`h-8 w-full rounded-md border px-2 text-xs font-semibold ${
+                                  mark.trangThai === 'co_mat'
+                                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                    : mark.trangThai === 'vang_co_phep'
+                                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                                      : mark.trangThai === 'vang_khong_phep'
+                                        ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400'
+                                        : 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400'
+                                }`}
+                              >
+                                {STATUSES.map((status) => (
+                                  <option key={status} value={status}>
+                                    {t(`edu.diemDanh.s.${status}`)}
+                                  </option>
+                                ))}
+                              </select>
+                            </TableCell>
+
+                            <TableCell className='text-center'>
+                              <Checkbox
+                                aria-label={t('edu.diemDanh.homework')}
+                                checked={mark.daLamBtvn}
+                                disabled={!canRecord}
+                                onCheckedChange={(checked) =>
+                                  change(student.id, {
+                                    daLamBtvn: checked === true,
+                                  })
+                                }
+                                className='h-5 w-5'
+                              />
+                            </TableCell>
+
+                            <TableCell className='min-w-[280px]'>
+                              <Input
+                                aria-label={t('edu.diemDanh.comment')}
+                                value={mark.nhanXet}
+                                maxLength={500}
+                                placeholder={t(
+                                  'edu.diemDanh.take.commentPlaceholder',
+                                )}
+                                disabled={!canRecord}
+                                onChange={(event) =>
+                                  change(student.id, {
+                                    nhanXet: event.target.value,
+                                  })
+                                }
+                                className='h-8 text-xs'
+                              />
+                              {canRecord ? (
+                                <div className='mt-1.5 flex flex-wrap gap-1'>
+                                  {QUICK_TAGS.map((n) => {
+                                    const tag = t(`edu.diemDanh.take.tag.${n}`);
+                                    return (
+                                      <button
+                                        key={n}
+                                        type='button'
+                                        onClick={() =>
+                                          appendTag(student.id, tag)
+                                        }
+                                        className='rounded-md border border-muted bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary'
+                                      >
+                                        +{tag}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : null}
+                            </TableCell>
+
+                            <TableCell className='text-center'>
+                              <Input
+                                aria-label={t('edu.diemDanh.awareness')}
+                                title={t('edu.diemDanh.awarenessHint')}
+                                type='number'
+                                min={0}
+                                max={10}
+                                step={1}
+                                className='mx-auto h-8 w-14 text-center text-sm font-bold'
+                                value={scores[student.id] ?? ''}
+                                disabled={
+                                  !canRecord || !registered.has(student.id)
+                                }
+                                onChange={(event) =>
+                                  setScores((current) => ({
+                                    ...current,
+                                    [student.id]: event.target.value,
+                                  }))
+                                }
+                              />
+                            </TableCell>
+
+                            <TableCell className='text-center'>
+                              {num < 0 ? (
+                                <span className='inline-block rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-xs font-bold text-rose-700 dark:text-rose-400'>
+                                  🔴{' '}
+                                  {t('edu.diemDanh.take.balanceOwe', {
+                                    count: Math.abs(num),
+                                  })}
+                                </span>
+                              ) : num <= 2 ? (
+                                <span className='inline-block rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-400'>
+                                  🟡{' '}
+                                  {t('edu.diemDanh.take.balanceLeft', {
+                                    count: num,
+                                  })}
+                                </span>
+                              ) : (
+                                <span className='inline-block rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400'>
+                                  🟢{' '}
+                                  {t('edu.diemDanh.take.balanceLeft', {
+                                    count: num,
+                                  })}
+                                </span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </Fragment>
+                  ))}
                 </TableBody>
               </Table>
 
