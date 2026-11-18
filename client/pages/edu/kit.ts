@@ -41,6 +41,16 @@ const LOOKUP_PAGES = 20;
 
 const byIdAscending = buildSort((sort) => sort.field('id').asc());
 const byIdDescending = buildSort((sort) => sort.field('id').desc());
+const sortOf = (field: string | undefined, descending: boolean | undefined) =>
+  field
+    ? buildSort((sort) =>
+        descending
+          ? [sort.field(field).desc(), sort.field('id').desc()]
+          : [sort.field(field).asc(), sort.field('id').asc()],
+      )
+    : descending
+      ? byIdDescending
+      : byIdAscending;
 
 /**
  * Loads a whole collection for a lookup (the name of a class, the choices of a form): pages of 100 until the server
@@ -100,8 +110,14 @@ export interface PagedOptions {
   readonly searchFields?: readonly string[];
   /** Equality conditions that always apply (`{ lopId: 3 }`). */
   readonly where?: Readonly<Record<string, number | string>>;
+  /** `field` is one of these values (`{ ngay: ['2026-11-02', '2026-11-03'] }`); an empty list matches nothing. */
+  readonly whereIn?: Readonly<Record<string, readonly (number | string)[]>>;
   /** Newest first (highest id first). */
   readonly descending?: boolean;
+  /** Order by this column first (the id breaks ties in the same direction as `descending`). */
+  readonly sortField?: string;
+  /** Rows per page, 25 by default (the server returns at most 100). */
+  readonly pageSize?: number;
 }
 
 /** The filter of a page request: the equality conditions, and the search text in any one of its fields. */
@@ -109,13 +125,18 @@ export function pageFilter(options: PagedOptions): unknown {
   const term = (options.search ?? '').trim();
   const fields = options.searchFields ?? [];
   const where = Object.entries(options.where ?? {});
-  if (!term && where.length === 0) return undefined;
+  const whereIn = Object.entries(options.whereIn ?? {});
+  if (!term && where.length === 0 && whereIn.length === 0) return undefined;
   return buildFilter((f) => {
-    const nodes: FilterNode[] = where.map(([field, value]) =>
+    const equals = (field: string, value: number | string): FilterNode =>
       typeof value === 'number'
         ? f.number(field).eq(value)
-        : f.string(field).eq(value),
+        : f.string(field).eq(value);
+    const nodes: FilterNode[] = where.map(([field, value]) =>
+      equals(field, value),
     );
+    for (const [field, values] of whereIn)
+      nodes.push(f.or(values.map((value) => equals(field, value))));
     if (term && fields.length > 0)
       nodes.push(
         f.or(
@@ -144,7 +165,8 @@ export function usePagedRows(
   const [version, setVersion] = useState(0);
   const filter = pageFilter(options);
   const filterJson = JSON.stringify(filter ?? null);
-  const key = `${name}:${options.page}:${filterJson}:${version}`;
+  const pageSize = Math.min(Math.max(options.pageSize ?? PAGE_SIZE, 1), 100);
+  const key = `${name}:${options.page}:${pageSize}:${options.sortField ?? ''}:${filterJson}:${version}`;
   const [result, setResult] = useState<{
     key: string;
     value: Loaded<Row>;
@@ -165,9 +187,9 @@ export function usePagedRows(
     Promise.all([
       read<Row[]>('findMany', {
         ...withFilter,
-        sort: options.descending ? byIdDescending : byIdAscending,
-        limit: PAGE_SIZE,
-        offset: (options.page - 1) * PAGE_SIZE,
+        sort: sortOf(options.sortField, options.descending),
+        limit: pageSize,
+        offset: (options.page - 1) * pageSize,
       }),
       read<number>('count', withFilter),
     ])
@@ -184,7 +206,16 @@ export function usePagedRows(
           setResult({ key, value: { state: 'error' }, total: 0 });
       });
     return () => controller.abort();
-  }, [api, name, key, filterJson, options.page, options.descending]);
+  }, [
+    api,
+    name,
+    key,
+    filterJson,
+    options.page,
+    options.descending,
+    options.sortField,
+    pageSize,
+  ]);
   const reload = useCallback(() => setVersion((value) => value + 1), []);
   const current = result?.key === key ? result : undefined;
   return {

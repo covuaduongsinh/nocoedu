@@ -355,7 +355,7 @@ export function RowsTable(props: {
 }
 
 /** Previous / next with the range shown; the last page is `ceil(total / PAGE_SIZE)`. */
-function Pager(props: {
+export function Pager(props: {
   readonly page: number;
   readonly total: number;
   readonly onPage: (page: number) => void;

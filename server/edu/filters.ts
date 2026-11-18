@@ -27,11 +27,28 @@ function balancedOr(
  * SQLite (1000), so the conditions are grouped into a shallow tree of at most 64 per group.
  */
 export const anyOf = (field: string, values: readonly number[]) =>
-  buildFilter((f) =>
-    balancedOr(
-      f,
-      values.map((value) => f.number(field).eq(value)),
-    ),
+  buildFilter((f) => anyOfNode(f, field, values));
+
+/** The node of `anyOf`, to combine with other conditions inside one `buildFilter` (the list must not be empty). */
+export const anyOfNode = (
+  f: FilterBuilder,
+  field: string,
+  values: readonly number[],
+): FilterNode =>
+  balancedOr(
+    f,
+    values.map((value) => f.number(field).eq(value)),
+  );
+
+/** Like `anyOfNode`, for a text column (a date `YYYY-MM-DD`, a status). */
+export const anyOfText = (
+  f: FilterBuilder,
+  field: string,
+  values: readonly string[],
+): FilterNode =>
+  balancedOr(
+    f,
+    values.map((value) => f.string(field).eq(value)),
   );
 
 export const byId = (sort: SortBuilder) => sort.field('id').asc();

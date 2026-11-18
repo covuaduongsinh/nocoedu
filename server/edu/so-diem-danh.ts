@@ -1,0 +1,95 @@
+import {
+  ATTENDANCE_STATUSES,
+  addDays,
+  type AttendanceStatus,
+} from './so-du.js';
+
+/**
+ * The attendance register (`POST /diemDanh/traCuu`): the rules that need no database, so they are tested on their own.
+ */
+
+/** The longest period one lookup covers, in days (both ends counted). */
+export const MAX_RANGE_DAYS = 366;
+
+export const REGISTER_MODES = ['buoi', 'hocVien', 'giaoVien'] as const;
+export type RegisterMode = (typeof REGISTER_MODES)[number];
+
+/** Whether `value` is a real calendar day written `YYYY-MM-DD`. */
+export function isDay(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  // A month 13 is an invalid date (no ISO string); the 30th of February rolls over to March.
+  return (
+    !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+  );
+}
+
+/** Days from `from` to `to`, both counted; `to` before `from` is 0. */
+export function daysInRange(from: string, to: string): number {
+  const span =
+    (new Date(`${to}T00:00:00Z`).getTime() -
+      new Date(`${from}T00:00:00Z`).getTime()) /
+    86_400_000;
+  return span < 0 ? 0 : Math.round(span) + 1;
+}
+
+/** Why a period is refused, or `undefined` when it is fine. */
+export function rangeProblem(from: string, to: string): string | undefined {
+  if (!isDay(from) || !isDay(to)) return 'The dates must be YYYY-MM-DD.';
+  if (to < from) return 'The end date is before the start date.';
+  if (daysInRange(from, to) > MAX_RANGE_DAYS)
+    return `A lookup covers at most ${MAX_RANGE_DAYS} days.`;
+  return undefined;
+}
+
+export interface Counts {
+  coMat: number;
+  vangCoPhep: number;
+  vangKhongPhep: number;
+  hocBu: number;
+}
+
+export const emptyCounts = (): Counts => ({
+  coMat: 0,
+  vangCoPhep: 0,
+  vangKhongPhep: 0,
+  hocBu: 0,
+});
+
+const FIELD_OF: Record<AttendanceStatus, keyof Counts> = {
+  co_mat: 'coMat',
+  vang_co_phep: 'vangCoPhep',
+  vang_khong_phep: 'vangKhongPhep',
+  hoc_bu: 'hocBu',
+};
+
+export const isStatus = (value: string): value is AttendanceStatus =>
+  (ATTENDANCE_STATUSES as readonly string[]).includes(value);
+
+/** Adds `n` marks of `status` to `counts`; an unknown status is ignored. */
+export function addMarks(counts: Counts, status: string, n: number): void {
+  if (isStatus(status)) counts[FIELD_OF[status]] += n;
+}
+
+export const totalOf = (c: Counts): number =>
+  c.coMat + c.vangCoPhep + c.vangKhongPhep + c.hocBu;
+
+/** Attendance rate in percent: present or making up a session, over every mark. 0 when there is no mark. */
+export function rateOf(c: Counts): number {
+  const total = totalOf(c);
+  return total === 0 ? 0 : Math.round(((c.coMat + c.hocBu) / total) * 100);
+}
+
+/** Sessions in `list` that the register keeps: every one, or only those with a mark that matched the filters. */
+export const keepsSession = (
+  hasAttendanceFilter: boolean,
+  counts: Counts | undefined,
+): boolean =>
+  !hasAttendanceFilter || (counts !== undefined && totalOf(counts) > 0);
+
+/** The days of the period, for a filter on `ngay` (a text column has no range operator in the filter language). */
+export function daysOf(from: string, to: string): string[] {
+  const out: string[] = [];
+  for (let day = from; day <= to; day = addDays(day, 1)) out.push(day);
+  return out;
+}

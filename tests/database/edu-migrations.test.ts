@@ -409,3 +409,31 @@ describeMigration('202611140007_create_edu_sach_hoc', {
     await expectCollection('eduSachHoc').not.toExist();
   },
 });
+
+describeMigration('202611180001_edu_diem_danh_hoc_vien_index', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduDiemDanh').toHaveIndex(['hocVienId']);
+    // The unique pair that already existed is untouched.
+    await expectCollection('eduDiemDanh').toHaveIndex(
+      ['buoiHocId', 'hocVienId'],
+      { unique: true },
+    );
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduDiemDanh').toExist();
+    await expectCollection('eduDiemDanh').not.toHaveIndex(['hocVienId']);
+    await expectCollection('eduDiemDanh').toHaveIndex(
+      ['buoiHocId', 'hocVienId'],
+      { unique: true },
+    );
+  },
+});

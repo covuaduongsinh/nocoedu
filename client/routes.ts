@@ -101,7 +101,7 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     '/diem-danh',
     CalendarCheck,
     1,
-    () => import('./pages/edu/diem-danh.js'),
+    () => import('./pages/edu/diem-danh/index.js'),
   ),
   {
     auth: 'required' as const,
