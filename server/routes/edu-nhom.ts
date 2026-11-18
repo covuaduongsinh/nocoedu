@@ -8,12 +8,13 @@ import {
   defineApiRoutes,
   describeRoute,
 } from '@nocobase/app-server/router';
+import { concurrencyServiceToken } from '@nocobase/app-plugin-concurrency/server';
 import { databaseManagerToken } from '@nocobase/db';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
-import { ensureDefaultGroups } from '../edu/nhom.js';
+import { ensureDefaultGroups, GROUP_LOCK } from '../edu/nhom.js';
 import { todayVn } from '../edu/so-du.js';
 import {
   currentUserId,
@@ -62,6 +63,7 @@ export default [
     const auth = app.container.resolve(authenticationToken);
     const authz = app.container.resolve(authorizationToken);
     const database = app.container.resolve(databaseManagerToken);
+    const concurrency = app.container.resolve(concurrencyServiceToken);
     const router = new Hono<EduEnv>();
 
     for (const path of ['/hocVien/chuyenNhom', '/lopNhom/taoMacDinh']) {
@@ -91,78 +93,100 @@ export default [
             'This action is not allowed.',
           );
         }
-        const result = await database.transaction(async (connection) => {
-          const student = await connection
-            .repository('eduHocVien')
-            .withPolicy(studentPolicy)
-            .findOne({ filter: { id: input.hocVienId } });
-          if (!student) {
-            throw eduError(
-              'NOT_FOUND',
-              'EDU_STUDENT_NOT_FOUND',
-              'Student not found.',
-            );
-          }
-          if (input.nhomId !== null) {
-            const group = await connection
-              .repository('eduLopNhom')
-              .withPolicy(groupPolicy)
-              .findOne({ filter: { id: input.nhomId } });
-            if (!group) {
+        // Under the lock that hiding a group takes too (`edu-data.ts`): the group is checked and the student written
+        // as one step, so a group never gets a student while it is being hidden.
+        const executor = await (
+          await concurrency.getManager()
+        ).createSynchronous(GROUP_LOCK);
+        const result = await executor.run(() =>
+          database.transaction(async (connection) => {
+            const student = await connection
+              .repository('eduHocVien')
+              .withPolicy(studentPolicy)
+              .findOne({ filter: { id: input.hocVienId } });
+            if (!student) {
               throw eduError(
                 'NOT_FOUND',
-                'EDU_GROUP_NOT_FOUND',
-                'Group not found.',
+                'EDU_STUDENT_NOT_FOUND',
+                'Student not found.',
               );
             }
-            if (
-              student.lopId == null ||
-              Number(group.lopId) !== Number(student.lopId)
-            ) {
-              throw eduError(
-                'INVALID_ARGUMENT',
-                'EDU_GROUP_NOT_IN_CLASS',
-                'The group does not belong to the class of this student.',
-                'nhomId',
-              );
+            if (input.nhomId !== null) {
+              const group = await connection
+                .repository('eduLopNhom')
+                .withPolicy(groupPolicy)
+                .findOne({ filter: { id: input.nhomId } });
+              if (!group) {
+                throw eduError(
+                  'NOT_FOUND',
+                  'EDU_GROUP_NOT_FOUND',
+                  'Group not found.',
+                );
+              }
+              if (
+                student.lopId == null ||
+                Number(group.lopId) !== Number(student.lopId)
+              ) {
+                throw eduError(
+                  'INVALID_ARGUMENT',
+                  'EDU_GROUP_NOT_IN_CLASS',
+                  'The group does not belong to the class of this student.',
+                  'nhomId',
+                );
+              }
+              if (group.trangThai !== 'hoat_dong') {
+                throw eduError(
+                  'FAILED_PRECONDITION',
+                  'EDU_GROUP_HIDDEN',
+                  'This group is hidden.',
+                  'nhomId',
+                );
+              }
             }
-            if (group.trangThai !== 'hoat_dong') {
+            const before =
+              student.nhomId == null ? null : Number(student.nhomId);
+            if (before === input.nhomId) {
+              return {
+                hocVienId: input.hocVienId,
+                nhomId: before,
+                moved: false,
+              };
+            }
+            // The policy of `manage` does not let this column change through the repository; the checks above are
+            // what make the write safe.
+            // The group the move started from is part of the predicate: a concurrent move of the same student matches
+            // no row and stops here, instead of writing a second history row for the same step.
+            const updated = await connection.query
+              .updateTable('eduHocVien')
+              .set({ nhomId: input.nhomId })
+              .where('id', '=', input.hocVienId)
+              .where('nhomId', before === null ? 'is' : '=', before)
+              .execute();
+            if (updated.updatedCount !== 1) {
               throw eduError(
                 'FAILED_PRECONDITION',
-                'EDU_GROUP_HIDDEN',
-                'This group is hidden.',
-                'nhomId',
+                'EDU_GROUP_CHANGED',
+                'The group of the student has just changed. Reload and try again.',
               );
             }
-          }
-          const before = student.nhomId == null ? null : Number(student.nhomId);
-          if (before === input.nhomId) {
-            return { hocVienId: input.hocVienId, nhomId: before, moved: false };
-          }
-          // The policy of `manage` does not let this column change through the repository; the checks above are
-          // what make the write safe.
-          await connection.query
-            .updateTable('eduHocVien')
-            .set({ nhomId: input.nhomId })
-            .where('id', '=', input.hocVienId)
-            .execute();
-          await connection.query
-            .insertInto('eduHocVienChuyenNhom')
-            .values({
+            await connection.query
+              .insertInto('eduHocVienChuyenNhom')
+              .values({
+                hocVienId: input.hocVienId,
+                tuNhomId: before,
+                denNhomId: input.nhomId,
+                ngay: todayVn(),
+                nguoiThucHienId: userId,
+                ghiChu: input.ghiChu ?? null,
+              })
+              .execute();
+            return {
               hocVienId: input.hocVienId,
-              tuNhomId: before,
-              denNhomId: input.nhomId,
-              ngay: todayVn(),
-              nguoiThucHienId: userId,
-              ghiChu: input.ghiChu ?? null,
-            })
-            .execute();
-          return {
-            hocVienId: input.hocVienId,
-            nhomId: input.nhomId,
-            moved: true,
-          };
-        });
+              nhomId: input.nhomId,
+              moved: true,
+            };
+          }),
+        );
         return c.json({ data: result });
       },
     );
