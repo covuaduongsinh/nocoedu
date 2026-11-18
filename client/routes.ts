@@ -9,6 +9,7 @@ import {
   Building2,
   CalendarCheck,
   ClipboardCheck,
+  ClipboardList,
   GraduationCap,
   Grid3x3,
   Home,
@@ -49,7 +50,8 @@ function eduPage(
     | 'tuyenSinh'
     | 'hoSoGv'
     | 'chuongTrinh'
-    | 'kienThuc',
+    | 'kienThuc'
+    | 'kiemTra',
   path: string,
   icon: typeof Home,
   order: number,
@@ -93,7 +95,7 @@ function eduGroup(
 }
 
 function eduDetailPage(
-  id: 'lop' | 'hocVien',
+  id: 'lop' | 'hocVien' | 'kiemTra',
   path: string,
   componentLoader: AppClientRouteComponentLoader,
 ) {
@@ -212,6 +214,14 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
       2,
       () => import('./pages/edu/kien-thuc/index.js'),
     ),
+    // The tests of a level (GĐ 5).
+    ...eduPage(
+      'kiemTra',
+      '/kiem-tra',
+      ClipboardList,
+      3,
+      () => import('./pages/edu/kiem-tra/index.js'),
+    ),
   ]),
   eduGroup('nhomDanhMuc', 40, [
     ...eduPage(
@@ -261,6 +271,11 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     'hocVien',
     '/hoc-vien/:id',
     () => import('./pages/edu/hoc-vien-chi-tiet/index.js'),
+  ),
+  ...eduDetailPage(
+    'kiemTra',
+    '/kiem-tra/:id',
+    () => import('./pages/edu/kiem-tra/chi-tiet.js'),
   ),
   {
     auth: 'required' as const,

@@ -663,3 +663,199 @@ describeMigration('202611180004_create_edu_kien_thuc', {
     await expectCollection('eduLopNhom').toExist();
   },
 });
+
+describeMigration('202611180005_create_edu_kiem_tra', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ connection, expectCollection }) => {
+    for (const name of [
+      'eduBaiKiemTra',
+      'eduBaiKiemTraKyNang',
+      'eduKetQuaKiemTra',
+    ]) {
+      await expectCollection(name).toExist();
+    }
+    await expectCollection('eduBaiKiemTraKyNang').toHaveIndex(
+      ['baiKiemTraId', 'kyNangId'],
+      { unique: true },
+    );
+    await expectCollection('eduKetQuaKiemTra').toHaveIndex(
+      ['baiKiemTraId', 'hocVienId', 'kyNangId'],
+      { unique: true },
+    );
+    await expectCollection('eduKetQuaKiemTra').toHaveIndex(['hocVienId']);
+    await expectCollection('eduBaiKiemTra').toHaveIndex(['lopId']);
+    await expectCollection('eduBaiKiemTra').toHaveField('chotLuc', {
+      nullable: true,
+    });
+
+    // A branch, a class, a student and a skill to point at.
+    const q = connection.query;
+    await q
+      .insertInto('eduCoSo')
+      .values({ ma: 'CS-KTR', ten: 'Cơ sở Mẫu' })
+      .execute();
+    const branch = Number(
+      (
+        await q
+          .selectFrom('eduCoSo')
+          .select('id')
+          .where('ma', '=', 'CS-KTR')
+          .executeTakeFirstOrThrow()
+      ).id,
+    );
+    await q
+      .insertInto('eduLop')
+      .values({
+        ma: 'L-KTR',
+        ten: 'Lớp Mẫu',
+        coSoId: branch,
+        levelKey: 'tot',
+        levelOrder: 1,
+      })
+      .execute();
+    const lop = Number(
+      (
+        await q
+          .selectFrom('eduLop')
+          .select('id')
+          .where('ma', '=', 'L-KTR')
+          .executeTakeFirstOrThrow()
+      ).id,
+    );
+    await q
+      .insertInto('eduHocVien')
+      .values({
+        ma: 'HS-KTR',
+        hoTen: 'Học viên Mẫu 01',
+        namSinh: 2016,
+        levelKey: 'tot',
+        levelOrder: 1,
+        lopId: lop,
+        coSoId: branch,
+      })
+      .execute();
+    const student = Number(
+      (
+        await q
+          .selectFrom('eduHocVien')
+          .select('id')
+          .where('ma', '=', 'HS-KTR')
+          .executeTakeFirstOrThrow()
+      ).id,
+    );
+    await q
+      .insertInto('eduChuDe')
+      .values({ levelKey: 'tot', ma: 'CD-KTR', ten: 'Chủ đề Mẫu' })
+      .execute();
+    const topic = Number(
+      (
+        await q
+          .selectFrom('eduChuDe')
+          .select('id')
+          .where('ma', '=', 'CD-KTR')
+          .executeTakeFirstOrThrow()
+      ).id,
+    );
+    await q
+      .insertInto('eduKyNang')
+      .values({ chuDeId: topic, ma: 'KN-KTR', ten: 'Kỹ năng Mẫu' })
+      .execute();
+    const skill = Number(
+      (
+        await q
+          .selectFrom('eduKyNang')
+          .select('id')
+          .where('ma', '=', 'KN-KTR')
+          .executeTakeFirstOrThrow()
+      ).id,
+    );
+
+    // A test starts as a draft with no closing time; its skills and marks are unique per test.
+    await q
+      .insertInto('eduBaiKiemTra')
+      .values({
+        ten: 'Bài kiểm tra Mẫu',
+        loai: 'len_cap',
+        levelKey: 'tot',
+        lopId: lop,
+        coSoId: branch,
+        ngay: '2026-11-18',
+        diemDat: 70,
+        createdAt: new Date('2026-11-18T03:00:00.000Z'),
+      })
+      .execute();
+    const test = await q
+      .selectFrom('eduBaiKiemTra')
+      .select(['id', 'trangThai', 'chotLuc'])
+      .where('lopId', '=', lop)
+      .executeTakeFirstOrThrow();
+    expect(test.trangThai).toBe('nhap');
+    expect(test.chotLuc).toBeNull();
+    const testId = Number(test.id);
+    await q
+      .insertInto('eduBaiKiemTraKyNang')
+      .values({ baiKiemTraId: testId, kyNangId: skill, diemToiDa: 10 })
+      .execute();
+    await expect(
+      q
+        .insertInto('eduBaiKiemTraKyNang')
+        .values({ baiKiemTraId: testId, kyNangId: skill, diemToiDa: 5 })
+        .execute(),
+    ).rejects.toThrow();
+    const mark = {
+      baiKiemTraId: testId,
+      hocVienId: student,
+      kyNangId: skill,
+      diem: 8,
+      capNhatLuc: new Date('2026-11-18T04:00:00.000Z'),
+    };
+    await q.insertInto('eduKetQuaKiemTra').values(mark).execute();
+    await expect(
+      q.insertInto('eduKetQuaKiemTra').values(mark).execute(),
+    ).rejects.toThrow();
+    // A mark of a test or a skill that does not exist is refused.
+    await expect(
+      q
+        .insertInto('eduKetQuaKiemTra')
+        .values({ ...mark, baiKiemTraId: 999_999 })
+        .execute(),
+    ).rejects.toThrow();
+    await expect(
+      q
+        .insertInto('eduBaiKiemTraKyNang')
+        .values({ baiKiemTraId: testId, kyNangId: 999_999, diemToiDa: 1 })
+        .execute(),
+    ).rejects.toThrow();
+
+    // The check runs again after the roll back: leave nothing behind.
+    await q.deleteFrom('eduKetQuaKiemTra').allowAllRows().execute();
+    await q.deleteFrom('eduBaiKiemTraKyNang').allowAllRows().execute();
+    await q.deleteFrom('eduBaiKiemTra').allowAllRows().execute();
+    await q.deleteFrom('eduKyNang').where('id', '=', skill).execute();
+    await q.deleteFrom('eduChuDe').where('id', '=', topic).execute();
+    await q.deleteFrom('eduHocVien').where('id', '=', student).execute();
+    await q.deleteFrom('eduLop').where('id', '=', lop).execute();
+    await q.deleteFrom('eduCoSo').where('id', '=', branch).execute();
+  },
+  down: async ({ expectCollection }) => {
+    for (const name of [
+      'eduBaiKiemTra',
+      'eduBaiKiemTraKyNang',
+      'eduKetQuaKiemTra',
+    ]) {
+      await expectCollection(name).not.toExist();
+    }
+    // The tables the tests point at are untouched.
+    await expectCollection('eduLop').toExist();
+    await expectCollection('eduHocVien').toExist();
+    await expectCollection('eduKyNang').toExist();
+  },
+});

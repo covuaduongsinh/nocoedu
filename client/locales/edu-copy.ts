@@ -17,6 +17,7 @@ import { EDU_DOI_SOAT_ROWS } from './edu-copy-doi-soat.js';
 import { EDU_SO_DIEM_DANH_ROWS } from './edu-copy-so-diem-danh.js';
 import { EDU_NHOM_ROWS } from './edu-copy-nhom.js';
 import { EDU_KIEN_THUC_ROWS } from './edu-copy-kien-thuc.js';
+import { EDU_KIEM_TRA_ROWS } from './edu-copy-kiem-tra.js';
 import { EDU_HO_SO_ROWS } from './edu-copy-ho-so.js';
 
 type Row = readonly [key: string, vi: string, en: string, zh: string];
@@ -332,6 +333,7 @@ function build(index: 1 | 2 | 3): Tree {
     ...EDU_SO_DIEM_DANH_ROWS,
     ...EDU_NHOM_ROWS,
     ...EDU_KIEN_THUC_ROWS,
+    ...EDU_KIEM_TRA_ROWS,
   ]) {
     const parts = row[0].split('.');
     let node = root;

@@ -26,6 +26,8 @@ const SCOPED_COLLECTIONS = [
   'eduHocVienChuyenNhom',
   'eduHocVienKyNang',
   'eduBuoiHocKyNang',
+  'eduBaiKiemTra',
+  'eduKetQuaKiemTra',
   'eduHocVienLenCap',
   'eduPhuHuynh',
   'eduHocVienPhuHuynh',
@@ -150,6 +152,15 @@ export function registerEduRecordAccess(
       case 'eduBuoiHoc':
       case 'eduNhanXetThang':
         return scope.lopIds.length ? anyOf('lopId', scope.lopIds) : false;
+      case 'eduBaiKiemTra':
+        // A test names its own branch and class: structural filters on the row, so a test made in this request is in scope.
+        return mode === 'branches'
+          ? scope.coSoIds.length
+            ? anyOf('coSoId', scope.coSoIds)
+            : false
+          : scope.lopIds.length
+            ? anyOf('lopId', scope.lopIds)
+            : false;
       case 'eduHocVien':
         return mode === 'branches'
           ? scope.coSoIds.length
@@ -172,6 +183,7 @@ export function registerEduRecordAccess(
       case 'eduHocVienLenCap':
       case 'eduHocVienChuyenNhom':
       case 'eduHocVienKyNang':
+      case 'eduKetQuaKiemTra':
       case 'eduHocVienPhuHuynh':
         return scope.hocVienIds.length
           ? anyOf('hocVienId', scope.hocVienIds)

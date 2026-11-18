@@ -1,5 +1,7 @@
 # Tái cấu trúc NocoEdu: menu, Hồ sơ 360°, tra cứu điểm danh, nhóm trình độ, hệ thống kiến thức
 
+> **Trạng thái (18/11/2026): hoàn tất cả 6 giai đoạn (GĐ 0–5).** GĐ 5 (Kiểm tra cấp) gộp qua PR #51. Chi tiết cách vận hành từng phần nằm ở `.agents/rules/edu.md`. Chưa làm, để dành cho kế hoạch sau: xoá bài kiểm tra nháp nhập nhầm; chạy tay 3 tài khoản mẫu (Quản trị, QL cơ sở, HLV) theo mục 7.
+
 ## 1. Bối cảnh
 
 Thầy Tường thấy app đang rối: Điểm danh chỉ lọc được Hôm nay/Hôm qua/Tuần này; từ "Đối soát buổi học" lại bấm "Đối soát"; Đối soát – Học viên – Học phí trùng nội dung; chưa có hệ thống kiến thức chuyên môn để biết từng em nắm gì, hổng gì; chưa có nhóm trình độ trong lớp.

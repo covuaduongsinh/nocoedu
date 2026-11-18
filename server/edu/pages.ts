@@ -21,4 +21,6 @@ export const PAGES = {
   // Granted by `202611180005_edu_kien_thuc_grant` (GĐ 4): the curriculum and the knowledge matrix.
   chuongTrinh: 'edu.chuongTrinh',
   kienThuc: 'edu.kienThuc',
+  // Granted by `202611180006_edu_kiem_tra_grant` (GĐ 5): the tests of a level.
+  kiemTra: 'edu.kiemTra',
 } as const;
