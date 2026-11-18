@@ -90,6 +90,28 @@ export const EDU_NHOM_ROWS: readonly (readonly [
     '{{name}} · {{count}} students',
     '{{name}} · {{count}} 名学员',
   ],
+  [
+    'nhom.history.title',
+    'Lịch sử chuyển nhóm',
+    'Group history',
+    '分组变更记录',
+  ],
+  [
+    'nhom.history.empty',
+    'Chưa chuyển nhóm lần nào',
+    'No group moves yet',
+    '尚无分组变更',
+  ],
+  [
+    'nhom.history.emptyHint',
+    'Mỗi lần xếp hoặc chuyển nhóm sẽ được ghi lại ở đây.',
+    'Every placement or move between groups is recorded here.',
+    '每次分组或转组都会记录在这里。',
+  ],
+  ['nhom.history.from', 'Từ nhóm', 'From group', '原分组'],
+  ['nhom.history.to', 'Sang nhóm', 'To group', '新分组'],
+  ['nhom.history.note', 'Ghi chú', 'Note', '备注'],
+  ['nhom.history.classChanged', 'Đổi lớp', 'Class changed', '换班'],
   ['nhom.moved', 'Đã chuyển nhóm.', 'The student was moved.', '已转移分组。'],
   [
     'nhom.sessionsOnlyGroup',

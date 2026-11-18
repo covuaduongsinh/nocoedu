@@ -609,3 +609,103 @@ test('the register filter keeps the students of a group, inside the group class 
   // An unknown group matches nothing too.
   expect((await look(admin, { nhomId: 999999 })).body.data).toEqual([]);
 });
+
+test('the move history is read only, and only of the students the caller sees', async ({
+  request,
+  testApp,
+  connection,
+}) => {
+  const { admin, hlvA, hlvB, keToan, apiDoc, ids, groups } = await setup(
+    testApp,
+    connection,
+  );
+  const [gA1, gA2] = await groups(ids.lopA);
+  for (const nhomId of [gA1.id, gA2.id])
+    expect(
+      (
+        await post(hlvA.session, '/hocVien/chuyenNhom', {
+          hocVienId: ids.hocVienA,
+          nhomId,
+        })
+      ).status,
+    ).toBe(200);
+  const anonymous = await request('/chuyenNhom/findMany', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin: 'http://localhost' },
+    body: JSON.stringify({}),
+  });
+  expect(anonymous.status).toBe(401);
+  const rowsOf = async (session: Parameters<typeof post>[0]) => {
+    const response = await post(session, '/chuyenNhom/findMany', {
+      limit: 100,
+    });
+    expect(response.status).toBe(200);
+    return ((await response.json()) as { data: { hocVienId: number }[] }).data;
+  };
+  expect((await rowsOf(hlvA.session)).map((r) => r.hocVienId)).toEqual([
+    ids.hocVienA,
+    ids.hocVienA,
+  ]);
+  expect(await rowsOf(hlvB.session)).toEqual([]);
+  expect((await rowsOf(admin)).length).toBe(2);
+  // The accountant may see the groups but not who was moved; the read-only API account sees nothing.
+  for (const denied of [keToan, apiDoc])
+    expect(
+      (await post(denied.session, '/chuyenNhom/findMany', {})).status,
+    ).toBe(403);
+  // The history is never written through the record API.
+  for (const method of ['createOne', 'updateOne', 'deleteOne'])
+    expect([403, 404]).toContain(
+      (
+        await post(admin, `/chuyenNhom/${method}`, {
+          values: { hocVienId: ids.hocVienA },
+          filter: { id: 1 },
+        })
+      ).status,
+    );
+});
+
+test('hiding a group and moving a student into it at the same time never leaves a hidden group with a student', async ({
+  testApp,
+  connection,
+}) => {
+  const { hlvA, ids, groups, q } = await setup(testApp, connection);
+  for (let round = 0; round < 6; round += 1) {
+    const [, target] = await groups(ids.lopA);
+    // Start from a visible, empty group and a student in none.
+    await q
+      .updateTable('eduLopNhom')
+      .set({ trangThai: 'hoat_dong' })
+      .where('id', '=', target.id)
+      .execute();
+    await q
+      .updateTable('eduHocVien')
+      .set({ nhomId: null })
+      .where('id', '=', ids.hocVienA)
+      .execute();
+    const [hidden, moved] = await Promise.all([
+      post(hlvA.session, '/lopNhom/updateOne', {
+        filter: { id: target.id },
+        values: { trangThai: 'an' },
+      }),
+      post(hlvA.session, '/hocVien/chuyenNhom', {
+        hocVienId: ids.hocVienA,
+        nhomId: target.id,
+      }),
+    ]);
+    const group = (
+      await q
+        .selectFrom('eduLopNhom')
+        .select('trangThai')
+        .where('id', '=', target.id)
+        .executeTakeFirstOrThrow()
+    ).trangThai;
+    const inside = (await studentGroup(q, ids.hocVienA)).nhomId === target.id;
+    // Exactly one of the two won: a hidden group has nobody, a group with a student is in use.
+    expect(group === 'an' && inside).toBe(false);
+    expect(hidden.status === 200 || moved.status === 200).toBe(true);
+    expect(hidden.status === 200 && moved.status === 200).toBe(false);
+    expect(group === 'an').toBe(hidden.status === 200);
+    expect(inside).toBe(moved.status === 200);
+  }
+});

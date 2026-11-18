@@ -111,6 +111,28 @@ const api = vi.fn(({ method, path, json }: ApiCall) => {
         : rosterRows.length,
     };
   }
+  if (path === 'chuyenNhom/findMany')
+    return {
+      data: [
+        {
+          id: 2,
+          hocVienId: 7,
+          tuNhomId: 11,
+          denNhomId: null,
+          ngay: '2026-11-10',
+          ghiChu: 'chuyen_lop',
+        },
+        {
+          id: 1,
+          hocVienId: 7,
+          tuNhomId: null,
+          denNhomId: 11,
+          ngay: '2026-11-03',
+          ghiChu: null,
+        },
+      ],
+    };
+  if (path === 'chuyenNhom/count') return { data: 2 };
   if (path === 'hocVien/findOne')
     return { data: { ...students[0], levelKey: 'ma', levelOrder: 2 } };
   if (path === 'hocVien/hoSo360') return new Response(null, { status: 404 });
@@ -427,6 +449,10 @@ describe('the group filter of the register', () => {
         nhomId: 11,
       }),
     );
+    // The page says whose marks are counted: the students who sit in the group now.
+    expect(
+      await screen.findByText(/Chỉ tính học viên của nhóm này hiện nay/u),
+    ).toBeInTheDocument();
   });
 });
 
@@ -447,6 +473,43 @@ describe('the group shown on a student', () => {
     // The names of the groups are read in one request for the page, by id.
     expect(JSON.stringify(callsTo('lopNhom/findMany')[0]?.json)).toContain(
       '"id"',
+    );
+  });
+
+  it('lists the moves of the student on his overview, newest first, to who may view the history', async () => {
+    await render('/hoc-vien/7');
+    expect(await screen.findByText('Lịch sử chuyển nhóm')).toBeInTheDocument();
+    expect(await screen.findByText('Đổi lớp')).toBeInTheDocument();
+    const rows = await screen.findAllByRole('row');
+    const text = rows.map((row) => row.textContent ?? '');
+    // The class change took him out of "Nhập môn" (newest first); the first placement came from no group.
+    expect(
+      text.some(
+        (row) =>
+          row.includes('Nhập môn') &&
+          row.includes('Chưa xếp nhóm') &&
+          row.includes('Đổi lớp'),
+      ),
+    ).toBe(true);
+    expect(callsTo('chuyenNhom/findMany')[0]?.json).toMatchObject({
+      filter: expect.anything(),
+    });
+  });
+
+  it('shows no history to a person who may not view it', async () => {
+    permissions = {
+      unrestricted: false,
+      permissions: [
+        {
+          resource: { type: 'composite', id: 'edu.lopNhom' },
+          actions: ['view'],
+        },
+      ],
+    };
+    await render('/hoc-vien/7');
+    await screen.findByText('Nhóm: Nhập môn');
+    await waitFor(() =>
+      expect(screen.queryByText('Lịch sử chuyển nhóm')).not.toBeInTheDocument(),
     );
   });
 

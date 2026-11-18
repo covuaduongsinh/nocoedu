@@ -152,6 +152,7 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
     lopNhom.reference().grant({
       view: { data: ALL },
       manage: { data: ALL },
+      history: { data: ALL },
       moveStudent: { data: ALL, students: ALL, history: ALL },
     }),
   )
@@ -258,6 +259,7 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
     lopNhom.reference().grant({
       view: { data: MY_BRANCHES },
       manage: { data: MY_BRANCHES },
+      history: { data: MY_BRANCHES },
       moveStudent: {
         data: MY_BRANCHES,
         students: MY_BRANCHES,
@@ -311,6 +313,7 @@ export const eduHlv = definePermissionSet('edu_hlv')
     lopNhom.reference().grant({
       view: { data: MY_CLASSES },
       manage: { data: MY_CLASSES },
+      history: { data: MY_CLASSES },
       moveStudent: {
         data: MY_CLASSES,
         students: MY_CLASSES,

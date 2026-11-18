@@ -8,6 +8,7 @@ import {
   defineApiRoutes,
   defineRepositoryApiRoutes,
 } from '@nocobase/app-server/router';
+import { concurrencyServiceToken } from '@nocobase/app-plugin-concurrency/server';
 import { databaseManagerToken } from '@nocobase/db';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -39,6 +40,7 @@ import {
 import {
   cleanGroupName,
   ensureDefaultGroups,
+  GROUP_LOCK,
   GROUP_STATUSES,
   MAX_GROUPS_PER_CLASS,
 } from '../edu/lop-nhom.js';
@@ -56,6 +58,8 @@ interface Exposure {
   readonly name: string;
   readonly key: keyof typeof FIELDS;
   readonly resource: { reference(): unknown };
+  /** The composite action that reads this exposure; `view` unless the resource has a separate one. */
+  readonly readAction?: string;
   readonly create?: boolean;
   readonly update?: readonly string[];
   readonly remove?: boolean;
@@ -99,6 +103,13 @@ const EXPOSURES: readonly Exposure[] = [
     resource: lopNhom,
     create: true,
     update: FIELDS.lopNhom.edit,
+  },
+  // The history of the moves between groups: read only, written by `/hocVien/chuyenNhom` and `/hocVien/chuyenLop`.
+  {
+    name: 'chuyenNhom',
+    key: 'chuyenNhom',
+    resource: lopNhom,
+    readAction: 'history',
   },
   {
     name: 'hocVien',
@@ -199,6 +210,7 @@ export default [
     const auth = app.container.resolve(authenticationToken);
     const authz = app.container.resolve(authorizationToken);
     const database = app.container.resolve(databaseManagerToken);
+    const concurrency = app.container.resolve(concurrencyServiceToken);
     const router = new Hono<AuthorizationEnv & EduEnv>();
 
     for (const e of EXPOSURES) {
@@ -217,9 +229,9 @@ export default [
         repository: e.name,
         resource: e.resource.reference(),
         actions: {
-          findMany: 'view',
-          findOne: 'view',
-          count: 'view',
+          findMany: e.readAction ?? 'view',
+          findOne: e.readAction ?? 'view',
+          count: e.readAction ?? 'view',
           ...(e.create ? { createOne: 'manage' } : {}),
           ...(e.update ? { updateOne: 'manage' } : {}),
           ...(e.remove ? { deleteOne: 'manage' } : {}),
@@ -437,18 +449,26 @@ export default [
             'ten',
           );
         if (values.trangThai === 'an' && group.trangThai !== 'an') {
-          const inside = await query
-            .selectFrom('eduHocVien')
-            .select('id')
-            .where('nhomId', '=', id)
-            .executeTakeFirst();
-          if (inside)
-            throw eduError(
-              'FAILED_PRECONDITION',
-              'EDU_GROUP_HAS_STUDENTS',
-              'Move the students to another group before hiding this one.',
-              'trangThai',
-            );
+          // The check and the update are one step under the lock that `/hocVien/chuyenNhom` also takes, so a student
+          // cannot be moved into the group between the two.
+          await (
+            await (await concurrency.getManager()).createSynchronous(GROUP_LOCK)
+          ).run(async () => {
+            const inside = await query
+              .selectFrom('eduHocVien')
+              .select('id')
+              .where('nhomId', '=', id)
+              .executeTakeFirst();
+            if (inside)
+              throw eduError(
+                'FAILED_PRECONDITION',
+                'EDU_GROUP_HAS_STUDENTS',
+                'Move the students to another group before hiding this one.',
+                'trangThai',
+              );
+            await next();
+          });
+          return;
         }
         await next();
       });

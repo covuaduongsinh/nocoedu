@@ -7,6 +7,12 @@ export const DEFAULT_GROUP_NAMES = ['Nhập môn', 'Cơ bản', 'Nâng cao'] as 
 export const GROUP_STATUSES = ['hoat_dong', 'an'] as const;
 export type GroupStatus = (typeof GROUP_STATUSES)[number];
 
+/**
+ * The lock hiding a group and moving a student take (one process at a time; a Redis adapter shares it across
+ * instances): without it a student could be moved into a group that is being hidden.
+ */
+export const GROUP_LOCK = 'edu:lop-nhom';
+
 /** The most groups (visible or hidden) one class may have; a coach would not read a longer list. */
 export const MAX_GROUPS_PER_CLASS = 12;
 

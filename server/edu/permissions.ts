@@ -519,6 +519,10 @@ export const lopNhom = defineCompositeResource('edu.lopNhom', (r) =>
             .update([...FIELDS.lopNhom.edit]),
         ),
     )
+    // The history of a student's moves between groups (record API `chuyenNhom`, read only).
+    .action('history', (a) =>
+      a.title('Xem lịch sử chuyển nhóm').grant('data', chuyenNhomRead),
+    )
     .action('moveStudent', (a) =>
       a
         .title('Chuyển học viên giữa các nhóm')

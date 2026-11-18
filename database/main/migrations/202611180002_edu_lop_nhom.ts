@@ -91,7 +91,6 @@ const migration: MigrationDefinition = defineMigration({
   async down({ builder }) {
     await builder.dropCollection('eduHocVienChuyenNhom');
     await builder.alterCollection('eduHocVien', (c) => {
-      c.dropConstraint('fk_edu_hoc_vien_nhom');
       c.dropField('nhomId');
     });
     await builder.dropCollection('eduLopNhom');

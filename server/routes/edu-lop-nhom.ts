@@ -8,12 +8,13 @@ import {
   defineApiRoutes,
   describeRoute,
 } from '@nocobase/app-server/router';
+import { concurrencyServiceToken } from '@nocobase/app-plugin-concurrency/server';
 import { databaseManagerToken } from '@nocobase/db';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
-import { ensureDefaultGroups } from '../edu/lop-nhom.js';
+import { ensureDefaultGroups, GROUP_LOCK } from '../edu/lop-nhom.js';
 import { todayVn } from '../edu/so-du.js';
 import {
   currentUserId,
@@ -60,6 +61,7 @@ export default [
     const auth = app.container.resolve(authenticationToken);
     const authz = app.container.resolve(authorizationToken);
     const database = app.container.resolve(databaseManagerToken);
+    const concurrency = app.container.resolve(concurrencyServiceToken);
     const router = new Hono<EduEnv>();
 
     for (const path of ['/hocVien/chuyenNhom', '/lopNhom/taoMacDinh']) {
@@ -82,91 +84,98 @@ export default [
         const studentPolicy = policyOf(c, 'eduHocVien');
         const groupPolicy = policyOf(c, 'eduLopNhom');
         const historyPolicy = policyOf(c, 'eduHocVienChuyenNhom');
-        const result = await database.transaction(async (connection) => {
-          const student = await connection
-            .repository('eduHocVien')
-            .withPolicy(studentPolicy)
-            .findOne({ filter: { id: input.hocVienId } });
-          if (!student) {
-            throw eduError(
-              'NOT_FOUND',
-              'EDU_STUDENT_NOT_FOUND',
-              'Student not found.',
-            );
-          }
-          if (student.lopId == null) {
-            throw eduError(
-              'FAILED_PRECONDITION',
-              'EDU_STUDENT_HAS_NO_CLASS',
-              'The student is not in a class.',
-            );
-          }
-          const current =
-            student.nhomId == null ? null : Number(student.nhomId);
-          if (input.nhomId !== null) {
-            // The group must be one the caller sees, of the student's own class, and not hidden.
-            const group = await connection
-              .repository('eduLopNhom')
-              .withPolicy(groupPolicy)
-              .findOne({ filter: { id: input.nhomId } });
-            if (!group) {
+        // One move or hide of a group at a time: the group is checked and the student written under the same lock that
+        // hiding a group takes (`edu-data.ts`), so a group never gets a student while it is being hidden.
+        const executor = await (
+          await concurrency.getManager()
+        ).createSynchronous(GROUP_LOCK);
+        const result = await executor.run(() =>
+          database.transaction(async (connection) => {
+            const student = await connection
+              .repository('eduHocVien')
+              .withPolicy(studentPolicy)
+              .findOne({ filter: { id: input.hocVienId } });
+            if (!student) {
               throw eduError(
                 'NOT_FOUND',
-                'EDU_GROUP_NOT_FOUND',
-                'Group not found.',
-                'nhomId',
+                'EDU_STUDENT_NOT_FOUND',
+                'Student not found.',
               );
             }
-            if (Number(group.lopId) !== Number(student.lopId)) {
-              throw eduError(
-                'INVALID_ARGUMENT',
-                'EDU_GROUP_NOT_IN_CLASS',
-                'The group does not belong to the class of the student.',
-                'nhomId',
-              );
-            }
-            if (group.trangThai !== 'hoat_dong') {
+            if (student.lopId == null) {
               throw eduError(
                 'FAILED_PRECONDITION',
-                'EDU_GROUP_HIDDEN',
-                'The group is hidden.',
-                'nhomId',
+                'EDU_STUDENT_HAS_NO_CLASS',
+                'The student is not in a class.',
               );
             }
-          }
-          if (current === input.nhomId) {
-            return { id: input.hocVienId, thayDoi: false };
-          }
-          // The expected current group is part of the predicate: a concurrent move matches no row and stops here
-          // instead of writing a second history row for the same step.
-          const query = connection.query.updateTable('eduHocVien');
-          const updated = await query
-            .set({ nhomId: input.nhomId })
-            .where('id', '=', input.hocVienId)
-            .where('nhomId', current === null ? 'is' : '=', current)
-            .execute();
-          if (updated.updatedCount !== 1) {
-            throw eduError(
-              'FAILED_PRECONDITION',
-              'EDU_GROUP_CHANGED',
-              'The group of the student has just changed. Reload and try again.',
-            );
-          }
-          await connection
-            .repository('eduHocVienChuyenNhom')
-            .withPolicy(historyPolicy)
-            .createOne({
-              values: {
-                hocVienId: input.hocVienId,
-                tuNhomId: current,
-                denNhomId: input.nhomId,
-                ngay: todayVn(),
-                nguoiThucHienId: userId,
-                ghiChu: input.ghiChu ?? null,
-              },
-            });
-          return { id: input.hocVienId, thayDoi: true };
-        });
+            const current =
+              student.nhomId == null ? null : Number(student.nhomId);
+            if (input.nhomId !== null) {
+              // The group must be one the caller sees, of the student's own class, and not hidden.
+              const group = await connection
+                .repository('eduLopNhom')
+                .withPolicy(groupPolicy)
+                .findOne({ filter: { id: input.nhomId } });
+              if (!group) {
+                throw eduError(
+                  'NOT_FOUND',
+                  'EDU_GROUP_NOT_FOUND',
+                  'Group not found.',
+                  'nhomId',
+                );
+              }
+              if (Number(group.lopId) !== Number(student.lopId)) {
+                throw eduError(
+                  'INVALID_ARGUMENT',
+                  'EDU_GROUP_NOT_IN_CLASS',
+                  'The group does not belong to the class of the student.',
+                  'nhomId',
+                );
+              }
+              if (group.trangThai !== 'hoat_dong') {
+                throw eduError(
+                  'FAILED_PRECONDITION',
+                  'EDU_GROUP_HIDDEN',
+                  'The group is hidden.',
+                  'nhomId',
+                );
+              }
+            }
+            if (current === input.nhomId) {
+              return { id: input.hocVienId, thayDoi: false };
+            }
+            // The expected current group is part of the predicate: a concurrent move matches no row and stops here
+            // instead of writing a second history row for the same step.
+            const query = connection.query.updateTable('eduHocVien');
+            const updated = await query
+              .set({ nhomId: input.nhomId })
+              .where('id', '=', input.hocVienId)
+              .where('nhomId', current === null ? 'is' : '=', current)
+              .execute();
+            if (updated.updatedCount !== 1) {
+              throw eduError(
+                'FAILED_PRECONDITION',
+                'EDU_GROUP_CHANGED',
+                'The group of the student has just changed. Reload and try again.',
+              );
+            }
+            await connection
+              .repository('eduHocVienChuyenNhom')
+              .withPolicy(historyPolicy)
+              .createOne({
+                values: {
+                  hocVienId: input.hocVienId,
+                  tuNhomId: current,
+                  denNhomId: input.nhomId,
+                  ngay: todayVn(),
+                  nguoiThucHienId: userId,
+                  ghiChu: input.ghiChu ?? null,
+                },
+              });
+            return { id: input.hocVienId, thayDoi: true };
+          }),
+        );
         return c.json({ data: result });
       },
     );

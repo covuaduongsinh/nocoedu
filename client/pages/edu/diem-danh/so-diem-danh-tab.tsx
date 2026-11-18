@@ -588,6 +588,13 @@ export function SoDiemDanhTab({
         ) : null}
       </div>
 
+      {/* The group filter follows the group a student sits in now. */}
+      {filters.nhomId ? (
+        <p className='text-xs text-muted-foreground'>
+          {t('edu.nhom.sessionsOnlyGroup')}
+        </p>
+      ) : null}
+
       {/* Tổng hợp */}
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <MetricCard

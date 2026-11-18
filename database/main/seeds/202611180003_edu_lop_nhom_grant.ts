@@ -5,7 +5,7 @@ import { defineSeed } from '@nocobase/db';
  * `docs/plans/2026-11-17-tai-cau-truc-nocoedu.md`): the business resource `edu.lopNhom`. There is no page of its own
  * (the groups are a tab of the class page, which keeps the class page grant).
  *
- * - administrator: view, manage, moveStudent over every record;
+ * - administrator: view, manage, history (the move history, read only), moveStudent over every record;
  * - branch manager: the same over their branches;
  * - coach: the same over the classes they teach;
  * - accountant: view only.
@@ -60,6 +60,7 @@ export default defineSeed({
           ...(moves
             ? [
                 { action: 'manage', policy: composite({ data: scope }) },
+                { action: 'history', policy: composite({ data: scope }) },
                 {
                   action: 'moveStudent',
                   policy: composite({
