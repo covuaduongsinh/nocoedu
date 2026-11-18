@@ -52,3 +52,25 @@ export const anyOfText = (
   );
 
 export const byId = (sort: SortBuilder) => sort.field('id').asc();
+
+/**
+ * A numeric `field` inside one of the closed ranges `[from, to]` (a one-id range is an equality). A long list of ids
+ * that mostly follow each other becomes a handful of ranges, which the database answers from an index instead of
+ * comparing every row with every id.
+ */
+export const inRanges = (
+  f: FilterBuilder,
+  field: string,
+  ranges: readonly { readonly from: number; readonly to: number }[],
+): FilterNode =>
+  balancedOr(
+    f,
+    ranges.map((range) =>
+      range.from === range.to
+        ? f.number(field).eq(range.from)
+        : f.and([
+            f.number(field).gte(range.from),
+            f.number(field).lte(range.to),
+          ]),
+    ),
+  );

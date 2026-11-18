@@ -93,3 +93,15 @@ export function daysOf(from: string, to: string): string[] {
   for (let day = from; day <= to; day = addDays(day, 1)) out.push(day);
   return out;
 }
+
+/** `ids` as closed ranges of consecutive numbers, in order: `[1,2,3,7,9,10]` → `1–3`, `7`, `9–10`. Duplicates are ignored. */
+export function runsOf(ids: readonly number[]): { from: number; to: number }[] {
+  const sorted = [...new Set(ids)].sort((a, b) => a - b);
+  const runs: { from: number; to: number }[] = [];
+  for (const id of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && id === last.to + 1) last.to = id;
+    else runs.push({ from: id, to: id });
+  }
+  return runs;
+}

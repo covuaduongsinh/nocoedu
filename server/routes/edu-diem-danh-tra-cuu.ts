@@ -14,7 +14,7 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
-import { anyOfNode, anyOfText } from '../edu/filters.js';
+import { anyOfNode, anyOfText, inRanges } from '../edu/filters.js';
 import { asText } from '../edu/names.js';
 import { chunksOf, PAGE } from '../edu/read-all.js';
 import {
@@ -23,6 +23,7 @@ import {
   emptyCounts,
   keepsSession,
   rangeProblem,
+  runsOf,
   rateOf,
   REGISTER_MODES,
   totalOf,
@@ -77,7 +78,9 @@ const Input = z
 type InputType = z.infer<typeof Input>;
 
 /** Sessions whose attendance is counted in one query. */
-const SESSION_CHUNK = 400;
+const SESSION_CHUNK = 2000;
+/** Sessions read in one request to the repository. */
+const SESSION_PAGE = 1000;
 /** The most sessions one lookup covers; a bigger period must be narrowed to a class or a branch. */
 const MAX_SESSIONS = 20_000;
 /** The most classes read for the filters (a club has far fewer). */
@@ -136,17 +139,18 @@ export default [
       repository: Reader,
       filter: unknown,
       cap: number,
+      pageSize = PAGE,
     ): Promise<Row[]> {
       const rows: Row[] = [];
-      for (let offset = 0; ; offset += PAGE) {
+      for (let offset = 0; ; offset += pageSize) {
         const page = await repository.findMany({
           ...(filter ? { filter } : {}),
           sort: byId,
-          limit: PAGE,
+          limit: pageSize,
           offset,
         });
         rows.push(...page);
-        if (page.length < PAGE) break;
+        if (page.length < pageSize) break;
         if (rows.length >= cap) {
           throw eduError(
             'FAILED_PRECONDITION',
@@ -251,6 +255,7 @@ export default [
               ]),
             ),
             MAX_SESSIONS,
+            SESSION_PAGE,
           )
         ).map((row) => ({
           id: num(row.id),
@@ -270,10 +275,11 @@ export default [
         for (const part of chunksOf(sessions, SESSION_CHUNK)) {
           const filter = buildFilter((f) =>
             f.and([
-              anyOfNode(
+              // Sessions that follow each other become one range, so the database reads an index, not one id at a time.
+              inRanges(
                 f,
                 'buoiHocId',
-                part.map((session) => session.id),
+                runsOf(part.map((session) => session.id)),
               ),
               ...(input.hocVienId
                 ? [f.number('hocVienId').eq(input.hocVienId)]

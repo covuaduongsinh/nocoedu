@@ -9,6 +9,7 @@ import {
   keepsSession,
   rangeProblem,
   rateOf,
+  runsOf,
   totalOf,
 } from '../../server/edu/so-diem-danh.js';
 
@@ -59,5 +60,21 @@ describe('attendance register rules', () => {
     expect(keepsSession(true, undefined)).toBe(false);
     expect(keepsSession(true, emptyCounts())).toBe(false);
     expect(keepsSession(true, marked)).toBe(true);
+  });
+
+  it('turns a list of session ids into ranges of consecutive ids, whatever the order', () => {
+    expect(runsOf([])).toEqual([]);
+    expect(runsOf([5])).toEqual([{ from: 5, to: 5 }]);
+    expect(runsOf([9, 1, 2, 3, 7, 10, 2])).toEqual([
+      { from: 1, to: 3 },
+      { from: 7, to: 7 },
+      { from: 9, to: 10 },
+    ]);
+    // Every id is inside exactly one range and nothing else is.
+    const ids = [4, 5, 6, 20, 21, 40];
+    const covered = runsOf(ids).flatMap((r) =>
+      Array.from({ length: r.to - r.from + 1 }, (_, i) => r.from + i),
+    );
+    expect(covered).toEqual(ids);
   });
 });
