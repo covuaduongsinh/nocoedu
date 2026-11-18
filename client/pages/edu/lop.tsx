@@ -11,10 +11,7 @@ import { Badge } from '#components/ui/badge';
 import { Button, buttonVariants } from '#components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '#components/ui/card';
 
-import {
-  InitialsAvatar,
-  LevelBadge,
-} from './edu-ui-parts.js';
+import { InitialsAvatar, LevelBadge } from './edu-ui-parts.js';
 import { FormDialog, SelectField, TextField } from './form-parts.js';
 import { GenericImportDialog } from './generic-import-dialog.js';
 import {
@@ -78,9 +75,7 @@ export default function LopPage(): ReactElement {
       : [];
 
   const displayLoaded =
-    loaded.state === 'ready'
-      ? { ...loaded, rows: filteredRows }
-      : loaded;
+    loaded.state === 'ready' ? { ...loaded, rows: filteredRows } : loaded;
 
   return (
     <>
@@ -170,13 +165,21 @@ export default function LopPage(): ReactElement {
                 <div className='flex items-center gap-2'>
                   <Link
                     to={`/lop/${row.id}`}
-                    className={buttonVariants({ variant: 'outline', size: 'sm', className: 'h-7 text-xs' })}
+                    className={buttonVariants({
+                      variant: 'outline',
+                      size: 'sm',
+                      className: 'h-7 text-xs',
+                    })}
                   >
                     Chi tiết lớp
                   </Link>
                   <Link
                     to={`/diem-danh?lopId=${row.id}`}
-                    className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-7 text-xs text-primary' })}
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'sm',
+                      className: 'h-7 text-xs text-primary',
+                    })}
                   >
                     Điểm danh
                   </Link>

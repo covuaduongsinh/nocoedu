@@ -190,10 +190,7 @@ export default [
           .execute();
         for (const row of rows) {
           const id = Number(row.hocVienId);
-          totals.set(
-            id,
-            (totals.get(id) ?? 0) + Number((row)[column] ?? 0),
-          );
+          totals.set(id, (totals.get(id) ?? 0) + Number(row[column] ?? 0));
         }
       }
       return totals;

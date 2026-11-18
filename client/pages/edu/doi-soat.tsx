@@ -41,7 +41,8 @@ import {
 } from '#components/ui/dialog';
 import { useRows, text } from './kit.js';
 
-const fmt = (value: unknown): string => Number(value || 0).toLocaleString('vi-VN');
+const fmt = (value: unknown): string =>
+  Number(value || 0).toLocaleString('vi-VN');
 
 interface StudentOverviewRow {
   id: number;
@@ -189,14 +190,18 @@ export default function DoiSoatPage(): ReactElement {
 
   // State chế độ 2 (Chi tiết học viên)
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [studentDetail, setStudentDetail] = useState<StudentAuditDetail | null>(null);
+  const [studentDetail, setStudentDetail] = useState<StudentAuditDetail | null>(
+    null,
+  );
   const [activeTab, setActiveTab] = useState('overview');
 
   // Bộ lọc và sắp xếp bên trong Tab Lịch sử buổi học
   const [sessionKyFilter, setSessionKyFilter] = useState<string>('all');
   const [sessionStatusFilter, setSessionStatusFilter] = useState<string>('all');
   const [sessionSearchComment, setSessionSearchComment] = useState<string>('');
-  const [sessionSortOrder, setSessionSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [sessionSortOrder, setSessionSortOrder] = useState<'desc' | 'asc'>(
+    'desc',
+  );
 
   // Dialog Quick Edit buổi học
   const [editSession, setEditSession] = useState<{
@@ -220,7 +225,8 @@ export default function DoiSoatPage(): ReactElement {
     setLoadingOverview(true);
     setOverviewError(null);
     try {
-      const curSearch = override && 'search' in override ? override.search : searchTerm;
+      const curSearch =
+        override && 'search' in override ? override.search : searchTerm;
       const curStatus = override?.trangThaiLoc ?? filterStatus;
       const curCoSoId = override?.coSoId ?? selectedCoSoId;
       const curLopId = override?.lopId ?? selectedLopId;
@@ -240,7 +246,11 @@ export default function DoiSoatPage(): ReactElement {
       setOverviewData(res.data);
     } catch (err) {
       console.error(err);
-      setOverviewError(err instanceof Error ? err.message : 'Không thể kết nối máy chủ để tải dữ liệu đối soát.');
+      setOverviewError(
+        err instanceof Error
+          ? err.message
+          : 'Không thể kết nối máy chủ để tải dữ liệu đối soát.',
+      );
     } finally {
       setLoadingOverview(false);
     }
@@ -277,7 +287,12 @@ export default function DoiSoatPage(): ReactElement {
     setFilterStatus('tat_ca');
     setSelectedCoSoId('all');
     setSelectedLopId('all');
-    void loadOverview({ search: '', trangThaiLoc: 'tat_ca', coSoId: 'all', lopId: 'all' });
+    void loadOverview({
+      search: '',
+      trangThaiLoc: 'tat_ca',
+      coSoId: 'all',
+      lopId: 'all',
+    });
   };
 
   // Load chi tiết đối soát học viên
@@ -323,7 +338,8 @@ export default function DoiSoatPage(): ReactElement {
           diemDanhId: editSession.diemDanhId,
           trangThai: editSession.trangThai,
           daLamBtvn: editSession.daLamBtvn,
-          yThucDiem: editSession.yThucDiem === '' ? null : Number(editSession.yThucDiem),
+          yThucDiem:
+            editSession.yThucDiem === '' ? null : Number(editSession.yThucDiem),
           nhanXet: editSession.nhanXet,
         },
       });
@@ -334,7 +350,10 @@ export default function DoiSoatPage(): ReactElement {
       setEditSession(null);
     } catch (err) {
       console.error(err);
-      alert('Lỗi cập nhật buổi học: ' + (err instanceof Error ? err.message : String(err)));
+      alert(
+        'Lỗi cập nhật buổi học: ' +
+          (err instanceof Error ? err.message : String(err)),
+      );
     } finally {
       setSavingEdit(false);
     }
@@ -346,9 +365,16 @@ export default function DoiSoatPage(): ReactElement {
     const list = studentDetail.danhSachBuoiHoc.filter((s) => {
       if (sessionKyFilter !== 'all') {
         if (sessionKyFilter === 'ngoai_goi' && !s.ngoaiGoi) return false;
-        if (sessionKyFilter !== 'ngoai_goi' && String(s.kyId) !== sessionKyFilter) return false;
+        if (
+          sessionKyFilter !== 'ngoai_goi' &&
+          String(s.kyId) !== sessionKyFilter
+        )
+          return false;
       }
-      if (sessionStatusFilter !== 'all' && s.trangThai !== sessionStatusFilter) {
+      if (
+        sessionStatusFilter !== 'all' &&
+        s.trangThai !== sessionStatusFilter
+      ) {
         return false;
       }
       if (sessionSearchComment) {
@@ -363,25 +389,50 @@ export default function DoiSoatPage(): ReactElement {
       sorted.reverse();
     }
     return sorted;
-  }, [studentDetail, sessionKyFilter, sessionStatusFilter, sessionSearchComment, sessionSortOrder]);
+  }, [
+    studentDetail,
+    sessionKyFilter,
+    sessionStatusFilter,
+    sessionSearchComment,
+    sessionSortOrder,
+  ]);
 
   // Xuất CSV học viên hiện tại
   const exportStudentCsv = (): void => {
     if (!studentDetail) return;
-    const headers = ['STT', 'Ngày', 'Giờ', 'Lớp', 'Trạng thái', 'BTVN', 'Ý thức', 'Nhận xét', 'Trừ buổi', 'Kỳ nộp'];
+    const headers = [
+      'STT',
+      'Ngày',
+      'Giờ',
+      'Lớp',
+      'Trạng thái',
+      'BTVN',
+      'Ý thức',
+      'Nhận xét',
+      'Trừ buổi',
+      'Kỳ nộp',
+    ];
     const rows = studentDetail.danhSachBuoiHoc.map((s, idx) => [
       idx + 1,
       s.ngay,
       s.gioBatDau?.slice(0, 5),
       `"${s.lopTen}"`,
-      s.trangThai === 'co_mat' ? 'Có mặt' : s.trangThai === 'hoc_bu' ? 'Học bù' : s.trangThai === 'vang_co_phep' ? 'Vắng có phép' : 'Vắng không phép',
+      s.trangThai === 'co_mat'
+        ? 'Có mặt'
+        : s.trangThai === 'hoc_bu'
+          ? 'Học bù'
+          : s.trangThai === 'vang_co_phep'
+            ? 'Vắng có phép'
+            : 'Vắng không phép',
       s.daLamBtvn ? 'Đã làm' : 'Chưa',
       s.yThucDiem != null ? s.yThucDiem : '',
       `"${(s.nhanXet || '').replace(/"/g, '""')}"`,
       s.soBuoiDaTru,
       `"${s.kyTen}"`,
     ]);
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const csvContent =
+      '\uFEFF' +
+      [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -406,7 +457,8 @@ export default function DoiSoatPage(): ReactElement {
                 Đối Soát Buổi Học & Học Phí
               </h1>
               <p className='text-sm text-muted-foreground'>
-                Kiểm tra, phân tích số buổi đã học, các kỳ nộp học phí, sách giáo trình và nhận xét học viên toàn trung tâm.
+                Kiểm tra, phân tích số buổi đã học, các kỳ nộp học phí, sách
+                giáo trình và nhận xét học viên toàn trung tâm.
               </p>
             </div>
             <Button
@@ -416,7 +468,9 @@ export default function DoiSoatPage(): ReactElement {
               disabled={loadingOverview}
               className='gap-1.5'
             >
-              <RefreshCw className={`size-4 ${loadingOverview ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`size-4 ${loadingOverview ? 'animate-spin' : ''}`}
+              />
               Làm mới số liệu
             </Button>
           </div>
@@ -428,9 +482,15 @@ export default function DoiSoatPage(): ReactElement {
                 onClick={() => handleFilterStatus('tat_ca')}
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-primary ${filterStatus === 'tat_ca' ? 'ring-2 ring-primary bg-primary/5' : 'bg-card'}`}
               >
-                <p className='text-xs font-medium text-muted-foreground'>Tổng học viên</p>
-                <p className='mt-1 text-2xl font-bold text-foreground'>{overviewData.thongKe.tongHocVien}</p>
-                <span className='text-[11px] text-muted-foreground'>Tất cả học viên</span>
+                <p className='text-xs font-medium text-muted-foreground'>
+                  Tổng học viên
+                </p>
+                <p className='mt-1 text-2xl font-bold text-foreground'>
+                  {overviewData.thongKe.tongHocVien}
+                </p>
+                <span className='text-[11px] text-muted-foreground'>
+                  Tất cả học viên
+                </span>
               </div>
 
               <div
@@ -440,44 +500,72 @@ export default function DoiSoatPage(): ReactElement {
                 <p className='text-xs font-medium text-destructive flex items-center gap-1'>
                   <AlertTriangle className='size-3.5' /> Vượt buổi (Âm)
                 </p>
-                <p className='mt-1 text-2xl font-bold text-destructive'>{overviewData.thongKe.soHocVienVuotGoi}</p>
-                <span className='text-[11px] text-destructive'>Cần thu kỳ mới</span>
+                <p className='mt-1 text-2xl font-bold text-destructive'>
+                  {overviewData.thongKe.soHocVienVuotGoi}
+                </p>
+                <span className='text-[11px] text-destructive'>
+                  Cần thu kỳ mới
+                </span>
               </div>
 
               <div
                 onClick={() => handleFilterStatus('sap_het')}
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-amber-500 ${filterStatus === 'sap_het' ? 'ring-2 ring-amber-500 bg-amber-50/50 dark:bg-amber-950/20' : 'bg-card'}`}
               >
-                <p className='text-xs font-medium text-amber-600 dark:text-amber-400'>Sắp hết buổi</p>
-                <p className='mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400'>{overviewData.thongKe.soHocVienSapHet}</p>
-                <span className='text-[11px] text-muted-foreground'>Còn 0 - 2 buổi</span>
+                <p className='text-xs font-medium text-amber-600 dark:text-amber-400'>
+                  Sắp hết buổi
+                </p>
+                <p className='mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400'>
+                  {overviewData.thongKe.soHocVienSapHet}
+                </p>
+                <span className='text-[11px] text-muted-foreground'>
+                  Còn 0 - 2 buổi
+                </span>
               </div>
 
               <div
                 onClick={() => handleFilterStatus('binh_thuong')}
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-emerald-500 ${filterStatus === 'binh_thuong' ? 'ring-2 ring-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' : 'bg-card'}`}
               >
-                <p className='text-xs font-medium text-emerald-600 dark:text-emerald-400'>Đang an toàn</p>
-                <p className='mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400'>{overviewData.thongKe.soHocVienBinhThuong}</p>
-                <span className='text-[11px] text-muted-foreground'>Còn ≥ 3 buổi</span>
+                <p className='text-xs font-medium text-emerald-600 dark:text-emerald-400'>
+                  Đang an toàn
+                </p>
+                <p className='mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400'>
+                  {overviewData.thongKe.soHocVienBinhThuong}
+                </p>
+                <span className='text-[11px] text-muted-foreground'>
+                  Còn ≥ 3 buổi
+                </span>
               </div>
 
               <div
                 onClick={() => handleFilterStatus('no_hoc_phi')}
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-primary ${filterStatus === 'no_hoc_phi' ? 'ring-2 ring-primary bg-primary/5' : 'bg-card'}`}
               >
-                <p className='text-xs font-medium text-muted-foreground'>Nợ học phí</p>
-                <p className='mt-1 text-lg font-bold text-foreground'>{fmt(overviewData.thongKe.tongCongNoHocPhi)} đ</p>
-                <span className='text-[11px] text-muted-foreground'>Tiền học chưa nộp</span>
+                <p className='text-xs font-medium text-muted-foreground'>
+                  Nợ học phí
+                </p>
+                <p className='mt-1 text-lg font-bold text-foreground'>
+                  {fmt(overviewData.thongKe.tongCongNoHocPhi)} đ
+                </p>
+                <span className='text-[11px] text-muted-foreground'>
+                  Tiền học chưa nộp
+                </span>
               </div>
 
               <div
                 onClick={() => handleFilterStatus('no_sach')}
                 className={`cursor-pointer rounded-xl border p-3.5 shadow-sm transition-all hover:border-primary ${filterStatus === 'no_sach' ? 'ring-2 ring-primary bg-primary/5' : 'bg-card'}`}
               >
-                <p className='text-xs font-medium text-muted-foreground'>Nợ tiền sách</p>
-                <p className='mt-1 text-lg font-bold text-foreground'>{fmt(overviewData.thongKe.tongCongNoSach)} đ</p>
-                <span className='text-[11px] text-muted-foreground'>Tiền sách chưa thu</span>
+                <p className='text-xs font-medium text-muted-foreground'>
+                  Nợ tiền sách
+                </p>
+                <p className='mt-1 text-lg font-bold text-foreground'>
+                  {fmt(overviewData.thongKe.tongCongNoSach)} đ
+                </p>
+                <span className='text-[11px] text-muted-foreground'>
+                  Tiền sách chưa thu
+                </span>
               </div>
             </div>
           ) : null}
@@ -518,7 +606,9 @@ export default function DoiSoatPage(): ReactElement {
                 onChange={(e) => handleLopChange(e.target.value)}
                 className='h-9 rounded-md border border-input bg-background px-3 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
               >
-                <option value='all'>Tất cả lớp học ({availableClasses.length})</option>
+                <option value='all'>
+                  Tất cả lớp học ({availableClasses.length})
+                </option>
                 {availableClasses.map((c) => (
                   <option key={c.id} value={String(c.id)}>
                     {text(c.ten)}
@@ -540,11 +630,18 @@ export default function DoiSoatPage(): ReactElement {
                 <option value='no_sach'>📚 Còn nợ tiền sách</option>
               </select>
 
-              <Button size='sm' className='h-9 px-3 gap-1' onClick={() => void loadOverview()}>
+              <Button
+                size='sm'
+                className='h-9 px-3 gap-1'
+                onClick={() => void loadOverview()}
+              >
                 <Search className='size-3.5' /> Tìm kiếm
               </Button>
 
-              {(searchTerm || selectedCoSoId !== 'all' || selectedLopId !== 'all' || filterStatus !== 'tat_ca') ? (
+              {searchTerm ||
+              selectedCoSoId !== 'all' ||
+              selectedLopId !== 'all' ||
+              filterStatus !== 'tat_ca' ? (
                 <Button
                   size='sm'
                   variant='ghost'
@@ -561,8 +658,13 @@ export default function DoiSoatPage(): ReactElement {
           {overviewData ? (
             <div className='flex items-center justify-between text-xs text-muted-foreground px-1 font-medium'>
               <span>
-                Tìm thấy <strong className='text-foreground'>{overviewData.danhSach.length}</strong> học viên phù hợp
-                {overviewData.danhSach.length !== overviewData.thongKe.tongHocVien
+                Tìm thấy{' '}
+                <strong className='text-foreground'>
+                  {overviewData.danhSach.length}
+                </strong>{' '}
+                học viên phù hợp
+                {overviewData.danhSach.length !==
+                overviewData.thongKe.tongHocVien
                   ? ` (trên tổng số ${overviewData.thongKe.tongHocVien} học viên toàn trung tâm)`
                   : ''}
               </span>
@@ -590,19 +692,33 @@ export default function DoiSoatPage(): ReactElement {
               <TableBody className='text-xs'>
                 {loadingOverview ? (
                   <TableRow>
-                    <TableCell colSpan={11} className='h-36 text-center text-muted-foreground'>
+                    <TableCell
+                      colSpan={11}
+                      className='h-36 text-center text-muted-foreground'
+                    >
                       <div className='flex flex-col items-center justify-center gap-2'>
                         <RefreshCw className='size-5 animate-spin text-primary' />
-                        <span className='font-medium text-xs'>Đang tải và tổng hợp dữ liệu đối soát học viên...</span>
+                        <span className='font-medium text-xs'>
+                          Đang tải và tổng hợp dữ liệu đối soát học viên...
+                        </span>
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : overviewError ? (
                   <TableRow>
-                    <TableCell colSpan={11} className='h-36 text-center text-destructive'>
+                    <TableCell
+                      colSpan={11}
+                      className='h-36 text-center text-destructive'
+                    >
                       <div className='flex flex-col items-center justify-center gap-2'>
-                        <span className='font-medium text-xs'>⚠️ {overviewError}</span>
-                        <Button size='sm' variant='outline' onClick={() => void loadOverview()}>
+                        <span className='font-medium text-xs'>
+                          ⚠️ {overviewError}
+                        </span>
+                        <Button
+                          size='sm'
+                          variant='outline'
+                          onClick={() => void loadOverview()}
+                        >
                           Thử lại
                         </Button>
                       </div>
@@ -610,13 +726,20 @@ export default function DoiSoatPage(): ReactElement {
                   </TableRow>
                 ) : overviewData?.danhSach.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className='h-32 text-center text-muted-foreground'>
-                      Không tìm thấy học viên nào phù hợp với điều kiện tìm kiếm.
+                    <TableCell
+                      colSpan={11}
+                      className='h-32 text-center text-muted-foreground'
+                    >
+                      Không tìm thấy học viên nào phù hợp với điều kiện tìm
+                      kiếm.
                     </TableCell>
                   </TableRow>
                 ) : (
                   overviewData?.danhSach.map((row) => (
-                    <TableRow key={row.id} className='hover:bg-muted/40 transition-colors'>
+                    <TableRow
+                      key={row.id}
+                      className='hover:bg-muted/40 transition-colors'
+                    >
                       <TableCell>
                         <RecordLink
                           to={`/hoc-vien/${row.id}`}
@@ -646,12 +769,16 @@ export default function DoiSoatPage(): ReactElement {
                         )}
                       </TableCell>
                       <TableCell>
-                        <span className='text-muted-foreground'>{row.coSoTen || '—'}</span>
+                        <span className='text-muted-foreground'>
+                          {row.coSoTen || '—'}
+                        </span>
                       </TableCell>
                       <TableCell>
                         {row.phuHuynhTen ? (
                           <div>
-                            <span className='font-medium text-foreground'>{row.phuHuynhTen}</span>
+                            <span className='font-medium text-foreground'>
+                              {row.phuHuynhTen}
+                            </span>
                             {row.phuHuynhSdt ? (
                               <span className='block text-[11px] text-muted-foreground font-mono'>
                                 {row.phuHuynhSdt}
@@ -670,7 +797,10 @@ export default function DoiSoatPage(): ReactElement {
                       </TableCell>
                       <TableCell className='text-center'>
                         {row.soBuoiConLai < 0 ? (
-                          <StatusBadge tone='neutral' className='border-destructive/30 bg-destructive/10 text-destructive font-bold'>
+                          <StatusBadge
+                            tone='neutral'
+                            className='border-destructive/30 bg-destructive/10 text-destructive font-bold'
+                          >
                             🔴 Vượt {Math.abs(row.soBuoiConLai)} buổi
                           </StatusBadge>
                         ) : row.soBuoiConLai === 0 ? (
@@ -688,7 +818,9 @@ export default function DoiSoatPage(): ReactElement {
                         )}
                       </TableCell>
                       <TableCell className='text-right'>
-                        <span className='font-medium'>{fmt(row.tongDaThanhToan)} đ</span>
+                        <span className='font-medium'>
+                          {fmt(row.tongDaThanhToan)} đ
+                        </span>
                         {row.tongConNoHocPhi > 0 ? (
                           <span className='block text-[11px] text-destructive font-medium'>
                             Nợ: {fmt(row.tongConNoHocPhi)} đ
@@ -696,7 +828,9 @@ export default function DoiSoatPage(): ReactElement {
                         ) : null}
                       </TableCell>
                       <TableCell className='text-right'>
-                        <span className='font-medium'>{fmt(row.tongTienSachDaPhat)} đ</span>
+                        <span className='font-medium'>
+                          {fmt(row.tongTienSachDaPhat)} đ
+                        </span>
                         {row.tienSachTon < 0 ? (
                           <span className='block text-[11px] text-destructive font-medium'>
                             Nợ sách: {fmt(Math.abs(row.tienSachTon))} đ
@@ -711,7 +845,9 @@ export default function DoiSoatPage(): ReactElement {
                         <Button
                           size='sm'
                           className='h-8 px-2.5 bg-primary/90 hover:bg-primary font-medium text-xs gap-1 shadow-sm'
-                          onClick={() => setSearchParams({ hocVienId: String(row.id) })}
+                          onClick={() =>
+                            setSearchParams({ hocVienId: String(row.id) })
+                          }
                         >
                           <Layers className='size-3.5' />
                           Đối soát
@@ -767,10 +903,16 @@ export default function DoiSoatPage(): ReactElement {
                     ) : (
                       <span>Chưa xếp lớp</span>
                     )}
-                    {studentDetail.hocVien.coSoTen ? <span>· Cơ sở: {studentDetail.hocVien.coSoTen}</span> : null}
+                    {studentDetail.hocVien.coSoTen ? (
+                      <span>· Cơ sở: {studentDetail.hocVien.coSoTen}</span>
+                    ) : null}
                     {studentDetail.hocVien.phuHuynh ? (
                       <span>
-                        · Phụ huynh: <span className='font-medium text-foreground'>{studentDetail.hocVien.phuHuynh.hoTen}</span> ({studentDetail.hocVien.phuHuynh.soDienThoai})
+                        · Phụ huynh:{' '}
+                        <span className='font-medium text-foreground'>
+                          {studentDetail.hocVien.phuHuynh.hoTen}
+                        </span>{' '}
+                        ({studentDetail.hocVien.phuHuynh.soDienThoai})
                       </span>
                     ) : null}
                   </p>
@@ -803,14 +945,17 @@ export default function DoiSoatPage(): ReactElement {
 
           {loadingDetail || !studentDetail ? (
             <div className='flex h-64 items-center justify-center text-sm text-muted-foreground'>
-              <RefreshCw className='size-6 animate-spin mr-2 text-primary' /> Đang tải dữ liệu đối soát học viên...
+              <RefreshCw className='size-6 animate-spin mr-2 text-primary' />{' '}
+              Đang tải dữ liệu đối soát học viên...
             </div>
           ) : (
             <div className='flex flex-col gap-6'>
               {/* Thẻ KPI Tóm tắt Của Học Viên */}
               <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
                 <div className='rounded-xl border bg-card p-4 shadow-sm'>
-                  <p className='text-xs font-medium text-muted-foreground'>Tổng số buổi đã nộp</p>
+                  <p className='text-xs font-medium text-muted-foreground'>
+                    Tổng số buổi đã nộp
+                  </p>
                   <p className='mt-1 text-2xl font-bold text-primary'>
                     {studentDetail.tongHop.tongSoBuoiDaMua} buổi
                   </p>
@@ -820,38 +965,54 @@ export default function DoiSoatPage(): ReactElement {
                 </div>
 
                 <div className='rounded-xl border bg-card p-4 shadow-sm'>
-                  <p className='text-xs font-medium text-muted-foreground'>Tổng số buổi đã học</p>
+                  <p className='text-xs font-medium text-muted-foreground'>
+                    Tổng số buổi đã học
+                  </p>
                   <p className='mt-1 text-2xl font-bold text-foreground'>
                     {studentDetail.tongHop.tongSoBuoiDaHoc} buổi
                   </p>
-                  <span className='text-[11px] text-muted-foreground'>Đã ghi nhận điểm danh</span>
+                  <span className='text-[11px] text-muted-foreground'>
+                    Đã ghi nhận điểm danh
+                  </span>
                 </div>
 
                 <div className='rounded-xl border bg-card p-4 shadow-sm'>
-                  <p className='text-xs font-medium text-muted-foreground'>Số buổi còn lại</p>
-                  <p className={`mt-1 text-2xl font-bold ${studentDetail.tongHop.soBuoiConLai < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                  <p className='text-xs font-medium text-muted-foreground'>
+                    Số buổi còn lại
+                  </p>
+                  <p
+                    className={`mt-1 text-2xl font-bold ${studentDetail.tongHop.soBuoiConLai < 0 ? 'text-destructive' : 'text-emerald-600'}`}
+                  >
                     {studentDetail.tongHop.soBuoiConLai < 0
                       ? `🔴 Vượt ${studentDetail.tongHop.soBuoiVuotGoi} buổi`
                       : `🟢 Còn ${studentDetail.tongHop.soBuoiConLai} buổi`}
                   </p>
                   <span className='text-[11px] text-muted-foreground'>
-                    {studentDetail.tongHop.soBuoiConLai < 0 ? 'Chưa đóng học phí kỳ mới' : 'Số dư khả dụng'}
+                    {studentDetail.tongHop.soBuoiConLai < 0
+                      ? 'Chưa đóng học phí kỳ mới'
+                      : 'Số dư khả dụng'}
                   </span>
                 </div>
 
                 <div className='rounded-xl border bg-card p-4 shadow-sm'>
-                  <p className='text-xs font-medium text-muted-foreground'>Học phí & Quỹ sách</p>
+                  <p className='text-xs font-medium text-muted-foreground'>
+                    Học phí & Quỹ sách
+                  </p>
                   <p className='mt-1 text-sm font-semibold'>
                     Học phí: {fmt(studentDetail.tongHop.tongDaThanhToan)} đ
                     {studentDetail.tongHop.tongConNo > 0 ? (
-                      <span className='text-destructive ml-1.5'>(Nợ: {fmt(studentDetail.tongHop.tongConNo)} đ)</span>
+                      <span className='text-destructive ml-1.5'>
+                        (Nợ: {fmt(studentDetail.tongHop.tongConNo)} đ)
+                      </span>
                     ) : null}
                   </p>
                   <p className='text-xs text-muted-foreground mt-0.5'>
-                    Sách đã nhận: {fmt(studentDetail.tongHop.tongTienSachDaPhat)} đ
+                    Sách đã nhận:{' '}
+                    {fmt(studentDetail.tongHop.tongTienSachDaPhat)} đ
                     {studentDetail.tongHop.tienSachTon < 0 ? (
                       <span className='text-destructive font-semibold ml-1.5'>
-                        (Nợ: {fmt(Math.abs(studentDetail.tongHop.tienSachTon))} đ)
+                        (Nợ: {fmt(Math.abs(studentDetail.tongHop.tienSachTon))}{' '}
+                        đ)
                       </span>
                     ) : studentDetail.tongHop.tienSachTon > 0 ? (
                       <span className='text-emerald-600 font-semibold ml-1.5'>
@@ -863,24 +1024,46 @@ export default function DoiSoatPage(): ReactElement {
               </div>
 
               {/* Hệ thống 4 Tabs Chuyên Sâu */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className='w-full'>
+              <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className='w-full'
+              >
                 <TabsList className='grid w-full grid-cols-4 max-w-2xl bg-muted/70 p-1'>
-                  <TabsTrigger value='overview' className='gap-1.5 text-xs font-medium'>
+                  <TabsTrigger
+                    value='overview'
+                    className='gap-1.5 text-xs font-medium'
+                  >
                     <Layers className='size-3.5' /> Tổng quan tiến độ
                   </TabsTrigger>
-                  <TabsTrigger value='sessions' className='gap-1.5 text-xs font-medium'>
-                    <CalendarCheck className='size-3.5' /> Buổi học & Sửa nhanh ({studentDetail.danhSachBuoiHoc.length})
+                  <TabsTrigger
+                    value='sessions'
+                    className='gap-1.5 text-xs font-medium'
+                  >
+                    <CalendarCheck className='size-3.5' /> Buổi học & Sửa nhanh
+                    ({studentDetail.danhSachBuoiHoc.length})
                   </TabsTrigger>
-                  <TabsTrigger value='tuition' className='gap-1.5 text-xs font-medium'>
-                    <Wallet className='size-3.5' /> Kỳ học phí ({studentDetail.cacKyNop.length})
+                  <TabsTrigger
+                    value='tuition'
+                    className='gap-1.5 text-xs font-medium'
+                  >
+                    <Wallet className='size-3.5' /> Kỳ học phí (
+                    {studentDetail.cacKyNop.length})
                   </TabsTrigger>
-                  <TabsTrigger value='books' className='gap-1.5 text-xs font-medium'>
-                    <BookOpen className='size-3.5' /> Sách & Quỹ ({studentDetail.sachDaPhat.length})
+                  <TabsTrigger
+                    value='books'
+                    className='gap-1.5 text-xs font-medium'
+                  >
+                    <BookOpen className='size-3.5' /> Sách & Quỹ (
+                    {studentDetail.sachDaPhat.length})
                   </TabsTrigger>
                 </TabsList>
 
                 {/* TAB 1: TỔNG QUAN TIẾN ĐỘ TỪNG KỲ HỌC */}
-                <TabsContent value='overview' className='mt-4 flex flex-col gap-6'>
+                <TabsContent
+                  value='overview'
+                  className='mt-4 flex flex-col gap-6'
+                >
                   <div>
                     <h3 className='text-base font-bold text-foreground mb-3 flex items-center gap-2'>
                       <span>📊 Cột mốc phân bổ buổi học theo từng kỳ nộp</span>
@@ -892,20 +1075,38 @@ export default function DoiSoatPage(): ReactElement {
                     ) : (
                       <div className='flex flex-col gap-3'>
                         {studentDetail.cacKyNop.map((ky) => (
-                          <div key={ky.id} className='rounded-xl border bg-card p-4 shadow-sm flex flex-col gap-3'>
+                          <div
+                            key={ky.id}
+                            className='rounded-xl border bg-card p-4 shadow-sm flex flex-col gap-3'
+                          >
                             <div className='flex flex-wrap items-center justify-between gap-2'>
                               <div className='flex items-center gap-2'>
-                                <span className='font-bold text-base text-foreground'>{ky.tenKy}</span>
+                                <span className='font-bold text-base text-foreground'>
+                                  {ky.tenKy}
+                                </span>
                                 <span className='text-xs text-muted-foreground font-mono'>
                                   (Ngày nộp: {ky.ngayMua || 'Chưa cập nhật'})
                                 </span>
                               </div>
                               <div className='flex items-center gap-2'>
                                 <span className='text-xs font-medium text-foreground'>
-                                  Đã học: <strong>{ky.daDung}</strong> / {ky.soBuoi} buổi
+                                  Đã học: <strong>{ky.daDung}</strong> /{' '}
+                                  {ky.soBuoi} buổi
                                 </span>
-                                <StatusBadge tone={ky.tienDo === 100 ? 'success' : ky.tienDo > 0 ? 'warning' : 'neutral'}>
-                                  {ky.tienDo === 100 ? '✅ Đã hoàn thành' : ky.tienDo > 0 ? `Đang học (${ky.tienDo}%)` : 'Chưa học'}
+                                <StatusBadge
+                                  tone={
+                                    ky.tienDo === 100
+                                      ? 'success'
+                                      : ky.tienDo > 0
+                                        ? 'warning'
+                                        : 'neutral'
+                                  }
+                                >
+                                  {ky.tienDo === 100
+                                    ? '✅ Đã hoàn thành'
+                                    : ky.tienDo > 0
+                                      ? `Đang học (${ky.tienDo}%)`
+                                      : 'Chưa học'}
                                 </StatusBadge>
                               </div>
                             </div>
@@ -914,15 +1115,42 @@ export default function DoiSoatPage(): ReactElement {
                             <div className='w-full bg-muted rounded-full h-2.5 overflow-hidden'>
                               <div
                                 className={`h-2.5 rounded-full transition-all ${ky.tienDo === 100 ? 'bg-emerald-600' : 'bg-primary'}`}
-                                style={{ width: `${Math.min(100, ky.tienDo)}%` }}
+                                style={{
+                                  width: `${Math.min(100, ky.tienDo)}%`,
+                                }}
                               />
                             </div>
 
                             <div className='flex flex-wrap items-center justify-between text-xs text-muted-foreground pt-1 border-t'>
-                              <span>Học phí gói: <strong>{fmt(ky.thanhTien)} đ</strong> ({fmt(ky.donGia)} đ/buổi)</span>
-                              <span>Đã nộp: <strong className='text-emerald-600'>{fmt(ky.daThanhToan)} đ</strong></span>
-                              <span>Còn nợ: <strong className={ky.conNo > 0 ? 'text-destructive' : 'text-foreground'}>{fmt(ky.conNo)} đ</strong></span>
-                              <span>Số buổi còn lại của kỳ: <strong className='text-primary'>{ky.conLai} buổi</strong></span>
+                              <span>
+                                Học phí gói:{' '}
+                                <strong>{fmt(ky.thanhTien)} đ</strong> (
+                                {fmt(ky.donGia)} đ/buổi)
+                              </span>
+                              <span>
+                                Đã nộp:{' '}
+                                <strong className='text-emerald-600'>
+                                  {fmt(ky.daThanhToan)} đ
+                                </strong>
+                              </span>
+                              <span>
+                                Còn nợ:{' '}
+                                <strong
+                                  className={
+                                    ky.conNo > 0
+                                      ? 'text-destructive'
+                                      : 'text-foreground'
+                                  }
+                                >
+                                  {fmt(ky.conNo)} đ
+                                </strong>
+                              </span>
+                              <span>
+                                Số buổi còn lại của kỳ:{' '}
+                                <strong className='text-primary'>
+                                  {ky.conLai} buổi
+                                </strong>
+                              </span>
                             </div>
                           </div>
                         ))}
@@ -934,10 +1162,14 @@ export default function DoiSoatPage(): ReactElement {
                               <AlertTriangle className='size-6 shrink-0' />
                               <div>
                                 <p className='font-bold text-base'>
-                                  Học viên đã học vượt {studentDetail.tongHop.soBuoiVuotGoi} buổi ngoài các kỳ đã nộp!
+                                  Học viên đã học vượt{' '}
+                                  {studentDetail.tongHop.soBuoiVuotGoi} buổi
+                                  ngoài các kỳ đã nộp!
                                 </p>
                                 <p className='text-xs opacity-90'>
-                                  Các buổi học gần nhất chưa được kết nối với kỳ học phí mới. Vui lòng tạo gói buổi mới và ghi nhận thanh toán.
+                                  Các buổi học gần nhất chưa được kết nối với kỳ
+                                  học phí mới. Vui lòng tạo gói buổi mới và ghi
+                                  nhận thanh toán.
                                 </p>
                               </div>
                             </div>
@@ -949,12 +1181,17 @@ export default function DoiSoatPage(): ReactElement {
                 </TabsContent>
 
                 {/* TAB 2: LỊCH SỬ BUỔI HỌC & SỬA NHANH (QUICK EDIT) */}
-                <TabsContent value='sessions' className='mt-4 flex flex-col gap-4'>
+                <TabsContent
+                  value='sessions'
+                  className='mt-4 flex flex-col gap-4'
+                >
                   {/* Bộ lọc buổi học */}
                   <div className='flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3 shadow-sm'>
                     <div className='flex flex-wrap items-center gap-3'>
                       <div className='flex items-center gap-1.5'>
-                        <span className='text-xs text-muted-foreground'>Kỳ học:</span>
+                        <span className='text-xs text-muted-foreground'>
+                          Kỳ học:
+                        </span>
                         <select
                           value={sessionKyFilter}
                           onChange={(e) => setSessionKyFilter(e.target.value)}
@@ -962,24 +1199,34 @@ export default function DoiSoatPage(): ReactElement {
                         >
                           <option value='all'>Tất cả các kỳ</option>
                           {studentDetail.cacKyNop.map((ky) => (
-                            <option key={ky.id} value={String(ky.id)}>{ky.tenKy}</option>
+                            <option key={ky.id} value={String(ky.id)}>
+                              {ky.tenKy}
+                            </option>
                           ))}
-                          <option value='ngoai_goi'>🔴 Vượt gói / Chưa nộp kỳ mới</option>
+                          <option value='ngoai_goi'>
+                            🔴 Vượt gói / Chưa nộp kỳ mới
+                          </option>
                         </select>
                       </div>
 
                       <div className='flex items-center gap-1.5'>
-                        <span className='text-xs text-muted-foreground'>Trạng thái:</span>
+                        <span className='text-xs text-muted-foreground'>
+                          Trạng thái:
+                        </span>
                         <select
                           value={sessionStatusFilter}
-                          onChange={(e) => setSessionStatusFilter(e.target.value)}
+                          onChange={(e) =>
+                            setSessionStatusFilter(e.target.value)
+                          }
                           className='h-8 rounded-md border border-input bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
                         >
                           <option value='all'>Tất cả trạng thái</option>
                           <option value='co_mat'>Có mặt</option>
                           <option value='hoc_bu'>Học bù</option>
                           <option value='vang_co_phep'>Vắng có phép</option>
-                          <option value='vang_khong_phep'>Vắng không phép</option>
+                          <option value='vang_khong_phep'>
+                            Vắng không phép
+                          </option>
                         </select>
                       </div>
 
@@ -988,7 +1235,9 @@ export default function DoiSoatPage(): ReactElement {
                         <Input
                           placeholder='Tìm từ khóa nhận xét...'
                           value={sessionSearchComment}
-                          onChange={(e) => setSessionSearchComment(e.target.value)}
+                          onChange={(e) =>
+                            setSessionSearchComment(e.target.value)
+                          }
                           className='h-8 text-xs'
                         />
                       </div>
@@ -996,15 +1245,22 @@ export default function DoiSoatPage(): ReactElement {
                       <Button
                         variant='outline'
                         size='sm'
-                        onClick={() => setSessionSortOrder(sessionSortOrder === 'desc' ? 'asc' : 'desc')}
+                        onClick={() =>
+                          setSessionSortOrder(
+                            sessionSortOrder === 'desc' ? 'asc' : 'desc',
+                          )
+                        }
                         className='h-8 text-xs gap-1'
                       >
-                        {sessionSortOrder === 'desc' ? '⬇️ Mới nhất trước' : '⬆️ Cũ nhất trước'}
+                        {sessionSortOrder === 'desc'
+                          ? '⬇️ Mới nhất trước'
+                          : '⬆️ Cũ nhất trước'}
                       </Button>
                     </div>
 
                     <span className='text-xs text-muted-foreground'>
-                      Hiển thị <strong>{filteredSessions.length}</strong> / {studentDetail.danhSachBuoiHoc.length} buổi học
+                      Hiển thị <strong>{filteredSessions.length}</strong> /{' '}
+                      {studentDetail.danhSachBuoiHoc.length} buổi học
                     </span>
                   </div>
 
@@ -1013,39 +1269,67 @@ export default function DoiSoatPage(): ReactElement {
                     <Table className='min-w-[1100px]'>
                       <TableHeader className='bg-muted/60 sticky top-0 z-10'>
                         <TableRow className='text-xs font-semibold'>
-                          <TableHead className='w-12 text-center'>STT</TableHead>
+                          <TableHead className='w-12 text-center'>
+                            STT
+                          </TableHead>
                           <TableHead className='w-32'>Ngày & Giờ</TableHead>
                           <TableHead className='w-20'>Lớp</TableHead>
-                          <TableHead className='w-32 text-center'>Trạng thái</TableHead>
-                          <TableHead className='w-14 text-center'>BTVN</TableHead>
-                          <TableHead className='w-14 text-center'>Ý thức</TableHead>
-                          <TableHead className='min-w-[280px] max-w-[420px]'>Nhận xét giáo viên</TableHead>
-                          <TableHead className='w-52 min-w-[200px]'>Thuộc kỳ nộp</TableHead>
-                          <TableHead className='w-20 text-center'>Trừ buổi</TableHead>
-                          <TableHead className='w-16 text-center'>Sửa</TableHead>
+                          <TableHead className='w-32 text-center'>
+                            Trạng thái
+                          </TableHead>
+                          <TableHead className='w-14 text-center'>
+                            BTVN
+                          </TableHead>
+                          <TableHead className='w-14 text-center'>
+                            Ý thức
+                          </TableHead>
+                          <TableHead className='min-w-[280px] max-w-[420px]'>
+                            Nhận xét giáo viên
+                          </TableHead>
+                          <TableHead className='w-52 min-w-[200px]'>
+                            Thuộc kỳ nộp
+                          </TableHead>
+                          <TableHead className='w-20 text-center'>
+                            Trừ buổi
+                          </TableHead>
+                          <TableHead className='w-16 text-center'>
+                            Sửa
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody className='text-xs'>
                         {filteredSessions.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={10} className='h-28 text-center text-muted-foreground'>
+                            <TableCell
+                              colSpan={10}
+                              className='h-28 text-center text-muted-foreground'
+                            >
                               Không có buổi học nào thỏa mãn bộ lọc đã chọn.
                             </TableCell>
                           </TableRow>
                         ) : (
                           filteredSessions.map((buoi) => (
-                            <TableRow key={buoi.diemDanhId} className='hover:bg-muted/40 transition-colors'>
+                            <TableRow
+                              key={buoi.diemDanhId}
+                              className='hover:bg-muted/40 transition-colors'
+                            >
                               <TableCell className='text-center font-mono text-muted-foreground'>
                                 {buoi.stt}
                               </TableCell>
                               <TableCell className='font-medium whitespace-nowrap'>
-                                {buoi.ngay} <span className='text-muted-foreground'>({buoi.gioBatDau?.slice(0, 5)})</span>
+                                {buoi.ngay}{' '}
+                                <span className='text-muted-foreground'>
+                                  ({buoi.gioBatDau?.slice(0, 5)})
+                                </span>
                               </TableCell>
-                              <TableCell className='font-medium'>{buoi.lopTen}</TableCell>
+                              <TableCell className='font-medium'>
+                                {buoi.lopTen}
+                              </TableCell>
                               <TableCell className='text-center'>
                                 <StatusBadge
                                   tone={
-                                    buoi.trangThai === 'co_mat' || buoi.trangThai === 'hoc_bu'
+                                    buoi.trangThai === 'co_mat' ||
+                                    buoi.trangThai === 'hoc_bu'
                                       ? 'success'
                                       : buoi.trangThai === 'vang_co_phep'
                                         ? 'warning'
@@ -1070,13 +1354,17 @@ export default function DoiSoatPage(): ReactElement {
                                 {buoi.daLamBtvn ? '✅' : '❌'}
                               </TableCell>
                               <TableCell className='text-center font-bold'>
-                                {buoi.yThucDiem != null ? `${buoi.yThucDiem}/10` : '—'}
+                                {buoi.yThucDiem != null
+                                  ? `${buoi.yThucDiem}/10`
+                                  : '—'}
                               </TableCell>
                               <TableCell className='min-w-[280px] max-w-[420px] break-words whitespace-normal leading-relaxed text-foreground'>
                                 {buoi.nhanXet ? (
                                   <span>{buoi.nhanXet}</span>
                                 ) : (
-                                  <span className='text-muted-foreground italic'>Chưa có nhận xét</span>
+                                  <span className='text-muted-foreground italic'>
+                                    Chưa có nhận xét
+                                  </span>
                                 )}
                               </TableCell>
                               <TableCell className='w-52 min-w-[200px]'>
@@ -1091,7 +1379,9 @@ export default function DoiSoatPage(): ReactElement {
                                 )}
                               </TableCell>
                               <TableCell className='text-center font-bold text-destructive'>
-                                {buoi.soBuoiDaTru > 0 ? `-${buoi.soBuoiDaTru}` : '0'}
+                                {buoi.soBuoiDaTru > 0
+                                  ? `-${buoi.soBuoiDaTru}`
+                                  : '0'}
                               </TableCell>
                               <TableCell className='text-center'>
                                 <Button
@@ -1122,7 +1412,10 @@ export default function DoiSoatPage(): ReactElement {
                 </TabsContent>
 
                 {/* TAB 3: KỲ NỘP HỌC PHÍ */}
-                <TabsContent value='tuition' className='mt-4 flex flex-col gap-4'>
+                <TabsContent
+                  value='tuition'
+                  className='mt-4 flex flex-col gap-4'
+                >
                   <div className='overflow-x-auto rounded-lg border bg-card shadow-sm'>
                     <Table>
                       <TableHeader className='bg-muted/60'>
@@ -1131,34 +1424,65 @@ export default function DoiSoatPage(): ReactElement {
                           <TableHead>Ngày nộp</TableHead>
                           <TableHead className='text-center'>Số buổi</TableHead>
                           <TableHead className='text-right'>Đơn giá</TableHead>
-                          <TableHead className='text-right'>Thành tiền</TableHead>
+                          <TableHead className='text-right'>
+                            Thành tiền
+                          </TableHead>
                           <TableHead className='text-right'>Đã nộp</TableHead>
                           <TableHead className='text-right'>Còn nợ</TableHead>
-                          <TableHead className='text-center'>Trạng thái</TableHead>
+                          <TableHead className='text-center'>
+                            Trạng thái
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody className='text-xs'>
                         {studentDetail.cacKyNop.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={8} className='h-24 text-center text-muted-foreground'>
+                            <TableCell
+                              colSpan={8}
+                              className='h-24 text-center text-muted-foreground'
+                            >
                               Chưa có gói học phí nào.
                             </TableCell>
                           </TableRow>
                         ) : (
                           studentDetail.cacKyNop.map((ky) => (
                             <TableRow key={ky.id}>
-                              <TableCell className='font-bold text-foreground'>{ky.tenKy}</TableCell>
+                              <TableCell className='font-bold text-foreground'>
+                                {ky.tenKy}
+                              </TableCell>
                               <TableCell>{ky.ngayMua || '—'}</TableCell>
-                              <TableCell className='text-center font-bold'>{ky.soBuoi}</TableCell>
-                              <TableCell className='text-right'>{fmt(ky.donGia)} đ</TableCell>
-                              <TableCell className='text-right font-semibold'>{fmt(ky.thanhTien)} đ</TableCell>
-                              <TableCell className='text-right text-emerald-600 font-bold'>{fmt(ky.daThanhToan)} đ</TableCell>
-                              <TableCell className={`text-right font-bold ${ky.conNo > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                              <TableCell className='text-center font-bold'>
+                                {ky.soBuoi}
+                              </TableCell>
+                              <TableCell className='text-right'>
+                                {fmt(ky.donGia)} đ
+                              </TableCell>
+                              <TableCell className='text-right font-semibold'>
+                                {fmt(ky.thanhTien)} đ
+                              </TableCell>
+                              <TableCell className='text-right text-emerald-600 font-bold'>
+                                {fmt(ky.daThanhToan)} đ
+                              </TableCell>
+                              <TableCell
+                                className={`text-right font-bold ${ky.conNo > 0 ? 'text-destructive' : 'text-muted-foreground'}`}
+                              >
                                 {ky.conNo > 0 ? `${fmt(ky.conNo)} đ` : '0 đ'}
                               </TableCell>
                               <TableCell className='text-center'>
-                                <StatusBadge tone={ky.conNo === 0 ? 'success' : ky.daThanhToan > 0 ? 'warning' : 'neutral'}>
-                                  {ky.conNo === 0 ? 'Đã đóng đủ' : ky.daThanhToan > 0 ? 'Đóng một phần' : 'Chưa đóng'}
+                                <StatusBadge
+                                  tone={
+                                    ky.conNo === 0
+                                      ? 'success'
+                                      : ky.daThanhToan > 0
+                                        ? 'warning'
+                                        : 'neutral'
+                                  }
+                                >
+                                  {ky.conNo === 0
+                                    ? 'Đã đóng đủ'
+                                    : ky.daThanhToan > 0
+                                      ? 'Đóng một phần'
+                                      : 'Chưa đóng'}
                                 </StatusBadge>
                               </TableCell>
                             </TableRow>
@@ -1177,30 +1501,49 @@ export default function DoiSoatPage(): ReactElement {
                         <TableRow className='text-xs font-semibold'>
                           <TableHead>Tên đầu sách / Giáo trình</TableHead>
                           <TableHead>Ngày phát</TableHead>
-                          <TableHead className='text-center'>Số lượng</TableHead>
+                          <TableHead className='text-center'>
+                            Số lượng
+                          </TableHead>
                           <TableHead className='text-right'>Giá bìa</TableHead>
                           <TableHead className='text-right'>Ưu đãi</TableHead>
-                          <TableHead className='text-right'>Thành tiền</TableHead>
+                          <TableHead className='text-right'>
+                            Thành tiền
+                          </TableHead>
                           <TableHead>Ghi chú</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody className='text-xs'>
                         {studentDetail.sachDaPhat.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={7} className='h-24 text-center text-muted-foreground'>
+                            <TableCell
+                              colSpan={7}
+                              className='h-24 text-center text-muted-foreground'
+                            >
                               Học viên chưa nhận đầu sách nào.
                             </TableCell>
                           </TableRow>
                         ) : (
                           studentDetail.sachDaPhat.map((sach) => (
                             <TableRow key={sach.id}>
-                              <TableCell className='font-bold text-foreground'>{sach.tenSach}</TableCell>
+                              <TableCell className='font-bold text-foreground'>
+                                {sach.tenSach}
+                              </TableCell>
                               <TableCell>{sach.ngayPhat || '—'}</TableCell>
-                              <TableCell className='text-center'>{sach.soLuong}</TableCell>
-                              <TableCell className='text-right'>{fmt(sach.giaBia)} đ</TableCell>
-                              <TableCell className='text-right text-emerald-600'>{fmt(sach.uuDai)} đ</TableCell>
-                              <TableCell className='text-right font-bold'>{fmt(sach.thanhTien)} đ</TableCell>
-                              <TableCell className='text-muted-foreground'>{sach.ghiChu || '—'}</TableCell>
+                              <TableCell className='text-center'>
+                                {sach.soLuong}
+                              </TableCell>
+                              <TableCell className='text-right'>
+                                {fmt(sach.giaBia)} đ
+                              </TableCell>
+                              <TableCell className='text-right text-emerald-600'>
+                                {fmt(sach.uuDai)} đ
+                              </TableCell>
+                              <TableCell className='text-right font-bold'>
+                                {fmt(sach.thanhTien)} đ
+                              </TableCell>
+                              <TableCell className='text-muted-foreground'>
+                                {sach.ghiChu || '—'}
+                              </TableCell>
                             </TableRow>
                           ))
                         )}
@@ -1216,29 +1559,47 @@ export default function DoiSoatPage(): ReactElement {
               MODAL SỬA NHANH BUỔI HỌC (QUICK EDIT DIALOG)
              ========================================================================= */}
           {editSession ? (
-            <Dialog open onOpenChange={(open) => { if (!open) setEditSession(null); }}>
+            <Dialog
+              open
+              onOpenChange={(open) => {
+                if (!open) setEditSession(null);
+              }}
+            >
               <DialogContent className='max-w-lg'>
                 <DialogHeader>
                   <DialogTitle className='text-lg font-bold flex items-center gap-2'>
-                    <Edit3 className='size-5 text-primary' /> Sửa thông tin buổi học
+                    <Edit3 className='size-5 text-primary' /> Sửa thông tin buổi
+                    học
                   </DialogTitle>
                   <DialogDescription>
-                    Buổi học ngày: <strong>{editSession.ngay}</strong> · Lớp: <strong>{editSession.lopTen}</strong>
+                    Buổi học ngày: <strong>{editSession.ngay}</strong> · Lớp:{' '}
+                    <strong>{editSession.lopTen}</strong>
                   </DialogDescription>
                 </DialogHeader>
 
                 <div className='flex flex-col gap-4 py-3 text-sm'>
                   <div className='flex flex-col gap-1.5'>
-                    <label className='font-semibold text-xs text-foreground'>Trạng thái điểm danh</label>
+                    <label className='font-semibold text-xs text-foreground'>
+                      Trạng thái điểm danh
+                    </label>
                     <select
                       value={editSession.trangThai}
-                      onChange={(e) => setEditSession({ ...editSession, trangThai: e.target.value })}
+                      onChange={(e) =>
+                        setEditSession({
+                          ...editSession,
+                          trangThai: e.target.value,
+                        })
+                      }
                       className='h-9 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
                     >
                       <option value='co_mat'>🟢 Có mặt (Trừ 1 buổi)</option>
                       <option value='hoc_bu'>🟢 Học bù (Trừ 1 buổi)</option>
-                      <option value='vang_co_phep'>🟡 Vắng có phép (Không trừ buổi)</option>
-                      <option value='vang_khong_phep'>🔴 Vắng không phép (Trừ 1 buổi)</option>
+                      <option value='vang_co_phep'>
+                        🟡 Vắng có phép (Không trừ buổi)
+                      </option>
+                      <option value='vang_khong_phep'>
+                        🔴 Vắng không phép (Trừ 1 buổi)
+                      </option>
                     </select>
                   </div>
 
@@ -1247,16 +1608,26 @@ export default function DoiSoatPage(): ReactElement {
                       type='checkbox'
                       id='edit-btvn'
                       checked={editSession.daLamBtvn}
-                      onChange={(e) => setEditSession({ ...editSession, daLamBtvn: e.target.checked })}
+                      onChange={(e) =>
+                        setEditSession({
+                          ...editSession,
+                          daLamBtvn: e.target.checked,
+                        })
+                      }
                       className='size-4 rounded border-input'
                     />
-                    <label htmlFor='edit-btvn' className='text-sm font-medium cursor-pointer'>
+                    <label
+                      htmlFor='edit-btvn'
+                      className='text-sm font-medium cursor-pointer'
+                    >
                       Đã làm bài tập về nhà (BTVN)
                     </label>
                   </div>
 
                   <div className='flex flex-col gap-1.5'>
-                    <label className='font-semibold text-xs text-foreground'>Điểm ý thức học tập (0 - 10)</label>
+                    <label className='font-semibold text-xs text-foreground'>
+                      Điểm ý thức học tập (0 - 10)
+                    </label>
                     <Input
                       type='number'
                       min={0}
@@ -1266,7 +1637,8 @@ export default function DoiSoatPage(): ReactElement {
                       onChange={(e) =>
                         setEditSession({
                           ...editSession,
-                          yThucDiem: e.target.value === '' ? '' : Number(e.target.value),
+                          yThucDiem:
+                            e.target.value === '' ? '' : Number(e.target.value),
                         })
                       }
                       className='h-9 text-sm'
@@ -1274,19 +1646,29 @@ export default function DoiSoatPage(): ReactElement {
                   </div>
 
                   <div className='flex flex-col gap-1.5'>
-                    <label className='font-semibold text-xs text-foreground'>Nhận xét của giáo viên</label>
+                    <label className='font-semibold text-xs text-foreground'>
+                      Nhận xét của giáo viên
+                    </label>
                     <textarea
                       rows={3}
                       placeholder='Nhập nhận xét chi tiết về buổi học...'
                       value={editSession.nhanXet}
-                      onChange={(e) => setEditSession({ ...editSession, nhanXet: e.target.value })}
+                      onChange={(e) =>
+                        setEditSession({
+                          ...editSession,
+                          nhanXet: e.target.value,
+                        })
+                      }
                       className='w-full rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring'
                     />
                   </div>
                 </div>
 
                 <DialogFooter>
-                  <Button variant='outline' onClick={() => setEditSession(null)}>
+                  <Button
+                    variant='outline'
+                    onClick={() => setEditSession(null)}
+                  >
                     Hủy bỏ
                   </Button>
                   <Button
@@ -1307,58 +1689,135 @@ export default function DoiSoatPage(): ReactElement {
           {studentDetail ? (
             <div className='hidden print:block font-serif text-black p-6'>
               <div className='text-center border-b-2 border-black pb-4 mb-4'>
-                <h1 className='text-2xl font-bold uppercase tracking-wider'>CLB CỜ VUA DƯƠNG SINH</h1>
-                <p className='text-xs italic'>Hệ thống đào tạo cờ vua chuẩn thi đấu - Hotline: 0989.xxx.xxx</p>
-                <h2 className='text-xl font-bold uppercase mt-3'>BẢNG KÊ ĐỐI SOÁT BUỔI HỌC & HỌC PHÍ</h2>
+                <h1 className='text-2xl font-bold uppercase tracking-wider'>
+                  CLB CỜ VUA DƯƠNG SINH
+                </h1>
+                <p className='text-xs italic'>
+                  Hệ thống đào tạo cờ vua chuẩn thi đấu - Hotline: 0989.xxx.xxx
+                </p>
+                <h2 className='text-xl font-bold uppercase mt-3'>
+                  BẢNG KÊ ĐỐI SOÁT BUỔI HỌC & HỌC PHÍ
+                </h2>
               </div>
 
               <div className='grid grid-cols-2 gap-4 text-xs mb-4'>
                 <div>
-                  <p>Học viên: <strong>{studentDetail.hocVien.hoTen}</strong> (Mã: {studentDetail.hocVien.ma})</p>
-                  <p>Lớp học: <strong>{studentDetail.hocVien.lopTen || '—'}</strong> · Cơ sở: <strong>{studentDetail.hocVien.coSoTen || '—'}</strong></p>
+                  <p>
+                    Học viên: <strong>{studentDetail.hocVien.hoTen}</strong>{' '}
+                    (Mã: {studentDetail.hocVien.ma})
+                  </p>
+                  <p>
+                    Lớp học:{' '}
+                    <strong>{studentDetail.hocVien.lopTen || '—'}</strong> · Cơ
+                    sở: <strong>{studentDetail.hocVien.coSoTen || '—'}</strong>
+                  </p>
                 </div>
                 <div>
-                  <p>Phụ huynh: <strong>{studentDetail.hocVien.phuHuynh?.hoTen || '—'}</strong></p>
-                  <p>Số điện thoại: <strong>{studentDetail.hocVien.phuHuynh?.soDienThoai || '—'}</strong></p>
+                  <p>
+                    Phụ huynh:{' '}
+                    <strong>
+                      {studentDetail.hocVien.phuHuynh?.hoTen || '—'}
+                    </strong>
+                  </p>
+                  <p>
+                    Số điện thoại:{' '}
+                    <strong>
+                      {studentDetail.hocVien.phuHuynh?.soDienThoai || '—'}
+                    </strong>
+                  </p>
                 </div>
               </div>
 
               <div className='border border-black p-3 mb-4 text-xs'>
-                <h3 className='font-bold uppercase mb-2'>TỔNG HỢP SỐ BUỔI & HỌC PHÍ</h3>
+                <h3 className='font-bold uppercase mb-2'>
+                  TỔNG HỢP SỐ BUỔI & HỌC PHÍ
+                </h3>
                 <div className='grid grid-cols-3 gap-2'>
-                  <p>Tổng buổi nộp: <strong>{studentDetail.tongHop.tongSoBuoiDaMua} buổi</strong></p>
-                  <p>Tổng buổi đã học: <strong>{studentDetail.tongHop.tongSoBuoiDaHoc} buổi</strong></p>
-                  <p>Số buổi còn lại: <strong>{studentDetail.tongHop.soBuoiConLai} buổi</strong></p>
-                  <p>Học phí đã nộp: <strong>{fmt(studentDetail.tongHop.tongDaThanhToan)} đ</strong></p>
-                  <p>Học phí còn nợ: <strong>{fmt(studentDetail.tongHop.tongConNo)} đ</strong></p>
-                  <p>Quỹ tiền sách: <strong>{fmt(studentDetail.tongHop.tienSachTon)} đ</strong></p>
+                  <p>
+                    Tổng buổi nộp:{' '}
+                    <strong>
+                      {studentDetail.tongHop.tongSoBuoiDaMua} buổi
+                    </strong>
+                  </p>
+                  <p>
+                    Tổng buổi đã học:{' '}
+                    <strong>
+                      {studentDetail.tongHop.tongSoBuoiDaHoc} buổi
+                    </strong>
+                  </p>
+                  <p>
+                    Số buổi còn lại:{' '}
+                    <strong>{studentDetail.tongHop.soBuoiConLai} buổi</strong>
+                  </p>
+                  <p>
+                    Học phí đã nộp:{' '}
+                    <strong>
+                      {fmt(studentDetail.tongHop.tongDaThanhToan)} đ
+                    </strong>
+                  </p>
+                  <p>
+                    Học phí còn nợ:{' '}
+                    <strong>{fmt(studentDetail.tongHop.tongConNo)} đ</strong>
+                  </p>
+                  <p>
+                    Quỹ tiền sách:{' '}
+                    <strong>{fmt(studentDetail.tongHop.tienSachTon)} đ</strong>
+                  </p>
                 </div>
               </div>
 
-              <h3 className='font-bold uppercase text-xs mb-2'>CHI TIẾT LỊCH SỬ CÁC BUỔI ĐIỂM DANH</h3>
+              <h3 className='font-bold uppercase text-xs mb-2'>
+                CHI TIẾT LỊCH SỬ CÁC BUỔI ĐIỂM DANH
+              </h3>
               <table className='w-full border-collapse border border-black text-[11px] mb-8'>
                 <thead>
                   <tr className='bg-gray-100'>
-                    <th className='border border-black p-1 text-center w-8'>STT</th>
-                    <th className='border border-black p-1 text-left'>Ngày & Giờ</th>
+                    <th className='border border-black p-1 text-center w-8'>
+                      STT
+                    </th>
+                    <th className='border border-black p-1 text-left'>
+                      Ngày & Giờ
+                    </th>
                     <th className='border border-black p-1 text-left'>Lớp</th>
-                    <th className='border border-black p-1 text-center'>Trạng thái</th>
-                    <th className='border border-black p-1 text-center'>Ý thức</th>
-                    <th className='border border-black p-1 text-left'>Nhận xét của giáo viên</th>
-                    <th className='border border-black p-1 text-center'>Trừ buổi</th>
+                    <th className='border border-black p-1 text-center'>
+                      Trạng thái
+                    </th>
+                    <th className='border border-black p-1 text-center'>
+                      Ý thức
+                    </th>
+                    <th className='border border-black p-1 text-left'>
+                      Nhận xét của giáo viên
+                    </th>
+                    <th className='border border-black p-1 text-center'>
+                      Trừ buổi
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {studentDetail.danhSachBuoiHoc.map((b, idx) => (
                     <tr key={b.diemDanhId}>
-                      <td className='border border-black p-1 text-center'>{idx + 1}</td>
-                      <td className='border border-black p-1'>{b.ngay} ({b.gioBatDau?.slice(0, 5)})</td>
+                      <td className='border border-black p-1 text-center'>
+                        {idx + 1}
+                      </td>
+                      <td className='border border-black p-1'>
+                        {b.ngay} ({b.gioBatDau?.slice(0, 5)})
+                      </td>
                       <td className='border border-black p-1'>{b.lopTen}</td>
                       <td className='border border-black p-1 text-center'>
-                        {b.trangThai === 'co_mat' ? 'Có mặt' : b.trangThai === 'hoc_bu' ? 'Học bù' : b.trangThai === 'vang_co_phep' ? 'Vắng có phép' : 'Vắng không phép'}
+                        {b.trangThai === 'co_mat'
+                          ? 'Có mặt'
+                          : b.trangThai === 'hoc_bu'
+                            ? 'Học bù'
+                            : b.trangThai === 'vang_co_phep'
+                              ? 'Vắng có phép'
+                              : 'Vắng không phép'}
                       </td>
-                      <td className='border border-black p-1 text-center'>{b.yThucDiem != null ? `${b.yThucDiem}/10` : '—'}</td>
-                      <td className='border border-black p-1'>{b.nhanXet || '—'}</td>
+                      <td className='border border-black p-1 text-center'>
+                        {b.yThucDiem != null ? `${b.yThucDiem}/10` : '—'}
+                      </td>
+                      <td className='border border-black p-1'>
+                        {b.nhanXet || '—'}
+                      </td>
                       <td className='border border-black p-1 text-center font-bold'>
                         {b.soBuoiDaTru > 0 ? `-${b.soBuoiDaTru}` : '0'}
                       </td>
@@ -1370,12 +1829,16 @@ export default function DoiSoatPage(): ReactElement {
               <div className='grid grid-cols-2 text-center text-xs mt-8 pt-4'>
                 <div>
                   <p className='font-bold uppercase'>ĐẠI DIỆN TRUNG TÂM</p>
-                  <p className='italic text-[10px]'>(Ký, đóng dấu và ghi rõ họ tên)</p>
+                  <p className='italic text-[10px]'>
+                    (Ký, đóng dấu và ghi rõ họ tên)
+                  </p>
                   <div className='h-20' />
                 </div>
                 <div>
                   <p className='font-bold uppercase'>PHỤ HUYNH HỌC VIÊN</p>
-                  <p className='italic text-[10px]'>(Ký và ghi rõ họ tên xác nhận đối soát)</p>
+                  <p className='italic text-[10px]'>
+                    (Ký và ghi rõ họ tên xác nhận đối soát)
+                  </p>
                   <div className='h-20' />
                 </div>
               </div>

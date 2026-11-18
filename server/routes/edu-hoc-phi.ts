@@ -649,13 +649,17 @@ export default [
     // --- Student full audit trail (Tuition cycles, sessions, books) --------------------------------------------
     router.post(
       '/hocVien/doiSoatTongThe',
-      declare('Full audit trail of sessions, tuition cycles and books', 'studentAuditTrail'),
+      declare(
+        'Full audit trail of sessions, tuition cycles and books',
+        'studentAuditTrail',
+      ),
       needs('edu.hocVien', 'view'),
       apiValidator('json', DoiSoatInput),
       async (c) => {
         const input = c.req.valid('json');
         const hocVienId = input.hocVienId;
-        const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view')).eduHocVien;
+        const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view'))
+          .eduHocVien;
         const connection = database.connection();
         const student = studentPolicy
           ? await database
@@ -663,7 +667,8 @@ export default [
               .withPolicy(studentPolicy)
               .findOne({ filter: { id: hocVienId } })
           : null;
-        if (!student) throw notFound('EDU_STUDENT_NOT_FOUND', 'Student not found.');
+        if (!student)
+          throw notFound('EDU_STUDENT_NOT_FOUND', 'Student not found.');
 
         let lopTen: string | null = null;
         if (student.lopId) {
@@ -739,7 +744,10 @@ export default [
         ];
         const sessions = await sessionsOf(connection, attendanceIds);
         const sessionTime = new Map(
-          [...sessions].map(([id, info]) => [id, `${info.ngay} ${info.gioBatDau}`]),
+          [...sessions].map(([id, info]) => [
+            id,
+            `${info.ngay} ${info.gioBatDau}`,
+          ]),
         );
 
         const { deductions, adjustments } = fromLedger(
@@ -761,12 +769,17 @@ export default [
             ngayMua: asText(row.ngayMua),
             thuTu: Number(row.id),
             hieuLuc: asText(row.trangThai) === 'hieu_luc',
-            loai: asText(row.loai) === 'chuyen_so_du' ? ('chuyen_so_du' as const) : ('mua' as const),
+            loai:
+              asText(row.loai) === 'chuyen_so_du'
+                ? ('chuyen_so_du' as const)
+                : ('mua' as const),
           })),
           ...adjustments,
         ];
         const fifoResult = allocateFifo(inputs, deductions);
-        const fifoByGoi = new Map(fifoResult.cacGoi.map((g) => [g.goiHocId, g]));
+        const fifoByGoi = new Map(
+          fifoResult.cacGoi.map((g) => [g.goiHocId, g]),
+        );
 
         const attendanceRows = await connection.query
           .selectFrom('eduDiemDanh')
@@ -825,12 +838,18 @@ export default [
           0,
         );
         const tienSachTon = tongTienSachDaNop - tongTienSachDaPhat;
-        const tongSoBuoiDaMua = packages.reduce((sum, p) => sum + Number(p.soBuoi), 0);
+        const tongSoBuoiDaMua = packages.reduce(
+          (sum, p) => sum + Number(p.soBuoi),
+          0,
+        );
         const tongSoBuoiDaHoc = attendanceRows.reduce(
           (sum, a) => sum + Number(a.soBuoiDaTru),
           0,
         );
-        const vuotSoDu = fifoResult.vuotSoDu.reduce((sum, e) => sum + e.soBuoi, 0);
+        const vuotSoDu = fifoResult.vuotSoDu.reduce(
+          (sum, e) => sum + e.soBuoi,
+          0,
+        );
 
         return c.json({
           data: {
@@ -865,7 +884,8 @@ export default [
               soLuong: 1,
               giaBia: Number(b.giaBia),
               thanhTien: Number(b.tienSach),
-              trangThaiThanhToan: tienSachTon >= 0 ? 'da_thanh_toan' : 'chua_thanh_toan',
+              trangThaiThanhToan:
+                tienSachTon >= 0 ? 'da_thanh_toan' : 'chua_thanh_toan',
             })),
             danhSachBuoiHoc: attendanceRows.map((a) => ({
               diemDanhId: Number(a.diemDanhId),

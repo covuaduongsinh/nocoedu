@@ -171,7 +171,13 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     10,
     () => import('./pages/edu/ho-so-gv.js'),
   ),
-  ...eduPage('sach', '/sach', BookOpen, 11, () => import('./pages/edu/sach.js')),
+  ...eduPage(
+    'sach',
+    '/sach',
+    BookOpen,
+    11,
+    () => import('./pages/edu/sach.js'),
+  ),
   ...eduPage(
     'phatSach',
     '/phat-sach',

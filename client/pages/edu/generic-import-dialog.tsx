@@ -1,5 +1,12 @@
 import { useApiClient } from '@nocobase/app-client';
-import { AlertCircle, CheckCircle2, Download, FileSpreadsheet, Loader2, Upload } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Download,
+  FileSpreadsheet,
+  Loader2,
+  Upload,
+} from 'lucide-react';
 import { useState, type ReactElement } from 'react';
 
 import { Button } from '#components/ui/button';
@@ -82,7 +89,9 @@ export function GenericImportDialog({
     try {
       setBusy('template');
       setErrorMessage(undefined);
-      const res = await api.request<{ data: { entity: string; name: string; csv: string } }>({
+      const res = await api.request<{
+        data: { entity: string; name: string; csv: string };
+      }>({
         path: `/edu/import/mau/${entity}`,
         method: 'GET',
       });
@@ -171,7 +180,12 @@ export function GenericImportDialog({
 
   return (
     <>
-      <Button variant={variant} size='sm' onClick={() => setOpen(true)} className='gap-2 shadow-sm font-medium'>
+      <Button
+        variant={variant}
+        size='sm'
+        onClick={() => setOpen(true)}
+        className='gap-2 shadow-sm font-medium'
+      >
         <Upload className='h-4 w-4' />
         {buttonLabel}
       </Button>
@@ -184,7 +198,8 @@ export function GenericImportDialog({
               {title}
             </DialogTitle>
             <DialogDescription>
-              Tải mẫu CSV chuẩn, điền dữ liệu theo các cột quy định, sau đó tải lên để hệ thống tự động kiểm tra và nhập liệu.
+              Tải mẫu CSV chuẩn, điền dữ liệu theo các cột quy định, sau đó tải
+              lên để hệ thống tự động kiểm tra và nhập liệu.
             </DialogDescription>
           </DialogHeader>
 
@@ -192,9 +207,12 @@ export function GenericImportDialog({
             {/* Bước 1: Tải mẫu */}
             <div className='bg-muted/40 rounded-lg p-4 border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3'>
               <div>
-                <p className='font-semibold text-sm'>Bước 1: Tải file mẫu CSV</p>
+                <p className='font-semibold text-sm'>
+                  Bước 1: Tải file mẫu CSV
+                </p>
                 <p className='text-xs text-muted-foreground mt-0.5'>
-                  File mẫu chứa đúng định dạng cột và dữ liệu minh họa chuẩn tiếng Việt (UTF-8).
+                  File mẫu chứa đúng định dạng cột và dữ liệu minh họa chuẩn
+                  tiếng Việt (UTF-8).
                 </p>
               </div>
               <Button
@@ -232,14 +250,19 @@ export function GenericImportDialog({
                     disabled={busy === 'preview'}
                     className='gap-2 shrink-0 bg-primary font-semibold'
                   >
-                    {busy === 'preview' && <Loader2 className='h-4 w-4 animate-spin' />}
+                    {busy === 'preview' && (
+                      <Loader2 className='h-4 w-4 animate-spin' />
+                    )}
                     Kiểm tra dữ liệu
                   </Button>
                 )}
               </div>
               {fileName && (
                 <p className='text-xs text-muted-foreground'>
-                  Đã nạp file: <span className='font-medium text-foreground'>{fileName}</span>
+                  Đã nạp file:{' '}
+                  <span className='font-medium text-foreground'>
+                    {fileName}
+                  </span>
                 </p>
               )}
             </div>
@@ -258,7 +281,9 @@ export function GenericImportDialog({
                 <CheckCircle2 className='h-5 w-5 shrink-0' />
                 <div className='space-y-1'>
                   <p className='font-semibold'>{successMessage}</p>
-                  <p className='text-xs'>Dữ liệu đã được nạp thành công và cập nhật vào hệ thống.</p>
+                  <p className='text-xs'>
+                    Dữ liệu đã được nạp thành công và cập nhật vào hệ thống.
+                  </p>
                 </div>
               </div>
             )}
@@ -267,7 +292,9 @@ export function GenericImportDialog({
             {preview && (
               <div className='space-y-3 border rounded-lg p-4 bg-card'>
                 <div className='flex items-center justify-between pb-2 border-b'>
-                  <p className='font-semibold text-sm'>Bước 3: Kết quả kiểm tra dữ liệu</p>
+                  <p className='font-semibold text-sm'>
+                    Bước 3: Kết quả kiểm tra dữ liệu
+                  </p>
                   <div className='flex items-center gap-2 text-xs'>
                     <span className='px-2 py-0.5 rounded bg-muted font-medium'>
                       Tổng: {preview.totalRows} dòng
@@ -288,7 +315,9 @@ export function GenericImportDialog({
                     <div
                       key={r.line}
                       className={`p-2.5 flex items-start gap-2.5 ${
-                        r.isValid ? 'bg-background hover:bg-muted/40' : 'bg-destructive/5'
+                        r.isValid
+                          ? 'bg-background hover:bg-muted/40'
+                          : 'bg-destructive/5'
                       }`}
                     >
                       <div className='pt-0.5'>
@@ -300,7 +329,9 @@ export function GenericImportDialog({
                       </div>
                       <div className='flex-1 space-y-1'>
                         <div className='flex items-center gap-2'>
-                          <span className='font-mono font-bold text-muted-foreground'>Dòng {r.line}:</span>
+                          <span className='font-mono font-bold text-muted-foreground'>
+                            Dòng {r.line}:
+                          </span>
                           <span className='font-medium text-foreground'>
                             {Object.entries(r.data)
                               .slice(0, 3)
@@ -331,7 +362,9 @@ export function GenericImportDialog({
                 disabled={busy === 'commit'}
                 className='gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold'
               >
-                {busy === 'commit' && <Loader2 className='h-4 w-4 animate-spin' />}
+                {busy === 'commit' && (
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                )}
                 Xác nhận nạp {preview.validCount} dòng hợp lệ
               </Button>
             )}

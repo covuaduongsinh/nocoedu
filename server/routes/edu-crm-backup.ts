@@ -476,10 +476,7 @@ export default [
                 toWrite[table] ?? [],
                 RESTORE_BATCH,
               )) {
-                await connection.query
-                  .insertInto(table)
-                  .values(part)
-                  .execute();
+                await connection.query.insertInto(table).values(part).execute();
               }
             }
             sequencesReset = await resetSequences(

@@ -4,16 +4,16 @@ PR #43 (Giai đoạn 0 của `2026-11-17-tai-cau-truc-nocoedu.md`) đã sửa c�
 
 ## 1. Kết luận: việc nào cần, việc nào không
 
-| # | Mục | Cần không | Khi nào | Công sức |
-|---|---|---|---|---|
-| A | Đặt `EDU_CRM_WEBHOOK_TOKEN` + cập nhật NocoCRM; coi mã cũ đã lộ | **Bắt buộc** | Trước khi triển khai PR #43 | ~30 phút (vận hành) |
-| B | Chạy thử thủ công 3 vai (Quản trị, QL cơ sở, HLV) | **Bắt buộc** | Trước khi triển khai | ~1 giờ |
-| C | Chạy bộ test trên PostgreSQL | **Bắt buộc** | Trước khi triển khai (bản chạy thật dùng PostgreSQL) | ~½ ngày |
-| D | Bản sao lưu đủ bảng + khôi phục an toàn | **Bắt buộc nếu còn dùng làm sao lưu duy nhất**; nếu không, vẫn nên làm trước GĐ 1 | Phiên riêng, trước GĐ 3 (GĐ 3 thêm bảng mới) | ~1 ngày |
-| E | Đưa CI về xanh (nợ lint) | Nên làm, không chặn triển khai | PR riêng, trước GĐ 1 | ~1–2 ngày |
-| F | Hiệu năng trang Đối soát với dữ liệu thật | Nên đo; chỉ sửa nếu chậm | Sau B, C | ~2 giờ đo |
-| G | Test học phí đang kiểm tra tìm kiếm phía client, không phân trang server | **Không cần** làm riêng | Đã nằm trong GĐ 1 (mục 3.3) | — |
-| H | Tệp cũ lệch prettier | **Không cần** làm lẻ | PR chỉ định dạng, sau khi GĐ 1–2 merge | ~30 phút |
+| #   | Mục                                                                      | Cần không                                                                         | Khi nào                                              | Công sức            |
+| --- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------- |
+| A   | Đặt `EDU_CRM_WEBHOOK_TOKEN` + cập nhật NocoCRM; coi mã cũ đã lộ          | **Bắt buộc**                                                                      | Trước khi triển khai PR #43                          | ~30 phút (vận hành) |
+| B   | Chạy thử thủ công 3 vai (Quản trị, QL cơ sở, HLV)                        | **Bắt buộc**                                                                      | Trước khi triển khai                                 | ~1 giờ              |
+| C   | Chạy bộ test trên PostgreSQL                                             | **Bắt buộc**                                                                      | Trước khi triển khai (bản chạy thật dùng PostgreSQL) | ~½ ngày             |
+| D   | Bản sao lưu đủ bảng + khôi phục an toàn                                  | **Bắt buộc nếu còn dùng làm sao lưu duy nhất**; nếu không, vẫn nên làm trước GĐ 1 | Phiên riêng, trước GĐ 3 (GĐ 3 thêm bảng mới)         | ~1 ngày             |
+| E   | Đưa CI về xanh (nợ lint)                                                 | Nên làm, không chặn triển khai                                                    | PR riêng, trước GĐ 1                                 | ~1–2 ngày           |
+| F   | Hiệu năng trang Đối soát với dữ liệu thật                                | Nên đo; chỉ sửa nếu chậm                                                          | Sau B, C                                             | ~2 giờ đo           |
+| G   | Test học phí đang kiểm tra tìm kiếm phía client, không phân trang server | **Không cần** làm riêng                                                           | Đã nằm trong GĐ 1 (mục 3.3)                          | —                   |
+| H   | Tệp cũ lệch prettier                                                     | **Không cần** làm lẻ                                                              | PR chỉ định dạng, sau khi GĐ 1–2 merge               | ~30 phút            |
 
 Lý do ngắn:
 
@@ -36,18 +36,18 @@ Lý do ngắn:
 
 Chạy `pnpm dev`, dùng địa chỉ `Local:` in ra. Với dữ liệu mẫu (`APP_SAMPLE_DATA`, tên "Học viên Mẫu"), đăng nhập lần lượt và đi qua bảng sau. Ghi kết quả vào mô tả PR #43.
 
-| Việc kiểm tra | Quản trị | QL cơ sở | HLV |
-|---|---|---|---|
-| Menu "Sao lưu dữ liệu" | thấy | **không thấy** | **không thấy** |
-| Tải sao lưu JSON; khôi phục (gõ xác nhận) | được | — | — |
-| Đối soát: bảng tổng | cả hai cơ sở | chỉ cơ sở mình | không vào được (không có quyền trang) |
-| Đối soát: mở một em, sửa nhanh một buổi (đổi trạng thái) | số dư đổi 1 buổi, có dòng sổ nhật ký | như Quản trị, trong cơ sở mình | — |
-| Điểm danh: nút "Xuất CSV" | thấy; file mở được trong Excel, tên có dấu đúng | thấy; chỉ cơ sở mình | **không thấy** |
-| Học phí: nút "Xuất CSV" | thấy | thấy | không vào được |
-| Nhập CSV điểm danh / gói học | được | chỉ cơ sở mình | điểm danh: chỉ lớp mình |
-| Gọi trực tiếp API khi sai vai (ví dụ HLV gọi `/api/heThong/backup/exportJson`) | — | — | 403 |
-| Tuyển sinh: hộp "Kết nối NocoCRM" | không còn mã bí mật; có hướng dẫn biến môi trường | | |
-| Trang chủ: lối tắt "Hồ sơ giáo viên" | mở được `/giao-vien` | | |
+| Việc kiểm tra                                                                  | Quản trị                                          | QL cơ sở                       | HLV                                   |
+| ------------------------------------------------------------------------------ | ------------------------------------------------- | ------------------------------ | ------------------------------------- |
+| Menu "Sao lưu dữ liệu"                                                         | thấy                                              | **không thấy**                 | **không thấy**                        |
+| Tải sao lưu JSON; khôi phục (gõ xác nhận)                                      | được                                              | —                              | —                                     |
+| Đối soát: bảng tổng                                                            | cả hai cơ sở                                      | chỉ cơ sở mình                 | không vào được (không có quyền trang) |
+| Đối soát: mở một em, sửa nhanh một buổi (đổi trạng thái)                       | số dư đổi 1 buổi, có dòng sổ nhật ký              | như Quản trị, trong cơ sở mình | —                                     |
+| Điểm danh: nút "Xuất CSV"                                                      | thấy; file mở được trong Excel, tên có dấu đúng   | thấy; chỉ cơ sở mình           | **không thấy**                        |
+| Học phí: nút "Xuất CSV"                                                        | thấy                                              | thấy                           | không vào được                        |
+| Nhập CSV điểm danh / gói học                                                   | được                                              | chỉ cơ sở mình                 | điểm danh: chỉ lớp mình               |
+| Gọi trực tiếp API khi sai vai (ví dụ HLV gọi `/api/heThong/backup/exportJson`) | —                                                 | —                              | 403                                   |
+| Tuyển sinh: hộp "Kết nối NocoCRM"                                              | không còn mã bí mật; có hướng dẫn biến môi trường |                                |                                       |
+| Trang chủ: lối tắt "Hồ sơ giáo viên"                                           | mở được `/giao-vien`                              |                                |                                       |
 
 **Xong khi:** mọi ô đúng như bảng; lỗi nào phát hiện được sửa trong PR #43 (kèm test) hoặc ghi thành việc riêng.
 
@@ -119,12 +119,12 @@ Mỗi PR theo quy tắc chung của kế hoạch tổng: test trong `tests/`, ch
 
 ## 9. Đã quyết và còn mở
 
-| Điều | Trạng thái |
-|---|---|
-| Bản chạy thật dùng PostgreSQL | **Đã xác nhận** (Thầy Tường). Mục C bắt buộc. |
-| Làm D (sao lưu đủ bảng), E (CI xanh), F (đo hiệu năng) | **Đã đồng ý** làm trước các giai đoạn sau. |
+| Điều                                                         | Trạng thái                                         |
+| ------------------------------------------------------------ | -------------------------------------------------- |
+| Bản chạy thật dùng PostgreSQL                                | **Đã xác nhận** (Thầy Tường). Mục C bắt buộc.      |
+| Làm D (sao lưu đủ bảng), E (CI xanh), F (đo hiệu năng)       | **Đã đồng ý** làm trước các giai đoạn sau.         |
 | Sao lưu JSON trong app có đang là bản sao lưu duy nhất không | **Chưa rõ** — xem mục 10 để kiểm tra trên máy chủ. |
-| Ai thêm job PostgreSQL vào CI, bật check bắt buộc | Đề xuất ở mục 11. |
+| Ai thêm job PostgreSQL vào CI, bật check bắt buộc            | Đề xuất ở mục 11.                                  |
 
 ## 10. Kiểm tra: sao lưu JSON có là bản sao lưu duy nhất không
 
@@ -157,14 +157,14 @@ Không cấp quyền `workflows` cho ứng dụng tự động. Một ứng dụ
 
 1. **Job PostgreSQL.** Mở tệp `.github/workflows/ds-check.yml` trên GitHub → bút chì (Edit) → dán job `postgres` từ `docs/ci-postgres-job.md` vào dưới `jobs:`. Danh sách tệp test trong bước cuối của job: thay bằng danh sách ở mục C (tệp của GĐ 0 và các tệp cũ) sau khi chúng đã pass trên PostgreSQL cục bộ. Chọn "Create a new branch and start a pull request" → mở PR; CI chạy bằng chính tệp mới trong PR đó.
 2. **Chờ job `postgres` xanh** trong PR. Nếu đỏ: gửi log cho phiên làm việc để sửa test hoặc mã (không ép qua).
-3. **Chỉ sau khi cả `check` (mục E) và `postgres` xanh** mới bật check bắt buộc, nếu không mọi PR bị chặn: *Settings → Rules → Rulesets → New ruleset → New branch ruleset*:
-   - Name: `main`; Enforcement: **Active**; Target: *Default branch*.
-   - **Require a pull request before merging**: số phê duyệt **0** (chỉ có một admin, đặt 1 thì không tự merge được); bật *Require conversation resolution*.
-   - **Require status checks to pass**: thêm `check` và `postgres` (tên đúng như hiện trong tab Checks của PR); bật *Require branches to be up to date*.
+3. **Chỉ sau khi cả `check` (mục E) và `postgres` xanh** mới bật check bắt buộc, nếu không mọi PR bị chặn: _Settings → Rules → Rulesets → New ruleset → New branch ruleset_:
+   - Name: `main`; Enforcement: **Active**; Target: _Default branch_.
+   - **Require a pull request before merging**: số phê duyệt **0** (chỉ có một admin, đặt 1 thì không tự merge được); bật _Require conversation resolution_.
+   - **Require status checks to pass**: thêm `check` và `postgres` (tên đúng như hiện trong tab Checks của PR); bật _Require branches to be up to date_.
    - **Block force pushes** và **Restrict deletions**.
-   - Bypass list: để trống (kỷ luật tốt hơn); chỉ khi khẩn cấp mới tạm chuyển Enforcement sang *Disabled*.
-4. **Bảo mật tài khoản chủ repo** (vì đây là điểm duy nhất): bật xác thực hai lớp (2FA) và khoá khôi phục; *Settings → Code security*: bật **Secret scanning** và **Push protection** (miễn phí cho repo công khai). Lịch sử git vẫn chứa mã `nocoedu-crm-secret` cũ nên mã đó phải xoay vòng (mục A), không dựa vào việc xoá khỏi lịch sử.
-5. **Actions**: *Settings → Actions → General*: Workflow permissions = *Read repository contents*; Fork pull request workflows = *Require approval for first-time contributors* (repo công khai, chống chạy mã lạ).
+   - Bypass list: để trống (kỷ luật tốt hơn); chỉ khi khẩn cấp mới tạm chuyển Enforcement sang _Disabled_.
+4. **Bảo mật tài khoản chủ repo** (vì đây là điểm duy nhất): bật xác thực hai lớp (2FA) và khoá khôi phục; _Settings → Code security_: bật **Secret scanning** và **Push protection** (miễn phí cho repo công khai). Lịch sử git vẫn chứa mã `nocoedu-crm-secret` cũ nên mã đó phải xoay vòng (mục A), không dựa vào việc xoá khỏi lịch sử.
+5. **Actions**: _Settings → Actions → General_: Workflow permissions = _Read repository contents_; Fork pull request workflows = _Require approval for first-time contributors_ (repo công khai, chống chạy mã lạ).
 
 ### Phương án khác (chỉ khi cần)
 

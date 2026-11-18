@@ -16,7 +16,14 @@ import {
 import { Textarea } from '#components/ui/textarea';
 
 import { SelectField, TextField } from './form-parts.js';
-import { post, text, todayVn, useErrorMessage, useRows, type Row } from './kit.js';
+import {
+  post,
+  text,
+  todayVn,
+  useErrorMessage,
+  useRows,
+  type Row,
+} from './kit.js';
 
 /**
  * Monthly comments. A coach writes one comment per student for the month; "Export text" builds the message to paste
@@ -293,7 +300,9 @@ export default function NhanXetPage(): ReactElement {
                       onClick={() => void generateAiReview(student)}
                       className='h-7 text-xs font-medium gap-1 bg-violet-600 hover:bg-violet-700 text-white'
                     >
-                      {aiLoading[student.id] ? '⏳ Đang phân tích...' : '✨ AI Gợi ý nhận xét'}
+                      {aiLoading[student.id]
+                        ? '⏳ Đang phân tích...'
+                        : '✨ AI Gợi ý nhận xét'}
                     </Button>
                   ) : null}
                 </div>
@@ -326,7 +335,10 @@ export default function NhanXetPage(): ReactElement {
                       </span>
                     ) : null}
                     {status[student.id] === 'error' ? (
-                      <span role='alert' className='text-xs font-medium text-destructive'>
+                      <span
+                        role='alert'
+                        className='text-xs font-medium text-destructive'
+                      >
                         {t('edu.common.saveError')}
                       </span>
                     ) : null}
@@ -386,7 +398,8 @@ export default function NhanXetPage(): ReactElement {
             <DialogDescription>
               {historyModal ? (
                 <span>
-                  Học viên: <strong>{text(historyModal.student.hoTen)}</strong> ({text(historyModal.student.ma)})
+                  Học viên: <strong>{text(historyModal.student.hoTen)}</strong>{' '}
+                  ({text(historyModal.student.ma)})
                 </span>
               ) : null}
             </DialogDescription>
@@ -397,27 +410,40 @@ export default function NhanXetPage(): ReactElement {
               {/* Thống kê chỉ số */}
               <div className='grid grid-cols-2 gap-2 sm:grid-cols-4'>
                 <div className='rounded-md border bg-muted/40 p-2 text-center'>
-                  <span className='block text-[11px] text-muted-foreground'>Số buổi tham gia</span>
+                  <span className='block text-[11px] text-muted-foreground'>
+                    Số buổi tham gia
+                  </span>
                   <span className='font-bold text-sm text-foreground'>
-                    {historyModal.data.thongKe.soBuoiCoMat}/{historyModal.data.thongKe.tongBuoi} buổi
+                    {historyModal.data.thongKe.soBuoiCoMat}/
+                    {historyModal.data.thongKe.tongBuoi} buổi
                   </span>
                 </div>
                 <div className='rounded-md border bg-muted/40 p-2 text-center'>
-                  <span className='block text-[11px] text-muted-foreground'>Số buổi vắng</span>
-                  <span className={`font-bold text-sm ${historyModal.data.thongKe.soBuoiVang > 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                  <span className='block text-[11px] text-muted-foreground'>
+                    Số buổi vắng
+                  </span>
+                  <span
+                    className={`font-bold text-sm ${historyModal.data.thongKe.soBuoiVang > 0 ? 'text-destructive' : 'text-emerald-600'}`}
+                  >
                     {historyModal.data.thongKe.soBuoiVang} buổi
                   </span>
                 </div>
                 <div className='rounded-md border bg-muted/40 p-2 text-center'>
-                  <span className='block text-[11px] text-muted-foreground'>Tỷ lệ làm BTVN</span>
+                  <span className='block text-[11px] text-muted-foreground'>
+                    Tỷ lệ làm BTVN
+                  </span>
                   <span className='font-bold text-sm text-primary'>
                     {historyModal.data.thongKe.tyLeLamBtvn}%
                   </span>
                 </div>
                 <div className='rounded-md border bg-muted/40 p-2 text-center'>
-                  <span className='block text-[11px] text-muted-foreground'>Điểm ý thức TB</span>
+                  <span className='block text-[11px] text-muted-foreground'>
+                    Điểm ý thức TB
+                  </span>
                   <span className='font-bold text-sm text-amber-600'>
-                    {historyModal.data.thongKe.diemYThucTb != null ? `${historyModal.data.thongKe.diemYThucTb}/10` : '—'}
+                    {historyModal.data.thongKe.diemYThucTb != null
+                      ? `${historyModal.data.thongKe.diemYThucTb}/10`
+                      : '—'}
                   </span>
                 </div>
               </div>
@@ -440,22 +466,43 @@ export default function NhanXetPage(): ReactElement {
                       >
                         <div className='flex items-center justify-between font-medium'>
                           <span className='text-foreground font-semibold'>
-                            📅 {buoi.ngay} ({buoi.gioBatDau?.slice(0, 5)}) · {buoi.lopTen}
+                            📅 {buoi.ngay} ({buoi.gioBatDau?.slice(0, 5)}) ·{' '}
+                            {buoi.lopTen}
                           </span>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                            buoi.trangThai === 'co_mat' || buoi.trangThai === 'hoc_bu'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-destructive/10 text-destructive'
-                          }`}>
-                            {buoi.trangThai === 'co_mat' ? 'Có mặt' : buoi.trangThai === 'hoc_bu' ? 'Học bù' : 'Vắng'}
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                              buoi.trangThai === 'co_mat' ||
+                              buoi.trangThai === 'hoc_bu'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-destructive/10 text-destructive'
+                            }`}
+                          >
+                            {buoi.trangThai === 'co_mat'
+                              ? 'Có mặt'
+                              : buoi.trangThai === 'hoc_bu'
+                                ? 'Học bù'
+                                : 'Vắng'}
                           </span>
                         </div>
                         <div className='flex items-center gap-3 text-muted-foreground text-[11px]'>
-                          <span>BTVN: {buoi.daLamBtvn ? '✅ Đã làm' : '❌ Chưa làm'}</span>
-                          {buoi.yThucDiem != null ? <span>Ý thức: <strong>{buoi.yThucDiem}/10</strong></span> : null}
+                          <span>
+                            BTVN: {buoi.daLamBtvn ? '✅ Đã làm' : '❌ Chưa làm'}
+                          </span>
+                          {buoi.yThucDiem != null ? (
+                            <span>
+                              Ý thức: <strong>{buoi.yThucDiem}/10</strong>
+                            </span>
+                          ) : null}
                         </div>
                         <div className='mt-1 rounded bg-muted/50 p-2 text-foreground font-sans'>
-                          💬 {buoi.nhanXet ? buoi.nhanXet : <em className='text-muted-foreground'>Không có ghi chú riêng</em>}
+                          💬{' '}
+                          {buoi.nhanXet ? (
+                            buoi.nhanXet
+                          ) : (
+                            <em className='text-muted-foreground'>
+                              Không có ghi chú riêng
+                            </em>
+                          )}
                         </div>
                       </div>
                     ))}

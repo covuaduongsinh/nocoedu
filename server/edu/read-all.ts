@@ -25,9 +25,7 @@ export async function readAllRows(
   filter?: unknown,
   max = 5000,
 ): Promise<Row[]> {
-  const repository = database
-    .repository(collection)
-    .withPolicy(policy) as {
+  const repository = database.repository(collection).withPolicy(policy) as {
     findMany(input: unknown): Promise<Row[]>;
   };
   const rows: Row[] = [];
