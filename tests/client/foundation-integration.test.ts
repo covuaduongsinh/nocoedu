@@ -16,6 +16,7 @@ const eduMenu = [
   'edu-nhomHangNgay',
   'edu-nhomHocVien',
   'edu-nhomHocPhiSach',
+  'edu-nhomChuyenMon',
   'edu-nhomDanhMuc',
   'edu-baoCao',
 ];

@@ -245,6 +245,7 @@ describe('System settings navigation', () => {
       ['edu-nhomHangNgay', ['edu-diemDanh', 'edu-nhanXet', 'edu-tuyenSinh']],
       ['edu-nhomHocVien', ['edu-hocVien', 'edu-hoSo360']],
       ['edu-nhomHocPhiSach', ['edu-hocPhi', 'edu-doi-soat', 'edu-phatSach']],
+      ['edu-nhomChuyenMon', ['edu-chuongTrinh', 'edu-kienThuc']],
       ['edu-nhomDanhMuc', ['edu-lop', 'edu-coSo', 'edu-hoSoGv', 'edu-sach']],
       ['edu-baoCao', []],
       ['settingsHome', []],

@@ -104,9 +104,9 @@ export const EDU_KIEN_THUC_ROWS: readonly (readonly [
   // The gaps
   [
     'kt.gapsHint',
-    'Kỹ năng đã dạy trong buổi mà em vắng, hoặc đã chấm “Chưa vững”. Em học bù hoặc được chấm lại thì kỹ năng tự biến mất khỏi danh sách.',
-    'Skills taught in a session the student missed, or graded “Not solid yet”. Once the student makes up the lesson or is graded again, the skill leaves this list.',
-    '学员缺席的课次中教授的技能，或被评为“未掌握”的技能。补课或重新评定后，该技能会自动从列表中消失。',
+    'Kỹ năng đã dạy trong buổi mà em vắng, hoặc đã chấm “Chưa vững”. Em học bù hoặc được chấm lại thì kỹ năng tự biến mất khỏi danh sách. Em vào lớp sau buổi dạy (không có dòng điểm danh ở buổi đó) không bị tính là lỗ hổng.',
+    'Skills taught in a session the student missed, or graded “Not solid yet”. Once the student makes up the lesson or is graded again, the skill leaves this list. A student who joined after the lesson (no register row for that session) is not counted.',
+    '学员缺席的课次中教授的技能，或被评为“未掌握”的技能。补课或重新评定后，该技能会自动从列表中消失。课后才入班的学员（该课次没有点名记录）不计入。',
   ],
   [
     'kt.gapsTotal',
