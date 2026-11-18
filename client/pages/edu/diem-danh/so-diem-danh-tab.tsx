@@ -45,7 +45,10 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '#components/ui/tabs';
 
 import { MetricCard } from '../edu-ui-parts.js';
+import { FilterSelect } from '../filter-select.js';
+import { formatTime } from '../format.js';
 import { Pager } from '../list-page.js';
+import { useUrlState } from '../url-state.js';
 import {
   PAGE_SIZE,
   text,
@@ -110,59 +113,50 @@ type Loaded =
   | { readonly state: 'error'; readonly error: unknown }
   | { readonly state: 'ready'; readonly value: Register };
 
-/** The state of the register, read from the URL so a link or a refresh shows the same list. */
+/** The state of the register, kept in the address (`useUrlState`) so a link or a refresh shows the same list. */
 function useRegisterParams() {
-  const [params, setParams] = useSearchParams();
+  const { values, set } = useUrlState({
+    ky: '',
+    ngay: '',
+    tu: '',
+    den: '',
+    xem: 'buoi',
+    coSo: '',
+    lop: '',
+    gv: '',
+    hv: '',
+    tt: '',
+  });
   const today = todayVn();
-  const kindParam = params.get('ky') as PeriodKind | null;
-  const kind: PeriodKind =
-    kindParam && PERIOD_KINDS.includes(kindParam) ? kindParam : DEFAULT_KIND;
-  const anchorParam = params.get('ngay');
-  const anchor = isDay(anchorParam) ? anchorParam : today;
-  const from = params.get('tu');
-  const to = params.get('den');
+  const kind: PeriodKind = PERIOD_KINDS.includes(values.ky as PeriodKind)
+    ? (values.ky as PeriodKind)
+    : DEFAULT_KIND;
+  const anchor = isDay(values.ngay) ? values.ngay : today;
   const custom: Period | undefined =
-    isDay(from) && isDay(to) ? { from, to } : undefined;
+    isDay(values.tu) && isDay(values.den)
+      ? { from: values.tu, to: values.den }
+      : undefined;
   const period: Period =
     kind === 'tuyChon'
       ? (custom ?? { from: addDays(today, -6), to: today })
       : periodOf(kind, anchor);
-  const viewParam = params.get('xem') as View | null;
-  const view: View =
-    viewParam && VIEWS.includes(viewParam) ? viewParam : 'buoi';
-  const number = (key: string): number | undefined => {
-    const value = Number(params.get(key));
-    return Number.isInteger(value) && value > 0 ? value : undefined;
+  const view: View = VIEWS.includes(values.xem as View)
+    ? (values.xem as View)
+    : 'buoi';
+  const number = (value: string): number | undefined => {
+    const id = Number(value);
+    return Number.isInteger(id) && id > 0 ? id : undefined;
   };
-  const status = params.get('tt');
   const filters = {
-    coSoId: number('coSo'),
-    lopId: number('lop'),
-    hlvId: params.get('gv') || undefined,
-    hocVienId: number('hv'),
-    trangThai:
-      status && (STATUSES as readonly string[]).includes(status)
-        ? status
-        : undefined,
+    coSoId: number(values.coSo),
+    lopId: number(values.lop),
+    hlvId: values.gv || undefined,
+    hocVienId: number(values.hv),
+    trangThai: (STATUSES as readonly string[]).includes(values.tt)
+      ? values.tt
+      : undefined,
   };
-  /** Changes some parameters (`undefined` removes one) and returns to the first page. */
-  const update = useCallback(
-    (patch: Record<string, string | undefined>) =>
-      setParams(
-        (old) => {
-          const next = new URLSearchParams(old);
-          for (const [key, value] of Object.entries(patch)) {
-            if (value === undefined || value === '') next.delete(key);
-            else next.set(key, value);
-          }
-          next.delete('page');
-          return next;
-        },
-        { replace: true },
-      ),
-    [setParams],
-  );
-  return { kind, anchor, period, view, filters, today, update };
+  return { kind, anchor, period, view, filters, today, update: set };
 }
 
 function useRegisterData(body: Record<string, unknown> | null): {
@@ -200,27 +194,6 @@ function useRegisterData(body: Record<string, unknown> | null): {
   };
 }
 
-const FILTER_CLASS =
-  'h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm';
-
-function FilterBox(props: {
-  readonly id: string;
-  readonly label: string;
-  readonly children: ReactNode;
-}): ReactElement {
-  return (
-    <div className='min-w-40 flex-1'>
-      <label
-        htmlFor={props.id}
-        className='mb-1 block text-xs font-medium text-muted-foreground'
-      >
-        {props.label}
-      </label>
-      {props.children}
-    </div>
-  );
-}
-
 /** Finds a student by name or code and picks one; the choice is the `hv` parameter of the URL. */
 function StudentFilter(props: {
   readonly value: number | undefined;
@@ -246,7 +219,7 @@ function StudentFilter(props: {
 
   if (props.value) {
     return (
-      <div className='flex h-9 items-center justify-between gap-2 rounded-md border border-input bg-background px-2.5 text-sm'>
+      <div className='flex h-8 min-w-44 items-center justify-between gap-2 rounded-lg border border-input px-2.5 text-sm'>
         <span className='truncate'>
           {chosenRow ? text(chosenRow.hoTen) : `#${props.value}`}
         </span>
@@ -264,8 +237,8 @@ function StudentFilter(props: {
   return (
     <div className='relative'>
       <Input
-        id='so-filter-student'
-        className='h-9 text-sm'
+        aria-label={t('edu.diemDanh.so.f.student')}
+        className='h-8 w-56 text-sm'
         placeholder={t('edu.diemDanh.so.f.studentSearch')}
         value={search}
         onChange={(event) => setSearch(event.target.value)}
@@ -521,84 +494,54 @@ export function SoDiemDanhTab({
       ) : null}
 
       {/* Bộ lọc */}
-      <div className='flex flex-wrap items-end gap-3 rounded-xl border bg-card p-3'>
-        <FilterBox id='so-filter-branch' label={t('edu.diemDanh.so.f.branch')}>
-          <select
-            id='so-filter-branch'
-            className={FILTER_CLASS}
-            value={filters.coSoId ?? ''}
-            onChange={(event) =>
-              update({ coSo: event.target.value, lop: undefined })
-            }
-          >
-            <option value=''>{t('edu.diemDanh.so.f.allBranches')}</option>
-            {branchRows.map((row) => (
-              <option key={row.id} value={row.id}>
-                {text(row.ten)}
-              </option>
-            ))}
-          </select>
-        </FilterBox>
-        <FilterBox id='so-filter-class' label={t('edu.diemDanh.so.f.class')}>
-          <select
-            id='so-filter-class'
-            className={FILTER_CLASS}
-            value={filters.lopId ?? ''}
-            onChange={(event) => update({ lop: event.target.value })}
-          >
-            <option value=''>{t('edu.diemDanh.so.f.allClasses')}</option>
-            {classOptions.map((row) => (
-              <option key={row.id} value={row.id}>
-                {text(row.ten)}
-              </option>
-            ))}
-          </select>
-        </FilterBox>
-        <FilterBox
-          id='so-filter-teacher'
+      <div className='flex flex-wrap items-center gap-3 rounded-xl border bg-card p-3'>
+        <FilterSelect
+          label={t('edu.diemDanh.so.f.branch')}
+          allLabel={t('edu.diemDanh.so.f.allBranches')}
+          value={filters.coSoId ? String(filters.coSoId) : ''}
+          onChange={(coSo) => update({ coSo, lop: undefined })}
+          options={branchRows.map((row) => ({
+            value: String(row.id),
+            label: text(row.ten),
+          }))}
+        />
+        <FilterSelect
+          label={t('edu.diemDanh.so.f.class')}
+          allLabel={t('edu.diemDanh.so.f.allClasses')}
+          value={filters.lopId ? String(filters.lopId) : ''}
+          onChange={(lop) => update({ lop })}
+          options={classOptions.map((row) => ({
+            value: String(row.id),
+            label: text(row.ten),
+          }))}
+        />
+        <FilterSelect
           label={t('edu.diemDanh.so.f.teacher')}
-        >
-          <select
-            id='so-filter-teacher'
-            className={FILTER_CLASS}
-            value={filters.hlvId ?? ''}
-            onChange={(event) => update({ gv: event.target.value })}
-          >
-            <option value=''>{t('edu.diemDanh.so.f.allTeachers')}</option>
-            {teacherRows.map((row) => (
-              <option key={row.id} value={row.id}>
-                {row.ten}
-              </option>
-            ))}
-          </select>
-        </FilterBox>
-        <FilterBox
-          id='so-filter-student'
-          label={t('edu.diemDanh.so.f.student')}
-        >
-          <StudentFilter
-            value={filters.hocVienId}
-            onChange={(id) => update({ hv: id ? String(id) : undefined })}
-          />
-        </FilterBox>
-        <FilterBox id='so-filter-status' label={t('edu.diemDanh.so.f.status')}>
-          <select
-            id='so-filter-status'
-            className={FILTER_CLASS}
-            value={filters.trangThai ?? ''}
-            onChange={(event) => update({ tt: event.target.value })}
-          >
-            <option value=''>{t('edu.diemDanh.so.f.allStatuses')}</option>
-            {STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {t(`edu.diemDanh.s.${status}`)}
-              </option>
-            ))}
-          </select>
-        </FilterBox>
+          allLabel={t('edu.diemDanh.so.f.allTeachers')}
+          value={filters.hlvId ?? ''}
+          onChange={(gv) => update({ gv })}
+          options={teacherRows.map((row) => ({
+            value: row.id,
+            label: row.ten,
+          }))}
+        />
+        <StudentFilter
+          value={filters.hocVienId}
+          onChange={(id) => update({ hv: id ? String(id) : undefined })}
+        />
+        <FilterSelect
+          label={t('edu.diemDanh.so.f.status')}
+          allLabel={t('edu.diemDanh.so.f.allStatuses')}
+          value={filters.trangThai ?? ''}
+          onChange={(tt) => update({ tt })}
+          options={STATUSES.map((status) => ({
+            value: status,
+            label: t(`edu.diemDanh.s.${status}`),
+          }))}
+        />
         {/*
-          Phase 3 (class groups) adds the "Nhóm" filter here: one more FilterBox, the `nhom` URL parameter read in
-          `useRegisterParams`, and `nhomId` in the request body of `POST /diemDanh/traCuu`.
+          Phase 3 (class groups) adds the "Nhóm" filter here: one more FilterSelect, the `nhom` key of `useUrlState`
+          in `useRegisterParams`, and `nhomId` in the request body of `POST /diemDanh/traCuu`.
         */}
         {hasFilters ? (
           <Button
@@ -774,7 +717,7 @@ export function SoDiemDanhTab({
                         {displayDay(text(row.ngay))}
                       </RecordLink>
                     </TableCell>
-                    <TableCell>{text(row.gioBatDau)}</TableCell>
+                    <TableCell>{formatTime(row.gioBatDau)}</TableCell>
                     <TableCell>{className(row.lopId)}</TableCell>
                     <TableCell>
                       {row.hlvId

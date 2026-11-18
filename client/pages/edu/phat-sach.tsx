@@ -16,6 +16,7 @@ import {
 
 import { FormDialog, SelectField, TextField } from './form-parts.js';
 import { GenericImportDialog } from './generic-import-dialog.js';
+import { formatMoney } from './format.js';
 import {
   post,
   text,
@@ -36,8 +37,7 @@ interface Form {
   ghiChu: string;
 }
 
-const money = (value: unknown): string =>
-  Number(value ?? 0).toLocaleString('vi-VN');
+const money = formatMoney;
 
 interface FundRow {
   hocVienId: number;

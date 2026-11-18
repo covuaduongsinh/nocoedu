@@ -8,21 +8,23 @@ import {
   Building2,
   CalendarCheck,
   ClipboardCheck,
-  Database,
   GraduationCap,
   Home,
   UserPlus,
   UserCog,
   MessageSquareText,
+  ScanSearch,
   Users,
   Wallet,
 } from 'lucide-react';
 import systemSettingsRoutes from './pages/settings/routes.js';
+import eduSettingsRoutes from './pages/settings/edu-routes.js';
 import settingsShellRoutes from './pages/settings/shell-routes.js';
 import {
   defineAppRoutes,
   type AppClientRouteComponentLoader,
   type AppClientRouteContribution,
+  type AppClientRouteDefinition,
 } from '@nocobase/app-client/plugins';
 
 /**
@@ -63,6 +65,23 @@ function eduPage(
   ];
 }
 
+/**
+ * A section of the sidebar: a route with a title and children but no page of its own (the shape of
+ * `client/pages/settings/shell-routes.ts`). The pages inside keep their own names, paths and page grants, so grouping
+ * the menu never moves a stored grant. The title is `edu.nav.<id>`.
+ */
+function eduGroup(
+  id: 'nhomHangNgay' | 'nhomHocVien' | 'nhomHocPhiSach' | 'nhomDanhMuc',
+  order: number,
+  children: readonly AppClientRouteDefinition[],
+): AppClientRouteDefinition {
+  return {
+    name: `edu-${id}`,
+    navigation: { title: `edu.nav.${id}`, order },
+    children: [...children],
+  };
+}
+
 function eduDetailPage(
   id: 'lop' | 'hocVien',
   path: string,
@@ -94,109 +113,116 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     navigation: { title: 'edu.nav.home', icon: Home, order: 0 },
     path: '/',
   },
-  // --- NHÓM 1: VẬN HÀNH HÀNG NGÀY ----------------------------------------------------
-  ...eduPage(
-    'diemDanh',
-    '/diem-danh',
-    CalendarCheck,
-    1,
-    () => import('./pages/edu/diem-danh/index.js'),
-  ),
-  {
-    auth: 'required' as const,
-    authz: {
-      resource: { type: 'page' as const, id: 'edu.hocPhi' },
-      action: 'access',
+  // The sidebar is five sections (docs/plans/2026-11-17-tai-cau-truc-nocoedu.md, section 2): daily work, students,
+  // tuition and books, the catalogue, and the reports. Page ids, paths and `authz` are unchanged by the grouping.
+  eduGroup('nhomHangNgay', 10, [
+    ...eduPage(
+      'diemDanh',
+      '/diem-danh',
+      CalendarCheck,
+      1,
+      () => import('./pages/edu/diem-danh/index.js'),
+    ),
+    ...eduPage(
+      'nhanXet',
+      '/nhan-xet',
+      MessageSquareText,
+      2,
+      () => import('./pages/edu/nhan-xet.js'),
+    ),
+    ...eduPage(
+      'tuyenSinh',
+      '/tuyen-sinh',
+      UserPlus,
+      3,
+      () => import('./pages/edu/tuyen-sinh.js'),
+    ),
+  ]),
+  eduGroup('nhomHocVien', 20, [
+    ...eduPage(
+      'hocVien',
+      '/hoc-vien',
+      Users,
+      1,
+      () => import('./pages/edu/hoc-vien.js'),
+    ),
+    {
+      // Looking one student up in depth: it opens with the page grant of the student list.
+      auth: 'required' as const,
+      authz: {
+        resource: { type: 'page' as const, id: 'edu.hocVien' },
+        action: 'access',
+      },
+      componentLoader: () => import('./pages/edu/ho-so-360.js'),
+      name: 'edu-hoSo360',
+      navigation: { title: 'edu.nav.hoSo360', icon: ScanSearch, order: 2 },
+      path: '/ho-so-360',
     },
-    componentLoader: () => import('./pages/edu/doi-soat.js'),
-    name: 'edu-doi-soat',
-    navigation: { title: 'edu.nav.doiSoat', icon: ClipboardCheck, order: 2 },
-    path: '/doi-soat',
-  },
-  ...eduPage(
-    'hocPhi',
-    '/hoc-phi',
-    Wallet,
-    3,
-    () => import('./pages/edu/hoc-phi.js'),
-  ),
-  ...eduPage(
-    'nhanXet',
-    '/nhan-xet',
-    MessageSquareText,
-    4,
-    () => import('./pages/edu/nhan-xet.js'),
-  ),
-  ...eduPage(
-    'tuyenSinh',
-    '/tuyen-sinh',
-    UserPlus,
-    5,
-    () => import('./pages/edu/tuyen-sinh.js'),
-  ),
-  ...eduPage(
-    'hocVien',
-    '/hoc-vien',
-    Users,
-    6,
-    () => import('./pages/edu/hoc-vien.js'),
-  ),
+  ]),
+  eduGroup('nhomHocPhiSach', 30, [
+    ...eduPage(
+      'hocPhi',
+      '/hoc-phi',
+      Wallet,
+      1,
+      () => import('./pages/edu/hoc-phi.js'),
+    ),
+    {
+      auth: 'required' as const,
+      authz: {
+        resource: { type: 'page' as const, id: 'edu.hocPhi' },
+        action: 'access',
+      },
+      componentLoader: () => import('./pages/edu/doi-soat.js'),
+      name: 'edu-doi-soat',
+      navigation: { title: 'edu.nav.doiSoat', icon: ClipboardCheck, order: 2 },
+      path: '/doi-soat',
+    },
+    ...eduPage(
+      'phatSach',
+      '/phat-sach',
+      BookMarked,
+      3,
+      () => import('./pages/edu/phat-sach.js'),
+    ),
+  ]),
+  eduGroup('nhomDanhMuc', 40, [
+    ...eduPage(
+      'lop',
+      '/lop',
+      GraduationCap,
+      1,
+      () => import('./pages/edu/lop.js'),
+    ),
+    ...eduPage(
+      'coSo',
+      '/co-so',
+      Building2,
+      2,
+      () => import('./pages/edu/co-so.js'),
+    ),
+    ...eduPage(
+      'hoSoGv',
+      '/giao-vien',
+      UserCog,
+      3,
+      () => import('./pages/edu/ho-so-gv.js'),
+    ),
+    ...eduPage(
+      'sach',
+      '/sach',
+      BookOpen,
+      4,
+      () => import('./pages/edu/sach.js'),
+    ),
+  ]),
   ...eduPage(
     'baoCao',
     '/bao-cao',
     BarChart3,
-    7,
+    50,
     () => import('./pages/edu/bao-cao.js'),
   ),
-
-  // --- NHÓM 2: DANH MỤC & DỮ LIỆU (ÍT THAY ĐỔI) ---------------------------------------
-  ...eduPage(
-    'lop',
-    '/lop',
-    GraduationCap,
-    8,
-    () => import('./pages/edu/lop.js'),
-  ),
-  ...eduPage(
-    'coSo',
-    '/co-so',
-    Building2,
-    9,
-    () => import('./pages/edu/co-so.js'),
-  ),
-  ...eduPage(
-    'hoSoGv',
-    '/giao-vien',
-    UserCog,
-    10,
-    () => import('./pages/edu/ho-so-gv.js'),
-  ),
-  ...eduPage(
-    'sach',
-    '/sach',
-    BookOpen,
-    11,
-    () => import('./pages/edu/sach.js'),
-  ),
-  ...eduPage(
-    'phatSach',
-    '/phat-sach',
-    BookMarked,
-    12,
-    () => import('./pages/edu/phat-sach.js'),
-  ),
-  {
-    auth: 'required',
-    // Backup and restore of the whole database: the page grant is held by the administrator only, like the server action.
-    authz: {
-      resource: { type: 'page', id: 'edu.heThong' },
-      action: 'access',
-    },
-    componentLoader: () => import('./pages/edu/sao-luu.js'),
-    name: 'edu-sao-luu',
-    navigation: { title: 'edu.nav.saoLuu', icon: Database, order: 13 },
-    path: '/sao-luu',
-  },
 
   // Detail pages & secondary paths without sidebar navigation
   ...eduDetailPage(
@@ -207,7 +233,7 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
   ...eduDetailPage(
     'hocVien',
     '/hoc-vien/:id',
-    () => import('./pages/edu/hoc-vien-chi-tiet.js'),
+    () => import('./pages/edu/hoc-vien-chi-tiet/index.js'),
   ),
   {
     auth: 'required' as const,
@@ -275,7 +301,7 @@ export function createApplicationRoutes(
 ): readonly AppClientRouteContribution[] {
   const config = createAppClientConfig({ rawConfig });
   return includeNotificationTemplateRoutes(
-    [appRoutes, settingsShellRoutes, systemSettingsRoutes],
+    [appRoutes, settingsShellRoutes, systemSettingsRoutes, eduSettingsRoutes],
     config.get<boolean>('notificationTemplates.invitationConfigured') === true,
   );
 }

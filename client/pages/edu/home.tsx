@@ -48,6 +48,12 @@ interface Summary {
   homNay: SessionView[];
   chuaDiemDanh: SessionView[];
 }
+interface LowBalanceAnswer {
+  nguong: number;
+  tong: number;
+  hocVien: LowStudent[];
+}
+
 interface LowStudent {
   id: number;
   ma: string;
@@ -65,7 +71,8 @@ export default function EduHome(): ReactElement {
   const api = useApiClient();
   const navigate = useNavigate();
   const summary = useRequest<Summary>('/trangChu/tomTat', {});
-  const low = useRequest<LowStudent[]>('/soDu/canhBao', {});
+  // The same list and threshold as the "Cần thu" tab of the tuition page and the counters of the audit page.
+  const low = useRequest<LowBalanceAnswer>('/soDu/canhBao', { limit: 10 });
   const [counts, setCounts] = useState<{
     students: number | null;
     classes: number | null;
@@ -102,7 +109,9 @@ export default function EduHome(): ReactElement {
     summary.result.state === 'ready' ? summary.result.data.homNay : [];
   const unmarkedSessions =
     summary.result.state === 'ready' ? summary.result.data.chuaDiemDanh : [];
-  const lowStudents = low.result.state === 'ready' ? low.result.data : [];
+  const lowStudents =
+    low.result.state === 'ready' ? low.result.data.hocVien : [];
+  const lowTotal = low.result.state === 'ready' ? low.result.data.tong : 0;
 
   return (
     <PageContainer className='mx-auto max-w-6xl space-y-6'>
@@ -171,10 +180,10 @@ export default function EduHome(): ReactElement {
             />
             <MetricCard
               title={t('edu.home.low')}
-              value={lowStudents.length}
+              value={lowTotal}
               subtitle='Học viên còn ≤ 2 buổi'
               icon={AlertCircle}
-              tone={lowStudents.length > 0 ? 'warning' : 'neutral'}
+              tone={lowTotal > 0 ? 'warning' : 'neutral'}
               onClick={() => void navigate('/hoc-phi')}
             />
             <MetricCard
@@ -264,10 +273,10 @@ export default function EduHome(): ReactElement {
                         </CardDescription>
                       </div>
                       <Link
-                        to='/hoc-phi'
+                        to='/hoc-phi?tab=can-thu'
                         className='text-xs font-medium text-primary hover:underline'
                       >
-                        Xem tất cả học phí →
+                        {t('edu.home.lowAll', { count: lowTotal })}
                       </Link>
                     </div>
                   </CardHeader>

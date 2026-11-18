@@ -13,19 +13,11 @@ import {
 /** The sidebar of a signed-in person with every NocoEdu page granted. */
 const eduMenu = [
   'home',
-  'edu-diemDanh',
-  'edu-doi-soat',
-  'edu-hocPhi',
-  'edu-nhanXet',
-  'edu-tuyenSinh',
-  'edu-hocVien',
+  'edu-nhomHangNgay',
+  'edu-nhomHocVien',
+  'edu-nhomHocPhiSach',
+  'edu-nhomDanhMuc',
   'edu-baoCao',
-  'edu-lop',
-  'edu-coSo',
-  'edu-hoSoGv',
-  'edu-sach',
-  'edu-phatSach',
-  'edu-sao-luu',
 ];
 
 describe('default Foundation integration', () => {
@@ -62,12 +54,17 @@ describe('default Foundation integration', () => {
         ({ route }) => route.name,
       ),
     ).toEqual([...eduMenu, 'settingsHome']);
-    // Without Foundation the System settings still list Users and Permission management.
+    // Without Foundation the System settings still list Users and Permission management, and the backup card.
     expect(
       buildSettingsCatalog(runtime.routes, denied).map(
         (category) => category.route.name,
       ),
-    ).toEqual(['settingsAccount']);
+    ).toEqual(['settingsAccount', 'settingsSystem']);
+    expect(
+      buildSettingsCatalog(runtime.routes, denied)
+        .find((category) => category.route.name === 'settingsSystem')
+        ?.modules.map(({ route }) => route.name),
+    ).toEqual(['edu-sao-luu']);
     expect(
       serverPlugins.plugins.filter(
         (plugin) => plugin.packageName === '@nocobase/app-plugin-foundation',
@@ -99,7 +96,14 @@ describe('default Foundation integration', () => {
           ['permissionManagement', '/settings/roles'],
         ],
       ],
-      ['settingsSystem', [['foundation', '/foundation']]],
+      [
+        'settingsSystem',
+        [
+          // The backup of the whole database: a card here since phase 1, not a sidebar entry.
+          ['edu-sao-luu', '/settings/sao-luu'],
+          ['foundation', '/foundation'],
+        ],
+      ],
     ]);
   });
 });

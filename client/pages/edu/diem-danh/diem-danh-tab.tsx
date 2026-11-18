@@ -40,6 +40,7 @@ import {
 
 import { Field, FormDialog, SelectField, TextField } from '../form-parts.js';
 import { GenericImportDialog } from '../generic-import-dialog.js';
+import { formatTime } from '../format.js';
 import { Pager } from '../list-page.js';
 import {
   post,
@@ -51,6 +52,7 @@ import {
   useListState,
   type Row,
 } from '../kit.js';
+import { saveCsvStream } from '../download.js';
 import { addDays, daysIn, periodOf } from './periods.js';
 
 const STATUSES = [
@@ -405,15 +407,7 @@ export function DiemDanhTab({
           lopId: filterLop !== 'all' ? Number(filterLop) : undefined,
         },
       });
-      const blob = await new Response(stream).blob();
-      const url = URL.createObjectURL(
-        new Blob([blob], { type: 'text/csv;charset=utf-8' }),
-      );
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `diem-danh-${todayVn()}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveCsvStream(stream, `diem-danh-${todayVn()}.csv`);
     } catch (err) {
       console.error(err);
     }
@@ -467,7 +461,7 @@ export function DiemDanhTab({
     [],
   );
 
-  const timeOf = (row: Row): string => text(row.gioBatDau).slice(0, 5);
+  const timeOf = (row: Row): string => formatTime(row.gioBatDau);
 
   return (
     <PageContainer className='mx-auto max-w-5xl pb-24'>
@@ -586,7 +580,7 @@ export function DiemDanhTab({
                         <span className='flex items-center gap-1 font-medium'>
                           <Clock className='h-3.5 w-3.5 text-primary' />
                           {timeOf(row)} -{' '}
-                          {text(row.gioKetThuc).slice(0, 5) || '20:00'}
+                          {formatTime(row.gioKetThuc) || '20:00'}
                         </span>
                         <span className='font-semibold text-primary group-hover:underline'>
                           {isSelected

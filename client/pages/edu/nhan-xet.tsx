@@ -15,6 +15,7 @@ import {
 } from '#components/ui/dialog';
 import { Textarea } from '#components/ui/textarea';
 
+import { AttendanceStatusBadge } from './edu-ui-parts.js';
 import { SelectField, TextField } from './form-parts.js';
 import {
   post,
@@ -469,20 +470,10 @@ export default function NhanXetPage(): ReactElement {
                             📅 {buoi.ngay} ({buoi.gioBatDau?.slice(0, 5)}) ·{' '}
                             {buoi.lopTen}
                           </span>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                              buoi.trangThai === 'co_mat' ||
-                              buoi.trangThai === 'hoc_bu'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-destructive/10 text-destructive'
-                            }`}
-                          >
-                            {buoi.trangThai === 'co_mat'
-                              ? 'Có mặt'
-                              : buoi.trangThai === 'hoc_bu'
-                                ? 'Học bù'
-                                : 'Vắng'}
-                          </span>
+                          <AttendanceStatusBadge
+                            status={buoi.trangThai}
+                            size='sm'
+                          />
                         </div>
                         <div className='flex items-center gap-3 text-muted-foreground text-[11px]'>
                           <span>

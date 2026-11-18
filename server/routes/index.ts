@@ -17,6 +17,7 @@ import eduXuatCsv from './edu-xuat-csv.js';
 import eduTraCuu from './edu-tra-cuu.js';
 import eduDoiSoat from './edu-doi-soat.js';
 import eduDiemDanhTraCuu from './edu-diem-danh-tra-cuu.js';
+import eduHoSo from './edu-ho-so.js';
 import eduImportUniversal from './edu-import-universal.js';
 
 const routes: readonly AppRouteContribution<Application>[] = [
@@ -35,6 +36,7 @@ const routes: readonly AppRouteContribution<Application>[] = [
   ...eduTraCuu,
   ...eduDoiSoat,
   ...eduDiemDanhTraCuu,
+  ...eduHoSo,
   ...eduImportUniversal,
   ...eduExt,
 ];

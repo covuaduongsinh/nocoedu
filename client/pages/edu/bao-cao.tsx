@@ -17,6 +17,7 @@ import {
 } from '#components/ui/table';
 
 import { SelectField, TextField } from './form-parts.js';
+import { saveCsvStream } from './download.js';
 import { text, useRequest, useRows } from './kit.js';
 
 interface Report {
@@ -260,14 +261,7 @@ export default function BaoCaoPage(): ReactElement {
         method: 'POST',
         json: requestParams,
       });
-      const blob = await new Response(stream).blob();
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(
-        new Blob([blob], { type: 'text/csv;charset=utf-8' }),
-      );
-      link.download = `bao-cao-${kind}.csv`;
-      link.click();
-      URL.revokeObjectURL(link.href);
+      await saveCsvStream(stream, `bao-cao-${kind}.csv`);
     } catch {
       setFailed(true);
     }
