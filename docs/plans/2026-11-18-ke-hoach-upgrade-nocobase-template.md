@@ -131,9 +131,12 @@ Các file này mã nguồn trong NocoEdu hoàn toàn trùng khớp với BASE `1
   - Scoped tests (`client-routes`, `foundation-integration`, `settings-navigation`, `page-permission-titles`, `database-explorer`, `authorization-assignment-safety`, `edu-actions`, `internal-packages`, etc. passed)
   - `pnpm build` (passed)
 
-- [ ] **Bước 8: Hoàn tất nâng cấp và Đồng bộ Git/GitHub**
+- [x] **Bước 8: Hoàn tất nâng cấp và Đồng bộ Git/GitHub**
   - Cập nhật `defaultTemplateVersion: "1.0.0-beta.97"` trong `package.json` (đã xong).
-  - Commit các thay đổi trên nhánh `template-upgrade-1.0.0-beta.97`.
+  - Commit các thay đổi trên nhánh `template-upgrade-1.0.0-beta.97` (commit `f38874d`).
   - Checkout về `main`, merge nhánh nâng cấp vào `main`.
-  - Đẩy lên remote GitHub (`git push origin main`).
-  - Dọn dẹp thư mục tạm `.upgrade-workdir.txt` (đã xong).
+  - Fetch và giải quyết conflict với các commits mới nhất trên remote (`origin/main` PR #45, #47) trên 4 files: `client/routes.ts`, `tests/client/client-routes.test.ts`, `tests/client/foundation-integration.test.ts`, `tests/client/settings-navigation.test.ts`.
+  - Xác thực lại toàn bộ test client, `pnpm typecheck`, và `tests/server/authorization-assignment-safety.test.ts` đều passed 100%.
+  - Tạo merge commit (`3e5c962`) và đẩy thành công lên remote GitHub `covuaduongsinh/nocoedu` nhánh `main`.
+  - Dọn dẹp branch nâng cấp cục bộ `template-upgrade-1.0.0-beta.97`.
+
