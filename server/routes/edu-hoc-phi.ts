@@ -8,11 +8,17 @@ import {
   defineApiRoutes,
   describeRoute,
 } from '@nocobase/app-server/router';
-import { databaseManagerToken, type DatabaseManager } from '@nocobase/db';
+import { databaseManagerToken } from '@nocobase/db';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
+import {
+  balanceOf,
+  lockSessionRule,
+  moveBalance,
+  saveAttendanceRow,
+} from '../edu/balance.js';
 import { asText } from '../edu/names.js';
 import {
   allocateFifo,
@@ -21,12 +27,9 @@ import {
 } from '../edu/phan-bo-goi.js';
 import {
   ATTENDANCE_STATUSES,
-  asBoolean,
   datesBetween,
   isLowBalance,
   LOW_BALANCE_THRESHOLD,
-  sessionsToDeduct,
-  unexcusedAbsenceDeducts,
   todayVn,
   vietQrConfig,
   vietQrUrl,
@@ -268,54 +271,12 @@ export default [
             .select('coSoId')
             .where('id', '=', Number(session.lopId))
             .executeTakeFirstOrThrow();
-          const branch = await connection.query
-            .selectFrom('eduCoSo')
-            .select('truBuoiVangCoPhep')
-            .where('id', '=', Number(lop.coSoId))
-            .executeTakeFirstOrThrow();
-          // The rule in force is fixed on the session the first time its register is saved. A later change of the
-          // branch setting applies to the next sessions only, so saving an old register again never moves a balance.
-          const stored = await connection.query
-            .selectFrom('eduBuoiHoc')
-            .select(['truVangCoPhep', 'truVangKhongPhep'])
-            .where('id', '=', input.buoiHocId)
-            .executeTakeFirstOrThrow();
-          let excusedDeducts: boolean;
-          if (
-            stored.truVangCoPhep === null ||
-            stored.truVangCoPhep === undefined
-          ) {
-            excusedDeducts = asBoolean(branch.truBuoiVangCoPhep);
-            await connection.query
-              .updateTable('eduBuoiHoc')
-              .set({ truVangCoPhep: excusedDeducts })
-              .where('id', '=', input.buoiHocId)
-              .where('truVangCoPhep', 'is', null)
-              .execute();
-          } else {
-            excusedDeducts = asBoolean(stored.truVangCoPhep);
-          }
-          // The same for an absence without leave: `EDU_TRU_BUOI_VANG_KHONG_PHEP` is read once, on the first save of a
-          // session (DS-60). A session saved before this column existed (`null`) takes the setting on its next save, so
-          // turning the setting on later never reaches a register that was already marked.
-          let unexcusedDeducts: boolean;
-          if (
-            stored.truVangKhongPhep === null ||
-            stored.truVangKhongPhep === undefined
-          ) {
-            unexcusedDeducts = unexcusedAbsenceDeducts(process.env);
-            await connection.query
-              .updateTable('eduBuoiHoc')
-              .set({ truVangKhongPhep: unexcusedDeducts })
-              .where('id', '=', input.buoiHocId)
-              .where('truVangKhongPhep', 'is', null)
-              .execute();
-          } else {
-            unexcusedDeducts = asBoolean(stored.truVangKhongPhep);
-          }
-          const attendance = connection
-            .repository('eduDiemDanh')
-            .withPolicy(attendancePolicy);
+          // The rule in force is fixed on the session the first time its register is saved (see `lockSessionRule`).
+          const { excusedDeducts, unexcusedDeducts } = await lockSessionRule(
+            connection,
+            input.buoiHocId,
+            Number(lop.coSoId),
+          );
           const students = studentPolicy
             ? connection.repository('eduHocVien').withPolicy(studentPolicy)
             : null;
@@ -341,99 +302,25 @@ export default [
                 'danhSach',
               );
             }
-            const existing = await attendance.findOne({
-              filter: (f) =>
-                f.and([
-                  f.number('buoiHocId').eq(input.buoiHocId),
-                  f.number('hocVienId').eq(entry.hocVienId),
-                ]),
-            });
-            // A row imported from Lark that lies before the opening balance is already inside that balance: it is not a
-            // permission field, so it is read directly. Correcting such a row never moves the balance.
-            const countsTowardBalance = existing
-              ? await rowCountsTowardBalance(connection, Number(existing.id))
-              : true;
-            // An unchanged status keeps what was deducted (also for registers saved before the rule was stored).
-            const target =
-              existing &&
-              (existing.trangThai === entry.trangThai || !countsTowardBalance)
-                ? Number(existing.soBuoiDaTru)
-                : sessionsToDeduct(
-                    entry.trangThai,
-                    excusedDeducts,
-                    unexcusedDeducts,
-                  );
-            let diemDanhId: number;
-            let alreadyDeducted: number;
-            if (existing) {
-              diemDanhId = Number(existing.id);
-              alreadyDeducted = Number(existing.soBuoiDaTru);
-              // Guarded by the amount already deducted: a concurrent save that changed it matches no row.
-              const updated = await connection.query
-                .updateTable('eduDiemDanh')
-                .set({
-                  trangThai: entry.trangThai,
-                  daLamBtvn: entry.daLamBtvn,
-                  nhanXet: entry.nhanXet ?? null,
-                  soBuoiDaTru: target,
-                  nguoiDiemDanhId: userId,
-                })
-                .where('id', '=', diemDanhId)
-                .where('soBuoiDaTru', '=', alreadyDeducted)
-                .execute();
-              if (updated.updatedCount !== 1) throw conflict();
-            } else {
-              alreadyDeducted = 0;
-              try {
-                const created = await attendance.createOne({
-                  values: {
-                    buoiHocId: input.buoiHocId,
-                    hocVienId: entry.hocVienId,
-                    trangThai: entry.trangThai,
-                    daLamBtvn: entry.daLamBtvn,
-                    nhanXet: entry.nhanXet ?? null,
-                    soBuoiDaTru: target,
-                    nguoiDiemDanhId: userId,
-                  },
-                });
-                diemDanhId = Number(created.record.id);
-              } catch (error) {
-                // The unique pair (session, student) refuses a second row written at the same moment.
-                throw error instanceof Error &&
-                  /unique|duplicate/iu.test(error.message)
-                  ? conflict()
-                  : error;
-              }
-              if (!(await attendance.findOne({ filter: { id: diemDanhId } }))) {
-                throw eduError(
-                  'PERMISSION_DENIED',
-                  'EDU_OUT_OF_SCOPE',
-                  'You may not take attendance here.',
-                );
-              }
-            }
-
-            // Only the difference moves the balance, so saving the same register again changes nothing.
-            const difference = target - alreadyDeducted;
-            const before = await balanceOf(connection, entry.hocVienId);
-            let after = before;
-            if (difference !== 0) {
-              after = before - difference;
-              await moveBalance(connection, {
+            const saved = await saveAttendanceRow(
+              connection,
+              attendancePolicy,
+              {
+                buoiHocId: input.buoiHocId,
                 hocVienId: entry.hocVienId,
-                before,
-                after,
-                reason: difference > 0 ? 'diem_danh' : 'diem_danh_sua',
-                diemDanhId,
-                userId,
-              });
-            }
+                trangThai: entry.trangThai,
+                daLamBtvn: entry.daLamBtvn,
+                nhanXet: entry.nhanXet,
+              },
+              { excusedDeducts, unexcusedDeducts },
+              userId,
+            );
             rows.push({
               hocVienId: entry.hocVienId,
-              diemDanhId,
-              soBuoiDaTru: target,
-              soBuoiConLai: after,
-              canhBao: isLowBalance(after),
+              diemDanhId: saved.diemDanhId,
+              soBuoiDaTru: saved.soBuoiDaTru,
+              soBuoiConLai: saved.soBuoiConLai,
+              canhBao: isLowBalance(saved.soBuoiConLai),
             });
           }
           await connection.query
@@ -762,13 +649,17 @@ export default [
     // --- Student full audit trail (Tuition cycles, sessions, books) --------------------------------------------
     router.post(
       '/hocVien/doiSoatTongThe',
-      declare('Full audit trail of sessions, tuition cycles and books', 'studentAuditTrail'),
+      declare(
+        'Full audit trail of sessions, tuition cycles and books',
+        'studentAuditTrail',
+      ),
       needs('edu.hocVien', 'view'),
       apiValidator('json', DoiSoatInput),
       async (c) => {
         const input = c.req.valid('json');
         const hocVienId = input.hocVienId;
-        const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view')).eduHocVien;
+        const studentPolicy = (await policiesOf(c, 'edu.hocVien', 'view'))
+          .eduHocVien;
         const connection = database.connection();
         const student = studentPolicy
           ? await database
@@ -776,7 +667,8 @@ export default [
               .withPolicy(studentPolicy)
               .findOne({ filter: { id: hocVienId } })
           : null;
-        if (!student) throw notFound('EDU_STUDENT_NOT_FOUND', 'Student not found.');
+        if (!student)
+          throw notFound('EDU_STUDENT_NOT_FOUND', 'Student not found.');
 
         let lopTen: string | null = null;
         if (student.lopId) {
@@ -852,7 +744,10 @@ export default [
         ];
         const sessions = await sessionsOf(connection, attendanceIds);
         const sessionTime = new Map(
-          [...sessions].map(([id, info]) => [id, `${info.ngay} ${info.gioBatDau}`]),
+          [...sessions].map(([id, info]) => [
+            id,
+            `${info.ngay} ${info.gioBatDau}`,
+          ]),
         );
 
         const { deductions, adjustments } = fromLedger(
@@ -874,12 +769,17 @@ export default [
             ngayMua: asText(row.ngayMua),
             thuTu: Number(row.id),
             hieuLuc: asText(row.trangThai) === 'hieu_luc',
-            loai: asText(row.loai) === 'chuyen_so_du' ? ('chuyen_so_du' as const) : ('mua' as const),
+            loai:
+              asText(row.loai) === 'chuyen_so_du'
+                ? ('chuyen_so_du' as const)
+                : ('mua' as const),
           })),
           ...adjustments,
         ];
         const fifoResult = allocateFifo(inputs, deductions);
-        const fifoByGoi = new Map(fifoResult.cacGoi.map((g) => [g.goiHocId, g]));
+        const fifoByGoi = new Map(
+          fifoResult.cacGoi.map((g) => [g.goiHocId, g]),
+        );
 
         const attendanceRows = await connection.query
           .selectFrom('eduDiemDanh')
@@ -916,7 +816,7 @@ export default [
           const fifo = fifoByGoi.get(packId);
           return {
             id: packId,
-            tenKy: `Gói ${pack.soBuoi} buổi (${asText(pack.ngayMua)})`,
+            tenKy: `Gói ${asText(pack.soBuoi)} buổi (${asText(pack.ngayMua)})`,
             ngayMua: asText(pack.ngayMua),
             soBuoi: Number(pack.soBuoi),
             donGia: Number(pack.donGia),
@@ -938,12 +838,18 @@ export default [
           0,
         );
         const tienSachTon = tongTienSachDaNop - tongTienSachDaPhat;
-        const tongSoBuoiDaMua = packages.reduce((sum, p) => sum + Number(p.soBuoi), 0);
+        const tongSoBuoiDaMua = packages.reduce(
+          (sum, p) => sum + Number(p.soBuoi),
+          0,
+        );
         const tongSoBuoiDaHoc = attendanceRows.reduce(
           (sum, a) => sum + Number(a.soBuoiDaTru),
           0,
         );
-        const vuotSoDu = fifoResult.vuotSoDu.reduce((sum, e) => sum + e.soBuoi, 0);
+        const vuotSoDu = fifoResult.vuotSoDu.reduce(
+          (sum, e) => sum + e.soBuoi,
+          0,
+        );
 
         return c.json({
           data: {
@@ -978,7 +884,8 @@ export default [
               soLuong: 1,
               giaBia: Number(b.giaBia),
               thanhTien: Number(b.tienSach),
-              trangThaiThanhToan: tienSachTon >= 0 ? 'da_thanh_toan' : 'chua_thanh_toan',
+              trangThaiThanhToan:
+                tienSachTon >= 0 ? 'da_thanh_toan' : 'chua_thanh_toan',
             })),
             danhSachBuoiHoc: attendanceRows.map((a) => ({
               diemDanhId: Number(a.diemDanhId),
@@ -1032,15 +939,7 @@ export default [
   }),
 ];
 
-type Query = ReturnType<DatabaseManager['connection']>['query'];
-type Queryable = { readonly query: Query };
-
-const conflict = () =>
-  eduError(
-    'FAILED_PRECONDITION',
-    'EDU_BALANCE_CONFLICT',
-    'The attendance or balance was changed at the same time. Reload and try again.',
-  );
+type Queryable = Parameters<typeof balanceOf>[0];
 
 /**
  * The club's calendar day (Vietnam time) of a stored value. A timestamp is read as UTC, so an entry made at 02:00 on
@@ -1126,18 +1025,6 @@ async function sessionsOf(
   return result;
 }
 
-async function balanceOf(
-  connection: Queryable,
-  hocVienId: number,
-): Promise<number> {
-  const row = await connection.query
-    .selectFrom('eduHocVien')
-    .select('soBuoiConLai')
-    .where('id', '=', hocVienId)
-    .executeTakeFirstOrThrow();
-  return Number(row.soBuoiConLai);
-}
-
 async function paidFor(
   connection: Queryable,
   goiHocId: number,
@@ -1148,58 +1035,4 @@ async function paidFor(
     .where('goiHocId', '=', goiHocId)
     .execute();
   return rows.reduce((sum, row) => sum + Number(row.soTien), 0);
-}
-
-/**
- * Moves a student's balance from `before` to `after` and writes the ledger row, in the caller's transaction. The
- * update names the balance it was computed from: if another request changed it first no row matches, and the whole
- * transaction stops instead of applying a stale difference.
- */
-async function moveBalance(
-  connection: Queryable,
-  change: {
-    hocVienId: number;
-    before: number;
-    after: number;
-    reason: 'diem_danh' | 'diem_danh_sua' | 'mua_goi' | 'chuyen_tu_lark';
-    diemDanhId?: number;
-    goiHocId?: number;
-    userId: string;
-  },
-): Promise<void> {
-  const updated = await connection.query
-    .updateTable('eduHocVien')
-    .set({ soBuoiConLai: change.after })
-    .where('id', '=', change.hocVienId)
-    .where('soBuoiConLai', '=', change.before)
-    .execute();
-  if (updated.updatedCount !== 1) throw conflict();
-  await connection.query
-    .insertInto('eduSoDuNhatKy')
-    .values({
-      hocVienId: change.hocVienId,
-      thayDoi: change.after - change.before,
-      soDuSau: change.after,
-      lyDo: change.reason,
-      goiHocId: change.goiHocId ?? null,
-      diemDanhId: change.diemDanhId ?? null,
-      nguoiThucHienId: change.userId,
-      createdAt: new Date(),
-    })
-    .execute();
-}
-
-/** `eduDiemDanh.tinhVaoSoDu`: `false` for history already contained in an opening balance; a missing value counts. */
-async function rowCountsTowardBalance(
-  connection: Queryable,
-  diemDanhId: number,
-): Promise<boolean> {
-  const row = await connection.query
-    .selectFrom('eduDiemDanh')
-    .select('tinhVaoSoDu')
-    .where('id', '=', diemDanhId)
-    .executeTakeFirst();
-  return row?.tinhVaoSoDu === undefined || row.tinhVaoSoDu === null
-    ? true
-    : asBoolean(row.tinhVaoSoDu);
 }

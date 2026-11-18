@@ -10,10 +10,7 @@ import { StatusBadge } from '#components/status-badge';
 import { Button, buttonVariants } from '#components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '#components/ui/card';
 
-import {
-  InitialsAvatar,
-  LevelBadge,
-} from './edu-ui-parts.js';
+import { InitialsAvatar, LevelBadge } from './edu-ui-parts.js';
 import { FormDialog, SelectField, TextField } from './form-parts.js';
 import {
   LEVEL_KEYS,
@@ -118,8 +115,12 @@ export default function HocVienPage(): ReactElement {
 
   const rawRows = loaded.state === 'ready' ? loaded.rows : [];
   const activeStudents = rawRows.filter((r) => r.trangThai === 'dang_hoc');
-  const waitingStudents = rawRows.filter((r) => r.trangThai === 'cho_xep_lop' || r.lopId == null);
-  const otherStudents = rawRows.filter((r) => r.trangThai !== 'dang_hoc' && r.trangThai !== 'cho_xep_lop');
+  const waitingStudents = rawRows.filter(
+    (r) => r.trangThai === 'cho_xep_lop' || r.lopId == null,
+  );
+  const otherStudents = rawRows.filter(
+    (r) => r.trangThai !== 'dang_hoc' && r.trangThai !== 'cho_xep_lop',
+  );
 
   const filteredRows =
     loaded.state === 'ready'
@@ -133,9 +134,7 @@ export default function HocVienPage(): ReactElement {
       : [];
 
   const displayLoaded =
-    loaded.state === 'ready'
-      ? { ...loaded, rows: filteredRows }
-      : loaded;
+    loaded.state === 'ready' ? { ...loaded, rows: filteredRows } : loaded;
 
   return (
     <>
@@ -181,8 +180,16 @@ export default function HocVienPage(): ReactElement {
         tabs={[
           { key: 'all', label: 'Tất cả học viên', count: total },
           { key: 'dang_hoc', label: 'Đang học', count: activeStudents.length },
-          { key: 'cho_xep_lop', label: 'Chờ xếp lớp', count: waitingStudents.length },
-          { key: 'other', label: 'Bảo lưu / Khác', count: otherStudents.length },
+          {
+            key: 'cho_xep_lop',
+            label: 'Chờ xếp lớp',
+            count: waitingStudents.length,
+          },
+          {
+            key: 'other',
+            label: 'Bảo lưu / Khác',
+            count: otherStudents.length,
+          },
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -232,19 +239,31 @@ export default function HocVienPage(): ReactElement {
                 <div className='flex items-center gap-1.5'>
                   <Link
                     to={`/hoc-vien/${row.id}`}
-                    className={buttonVariants({ variant: 'outline', size: 'sm', className: 'h-7 text-xs' })}
+                    className={buttonVariants({
+                      variant: 'outline',
+                      size: 'sm',
+                      className: 'h-7 text-xs',
+                    })}
                   >
                     Hồ sơ 360°
                   </Link>
                   <Link
                     to={`/doi-soat?hocVienId=${row.id}`}
-                    className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-7 text-xs text-primary font-medium' })}
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'sm',
+                      className: 'h-7 text-xs text-primary font-medium',
+                    })}
                   >
                     Đối soát
                   </Link>
                   <Link
                     to={`/hoc-phi?search=${encodeURIComponent(text(row.ma))}`}
-                    className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-7 text-xs text-muted-foreground' })}
+                    className={buttonVariants({
+                      variant: 'ghost',
+                      size: 'sm',
+                      className: 'h-7 text-xs text-muted-foreground',
+                    })}
                   >
                     Thu phí
                   </Link>
@@ -260,7 +279,8 @@ export default function HocVienPage(): ReactElement {
                         setLevelUp({
                           row,
                           levelKey:
-                            LEVEL_KEYS[Math.min(Number(row.levelOrder), 5)] ?? 'ma',
+                            LEVEL_KEYS[Math.min(Number(row.levelOrder), 5)] ??
+                            'ma',
                         })
                       }
                     >
@@ -285,7 +305,10 @@ export default function HocVienPage(): ReactElement {
               {canExport ? <ExportCsv /> : null}
               {canImport ? <ImportCsv onImported={reload} /> : null}
               {canCreate ? (
-                <Button onClick={() => setStudent(NEW_STUDENT)} className='gap-1.5'>
+                <Button
+                  onClick={() => setStudent(NEW_STUDENT)}
+                  className='gap-1.5'
+                >
                   <Plus className='h-4 w-4' />
                   <span>{t('edu.hocVien.new')}</span>
                 </Button>
@@ -366,7 +389,11 @@ export default function HocVienPage(): ReactElement {
             ) : null}
             <Link
               to={`/doi-soat?hocVienId=${row.id}`}
-              className={buttonVariants({ variant: 'outline', size: 'sm', className: 'h-8 px-2 text-xs text-primary font-medium' })}
+              className={buttonVariants({
+                variant: 'outline',
+                size: 'sm',
+                className: 'h-8 px-2 text-xs text-primary font-medium',
+              })}
             >
               Đối soát
             </Link>

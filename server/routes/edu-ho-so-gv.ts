@@ -124,7 +124,14 @@ export default [
         const q = database.connection().query;
         const sessions = await q
           .selectFrom('eduBuoiHoc')
-          .select(['id', 'lopId', 'ngay', 'gioBatDau', 'gioKetThuc', 'trangThai'])
+          .select([
+            'id',
+            'lopId',
+            'ngay',
+            'gioBatDau',
+            'gioKetThuc',
+            'trangThai',
+          ])
           .where('ngay', 'like', `${thang}-%`)
           .where('trangThai', '=', 'da_diem_danh')
           .where('hlvId', '=', userId)

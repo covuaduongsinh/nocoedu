@@ -191,6 +191,12 @@ export function DiemDanhTab({
     action: 'manage',
   });
 
+  // Downloading is a separate action from viewing (`edu.baoCao` `export`): a coach sees attendance but cannot take the file.
+  const { can: canExport } = useCan({
+    resource: { type: 'composite', id: 'edu.baoCao' },
+    action: 'export',
+  });
+
   const selectedId = Number(params.get('buoi')) || 0;
   const [marks, setMarks] = useState<Record<number, Mark>>({});
   const [saved, setSaved] = useState<Record<number, Saved>>({});
@@ -392,17 +398,17 @@ export function DiemDanhTab({
 
   const exportCsv = async (): Promise<void> => {
     try {
-      const res = await api.request({
+      const stream = await api.stream({
         path: '/diemDanh/xuatCsv',
         method: 'POST',
         json: {
           lopId: filterLop !== 'all' ? Number(filterLop) : undefined,
         },
       });
-      const blob = new Blob([res as string], {
-        type: 'text/csv;charset=utf-8',
-      });
-      const url = URL.createObjectURL(blob);
+      const blob = await new Response(stream).blob();
+      const url = URL.createObjectURL(
+        new Blob([blob], { type: 'text/csv;charset=utf-8' }),
+      );
       const a = document.createElement('a');
       a.href = url;
       a.download = `diem-danh-${todayVn()}.csv`;
@@ -477,15 +483,17 @@ export function DiemDanhTab({
               variant='outline'
               onSuccess={reloadSessions}
             />
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => void exportCsv()}
-              className='gap-1.5'
-            >
-              <Download className='h-4 w-4' />
-              {t('edu.diemDanh.exportCsv')}
-            </Button>
+            {canExport ? (
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => void exportCsv()}
+                className='gap-1.5'
+              >
+                <Download className='h-4 w-4' />
+                {t('edu.diemDanh.exportCsv')}
+              </Button>
+            ) : null}
             {canGenerate ? (
               <Button
                 size='sm'

@@ -309,6 +309,29 @@ describe('attendance tab', () => {
       await screen.findByText(/Sắp hết buổi \(2 buổi\)/u),
     ).toBeInTheDocument();
   });
+  it('offers the attendance CSV only to a person who holds the export action of the reports', async () => {
+    await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
+    await screen.findByText('Học viên Mẫu 01');
+    expect(
+      screen.queryByRole('button', { name: /Xuất CSV/u }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the attendance CSV button when the person may export', async () => {
+    permissions = {
+      unrestricted: false,
+      permissions: [
+        {
+          resource: { type: 'composite', id: 'edu.baoCao' },
+          actions: ['export'],
+        },
+      ],
+    };
+    await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
+    expect(
+      await screen.findByRole('button', { name: /Xuất CSV/u }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe('attendance register tab', () => {

@@ -16,6 +16,7 @@ import { z } from 'zod';
 
 import { anyOfNode, anyOfText } from '../edu/filters.js';
 import { asText } from '../edu/names.js';
+import { chunksOf, PAGE } from '../edu/read-all.js';
 import {
   addMarks,
   daysOf,
@@ -75,8 +76,6 @@ const Input = z
   });
 type InputType = z.infer<typeof Input>;
 
-/** Rows read in one request to the repository. */
-const PAGE = 100;
 /** Sessions whose attendance is counted in one query. */
 const SESSION_CHUNK = 400;
 /** The most sessions one lookup covers; a bigger period must be narrowed to a class or a branch. */
@@ -96,12 +95,6 @@ const declare = (summary: string, operationId: string) =>
   });
 
 const num = (value: unknown): number => Number(value);
-const chunks = <T>(items: readonly T[], size: number): T[][] => {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size)
-    out.push(items.slice(i, i + size));
-  return out;
-};
 
 interface Session {
   readonly id: number;
@@ -203,7 +196,7 @@ export default [
       ids: readonly string[],
     ): Promise<Map<string, string>> {
       const names = new Map<string, string>();
-      for (const part of chunks([...new Set(ids)], 200)) {
+      for (const part of chunksOf([...new Set(ids)], 200)) {
         const users = await database
           .connection()
           .query.selectFrom('user')
@@ -274,7 +267,7 @@ export default [
         // Marks of those sessions, counted by the database: per session, or per student for the student view.
         const by = input.cheDo === 'hocVien' ? 'hocVienId' : 'buoiHocId';
         const marks = new Map<number, Counts>();
-        for (const part of chunks(sessions, SESSION_CHUNK)) {
+        for (const part of chunksOf(sessions, SESSION_CHUNK)) {
           const filter = buildFilter((f) =>
             f.and([
               anyOfNode(

@@ -84,9 +84,7 @@ function CoachSessionsDialog(props: {
           <DialogTitle>
             {`${props.coachName} · ${t('edu.hoSoGv.chiTietTitle')} (${props.thang})`}
           </DialogTitle>
-          <DialogDescription>
-            {t('edu.hoSoGv.chiTietHint')}
-          </DialogDescription>
+          <DialogDescription>{t('edu.hoSoGv.chiTietHint')}</DialogDescription>
         </DialogHeader>
         {result.state === 'loading' ? (
           <p role='status' className='text-sm text-muted-foreground'>

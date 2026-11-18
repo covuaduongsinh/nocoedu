@@ -8,7 +8,6 @@ import {
   Building2,
   CalendarCheck,
   ClipboardCheck,
-  Contact,
   Database,
   GraduationCap,
   Home,
@@ -172,7 +171,13 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     10,
     () => import('./pages/edu/ho-so-gv.js'),
   ),
-  ...eduPage('sach', '/sach', BookOpen, 11, () => import('./pages/edu/sach.js')),
+  ...eduPage(
+    'sach',
+    '/sach',
+    BookOpen,
+    11,
+    () => import('./pages/edu/sach.js'),
+  ),
   ...eduPage(
     'phatSach',
     '/phat-sach',
@@ -182,7 +187,11 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
   ),
   {
     auth: 'required',
-    authz: 'skip',
+    // Backup and restore of the whole database: the page grant is held by the administrator only, like the server action.
+    authz: {
+      resource: { type: 'page', id: 'edu.heThong' },
+      action: 'access',
+    },
     componentLoader: () => import('./pages/edu/sao-luu.js'),
     name: 'edu-sao-luu',
     navigation: { title: 'edu.nav.saoLuu', icon: Database, order: 13 },

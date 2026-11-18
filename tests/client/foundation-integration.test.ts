@@ -13,18 +13,19 @@ import {
 /** The sidebar of a signed-in person with every NocoEdu page granted. */
 const eduMenu = [
   'home',
-  'edu-coSo',
-  'edu-lop',
-  'edu-hocVien',
-  'edu-phuHuynh',
   'edu-diemDanh',
+  'edu-doi-soat',
   'edu-hocPhi',
   'edu-nhanXet',
+  'edu-tuyenSinh',
+  'edu-hocVien',
   'edu-baoCao',
+  'edu-lop',
+  'edu-coSo',
+  'edu-hoSoGv',
   'edu-sach',
   'edu-phatSach',
-  'edu-tuyenSinh',
-  'edu-hoSoGv',
+  'edu-sao-luu',
 ];
 
 describe('default Foundation integration', () => {

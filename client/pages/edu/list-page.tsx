@@ -44,7 +44,8 @@ export interface ListMetric {
   readonly value: ReactNode;
   readonly sub?: string;
   readonly icon?: LucideIcon;
-  readonly tone?: 'neutral' | 'primary' | 'warning' | 'success' | 'destructive' | 'info';
+  readonly tone?:
+    'neutral' | 'primary' | 'warning' | 'success' | 'destructive' | 'info';
 }
 
 /** A titled table with loading, error, empty states, tabs, metrics, and grid view options. */
@@ -133,7 +134,9 @@ export function ListPage(props: {
                     variant={isActive ? 'secondary' : 'outline'}
                     className={cn(
                       'px-1.5 py-0 text-[11px] font-semibold',
-                      isActive ? 'bg-primary-foreground/20 text-primary-foreground' : '',
+                      isActive
+                        ? 'bg-primary-foreground/20 text-primary-foreground'
+                        : '',
                     )}
                   >
                     {tab.count}
@@ -316,7 +319,9 @@ export function RowsTable(props: {
                   <TableHead key={column.key}>{column.label}</TableHead>
                 ))}
                 {props.rowActions ? (
-                  <TableHead className='text-right'>{t('edu.common.actions')}</TableHead>
+                  <TableHead className='text-right'>
+                    {t('edu.common.actions')}
+                  </TableHead>
                 ) : null}
               </TableRow>
             </TableHeader>
@@ -331,7 +336,9 @@ export function RowsTable(props: {
                     </TableCell>
                   ))}
                   {props.rowActions ? (
-                    <TableCell className='text-right'>{props.rowActions(row)}</TableCell>
+                    <TableCell className='text-right'>
+                      {props.rowActions(row)}
+                    </TableCell>
                   ) : null}
                 </TableRow>
               ))}
