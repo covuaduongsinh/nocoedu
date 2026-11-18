@@ -164,7 +164,9 @@ export default [
       joined.sort(
         (a, b) =>
           asText(b.session.ngay).localeCompare(asText(a.session.ngay)) ||
-          asText(b.session.gioBatDau).localeCompare(asText(a.session.gioBatDau)),
+          asText(b.session.gioBatDau).localeCompare(
+            asText(a.session.gioBatDau),
+          ),
       );
       if (limit) joined = joined.slice(0, limit);
 
@@ -373,7 +375,10 @@ export default [
 
     router.post(
       '/nhanXet/lichSuBuoiHoc',
-      declare('Session remarks and attendance history of a student', 'studentSessionHistory'),
+      declare(
+        'Session remarks and attendance history of a student',
+        'studentSessionHistory',
+      ),
       needs('edu.nhanXet', 'view'),
       apiValidator('json', HistoryInput),
       async (c) => {
@@ -384,12 +389,25 @@ export default [
           monthOf(input.thang),
         );
         const tongBuoi = rows.length;
-        const soBuoiCoMat = rows.filter((r) => r.trangThai === 'co_mat' || r.trangThai === 'hoc_bu').length;
-        const soBuoiVang = rows.filter((r) => r.trangThai === 'vang_co_phep' || r.trangThai === 'vang_khong_phep').length;
+        const soBuoiCoMat = rows.filter(
+          (r) => r.trangThai === 'co_mat' || r.trangThai === 'hoc_bu',
+        ).length;
+        const soBuoiVang = rows.filter(
+          (r) =>
+            r.trangThai === 'vang_co_phep' || r.trangThai === 'vang_khong_phep',
+        ).length;
         const soLamBtvn = rows.filter((r) => Boolean(r.daLamBtvn)).length;
-        const tyLeLamBtvn = tongBuoi > 0 ? Math.round((soLamBtvn / tongBuoi) * 100) : 0;
-        const scores = rows.map((r) => r.yThucDiem).filter((s): s is number => s != null);
-        const diemYThucTb = scores.length > 0 ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)) : null;
+        const tyLeLamBtvn =
+          tongBuoi > 0 ? Math.round((soLamBtvn / tongBuoi) * 100) : 0;
+        const scores = rows
+          .map((r) => r.yThucDiem)
+          .filter((s): s is number => s != null);
+        const diemYThucTb =
+          scores.length > 0
+            ? Number(
+                (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1),
+              )
+            : null;
         const cacNhanXet = rows
           .map((r) => r.nhanXet.trim())
           .filter((t) => t.length > 0);
@@ -412,7 +430,10 @@ export default [
 
     router.post(
       '/nhanXet/aiGoiY',
-      declare('Generate smart periodic review recommendation based on session history', 'aiReviewRecommendation'),
+      declare(
+        'Generate smart periodic review recommendation based on session history',
+        'aiReviewRecommendation',
+      ),
       needs('edu.nhanXet', 'write'),
       apiValidator('json', AiPromptInput),
       async (c) => {
@@ -425,15 +446,22 @@ export default [
           20,
         );
         const name = shortName(asText(student.hoTen));
-        const coMat = rows.filter((r) => r.trangThai === 'co_mat' || r.trangThai === 'hoc_bu').length;
+        const coMat = rows.filter(
+          (r) => r.trangThai === 'co_mat' || r.trangThai === 'hoc_bu',
+        ).length;
         const tongBuoi = rows.length;
         const vang = tongBuoi - coMat;
         const btvn = rows.filter((r) => Boolean(r.daLamBtvn)).length;
         const notes = rows
           .map((r) => r.nhanXet.trim())
           .filter((t) => t.length > 0);
-        const scores = rows.map((r) => r.yThucDiem).filter((s): s is number => s != null);
-        const avgScore = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null;
+        const scores = rows
+          .map((r) => r.yThucDiem)
+          .filter((s): s is number => s != null);
+        const avgScore =
+          scores.length > 0
+            ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)
+            : null;
 
         const phanChuyenCan =
           tongBuoi > 0 && vang === 0
@@ -442,19 +470,22 @@ export default [
               ? `Trong đợt học vừa qua (${input.thang}), con ${name} tham gia ${coMat}/${tongBuoi} buổi học.`
               : `Trong đợt học (${input.thang}), con ${name} duy trì việc học tập tại câu lạc bộ.`;
 
-        const phanYThuc = avgScore && Number(avgScore) >= 8.5
-          ? `Trên lớp con có ý thức học tập rất tốt (điểm ý thức trung bình ${avgScore}/10), chăm chú nghe giảng và tích cực tham gia các bài thực hành.`
-          : avgScore && Number(avgScore) >= 7.0
-            ? `Ý thức học tập trên lớp khá tốt, con hòa đồng và chủ động tương tác với thầy cô và các bạn.`
-            : `Con cần tập trung hơn trong giờ học, hạn chế nói chuyện riêng để theo kịp toàn bộ các nội dung bài giảng.`;
+        const phanYThuc =
+          avgScore && Number(avgScore) >= 8.5
+            ? `Trên lớp con có ý thức học tập rất tốt (điểm ý thức trung bình ${avgScore}/10), chăm chú nghe giảng và tích cực tham gia các bài thực hành.`
+            : avgScore && Number(avgScore) >= 7.0
+              ? `Ý thức học tập trên lớp khá tốt, con hòa đồng và chủ động tương tác với thầy cô và các bạn.`
+              : `Con cần tập trung hơn trong giờ học, hạn chế nói chuyện riêng để theo kịp toàn bộ các nội dung bài giảng.`;
 
-        const phanKienThuc = notes.length > 0
-          ? `Ghi nhận qua các buổi học: ${notes.slice(0, 3).join('. ')}.`
-          : `Con nắm được các kiến thức trọng tâm của bài học và vận dụng vào các thế trận thực tế.`;
+        const phanKienThuc =
+          notes.length > 0
+            ? `Ghi nhận qua các buổi học: ${notes.slice(0, 3).join('. ')}.`
+            : `Con nắm được các kiến thức trọng tâm của bài học và vận dụng vào các thế trận thực tế.`;
 
-        const phanBtvn = tongBuoi > 0 && btvn >= Math.floor(tongBuoi * 0.7)
-          ? `Con hoàn thành tốt các bài tập về nhà được giao.`
-          : `Con cần chủ động hoàn thành đầy đủ bài tập về nhà hơn để củng cố kỹ năng.`;
+        const phanBtvn =
+          tongBuoi > 0 && btvn >= Math.floor(tongBuoi * 0.7)
+            ? `Con hoàn thành tốt các bài tập về nhà được giao.`
+            : `Con cần chủ động hoàn thành đầy đủ bài tập về nhà hơn để củng cố kỹ năng.`;
 
         const phanDinhHuong = `Định hướng thời gian tới: Thầy cô sẽ tiếp tục rèn luyện cho con tính cẩn thận, tư duy chiến thuật sâu hơn và khuyến khích con tự tin thi đấu. Chúc con ngày càng tiến bộ!`;
 

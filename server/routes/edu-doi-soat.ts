@@ -8,7 +8,10 @@ import {
   defineApiRoutes,
   describeRoute,
 } from '@nocobase/app-server/router';
+import { AuthorizationDeniedError } from '@nocobase/authorization/core';
 import { databaseManagerToken } from '@nocobase/db';
+import type { RepositoryPolicy } from '@nocobase/db';
+import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
@@ -16,20 +19,14 @@ import { z } from 'zod';
 import { lockSessionRule, saveAttendanceRow } from '../edu/balance.js';
 import { balanceBand, isStudying } from '../edu/can-thu.js';
 import { asText } from '../edu/names.js';
-import {
-  chunksOf,
-  readAllRows,
-  readRowsByIds,
-  type Row,
-} from '../edu/read-all.js';
+import { chunksOf, readAllRows, type Row } from '../edu/read-all.js';
 import { ATTENDANCE_STATUSES, asBoolean } from '../edu/so-du.js';
 import {
   currentUserId,
   eduError,
   needs,
-  optionalPolicy,
+  policiesOf,
   policyOf,
-  requiredPolicy,
   type EduEnv,
 } from './edu-support.js';
 
@@ -123,24 +120,76 @@ export default [
       );
     }
 
-    /** The money of a student that is not covered by a permission composite: sums only over ids a policy returned. */
+    /** A policy the page needs: refused (403) when the caller does not hold the action. */
+    async function required(
+      c: Context<EduEnv>,
+      resource: string,
+      action: string,
+      collection: string,
+    ): Promise<RepositoryPolicy> {
+      const policy = (await policiesOf(c, resource, action))[collection];
+      if (!policy) {
+        throw eduError(
+          'PERMISSION_DENIED',
+          'EDU_PERMISSION_DENIED',
+          'This action is not allowed.',
+        );
+      }
+      return policy;
+    }
+
+    /** A policy that only adds names (class, branch, parent, book): without it the names are left out. */
+    async function optional(
+      c: Context<EduEnv>,
+      resource: string,
+      collection: string,
+    ): Promise<RepositoryPolicy | undefined> {
+      try {
+        return (await policiesOf(c, resource, 'view'))[collection];
+      } catch (error) {
+        if (error instanceof AuthorizationDeniedError) return undefined;
+        throw error;
+      }
+    }
+
+    /**
+     * Rows of a table for students a policy already returned, taken in groups of 500 ids. Reading these tables page by
+     * page through their own policies costs about a hundred scope lookups for one centre (a minute for a branch
+     * manager), so the page reads the *students* through their policy and the tables below by those ids; the caller
+     * must hold the action that owns each table (checked by `required`) before this is used.
+     */
+    const rowsForStudents = async (
+      table:
+        | 'eduHocVienPhuHuynh'
+        | 'eduGoiHoc'
+        | 'eduThanhToan'
+        | 'eduPhatSach'
+        | 'eduDiemDanh'
+        | 'eduNopSach',
+      columns: readonly string[],
+      studentIds: readonly number[],
+    ): Promise<Row[]> => {
+      const out: Row[] = [];
+      const q = database.connection().query;
+      for (const part of chunksOf(studentIds, 500)) {
+        const rows: Row[] = await q
+          .selectFrom(table)
+          .select(['hocVienId', ...columns])
+          .where('hocVienId', 'in', part)
+          .execute();
+        out.push(...rows);
+      }
+      return out;
+    };
     const sumBy = async (
       table: 'eduDiemDanh' | 'eduNopSach',
       column: 'soBuoiDaTru' | 'soTien',
       studentIds: readonly number[],
     ): Promise<Map<number, number>> => {
       const totals = new Map<number, number>();
-      const q = database.connection().query;
-      for (const part of chunksOf(studentIds, 500)) {
-        const rows = await q
-          .selectFrom(table as 'eduDiemDanh')
-          .select(['hocVienId', column as 'soBuoiDaTru'])
-          .where('hocVienId', 'in', part)
-          .execute();
-        for (const row of rows) {
-          const id = Number(row.hocVienId);
-          totals.set(id, (totals.get(id) ?? 0) + Number(row[column] ?? 0));
-        }
+      for (const row of await rowsForStudents(table, [column], studentIds)) {
+        const id = Number(row.hocVienId);
+        totals.set(id, (totals.get(id) ?? 0) + Number(row[column] ?? 0));
       }
       return totals;
     };
@@ -156,49 +205,19 @@ export default [
           c.req.valid('json');
         const studentPolicy = policyOf(c, 'eduHocVien');
         // The page is about money: a role without the tuition, payment, book and attendance actions gets 403.
-        const packPolicy = await requiredPolicy(
-          c,
-          'edu.goiHoc',
-          'view',
-          'eduGoiHoc',
-        );
-        const payPolicy = await requiredPolicy(
-          c,
-          'edu.thanhToan',
-          'view',
-          'eduThanhToan',
-        );
-        const bookPolicy = await requiredPolicy(
-          c,
-          'edu.phatSach',
-          'view',
-          'eduPhatSach',
-        );
-        await requiredPolicy(c, 'edu.diemDanh', 'view', 'eduDiemDanh');
-        const classPolicy = await optionalPolicy(
-          c,
-          'edu.lop',
-          'view',
-          'eduLop',
-        );
-        const branchPolicy = await optionalPolicy(
-          c,
-          'edu.coSo',
-          'view',
-          'eduCoSo',
-        );
-        const linkPolicy = await optionalPolicy(
+        // The money actions gate the page; the totals are then taken over the students the policy returned.
+        await required(c, 'edu.goiHoc', 'view', 'eduGoiHoc');
+        await required(c, 'edu.thanhToan', 'view', 'eduThanhToan');
+        await required(c, 'edu.phatSach', 'view', 'eduPhatSach');
+        await required(c, 'edu.diemDanh', 'view', 'eduDiemDanh');
+        const classPolicy = await optional(c, 'edu.lop', 'eduLop');
+        const branchPolicy = await optional(c, 'edu.coSo', 'eduCoSo');
+        const linkPolicy = await optional(
           c,
           'edu.lienKet',
-          'view',
           'eduHocVienPhuHuynh',
         );
-        const parentPolicy = await optionalPolicy(
-          c,
-          'edu.phuHuynh',
-          'view',
-          'eduPhuHuynh',
-        );
+        const parentPolicy = await optional(c, 'edu.phuHuynh', 'eduPhuHuynh');
 
         const allStudents = await readAllRows(
           database,
@@ -216,41 +235,35 @@ export default [
             branchPolicy
               ? readAllRows(database, 'eduCoSo', branchPolicy, undefined, 1000)
               : Promise.resolve<Row[]>([]),
-            readAllRows(database, 'eduGoiHoc', packPolicy, undefined, MAX_ROWS),
-            readAllRows(
-              database,
-              'eduThanhToan',
-              payPolicy,
-              undefined,
-              MAX_ROWS,
-            ),
-            readAllRows(
-              database,
-              'eduPhatSach',
-              bookPolicy,
-              undefined,
-              MAX_ROWS,
-            ),
+            rowsForStudents('eduGoiHoc', ['soBuoi', 'thanhTien'], studentIds),
+            rowsForStudents('eduThanhToan', ['soTien'], studentIds),
+            rowsForStudents('eduPhatSach', ['tienSach'], studentIds),
           ]);
         const deducted = await sumBy('eduDiemDanh', 'soBuoiDaTru', studentIds);
         const bookPaid = await sumBy('eduNopSach', 'soTien', studentIds);
 
-        // The first parent of each student the caller may see.
+        // The first parent of each student the caller may see (the caller must hold both parent actions).
         const studentParentMap = new Map<number, Row>();
         if (linkPolicy && parentPolicy) {
-          const links = await readAllRows(
-            database,
+          const links = await rowsForStudents(
             'eduHocVienPhuHuynh',
-            linkPolicy,
-            undefined,
-            MAX_ROWS,
+            ['phuHuynhId'],
+            studentIds,
           );
-          const parents = await readRowsByIds(
-            database,
-            'eduPhuHuynh',
-            parentPolicy,
-            links.map((l) => Number(l.phuHuynhId)),
-          );
+          const parents = new Map<number, Row>();
+          const q = database.connection().query;
+          for (const part of chunksOf(
+            [...new Set(links.map((l) => Number(l.phuHuynhId)))],
+            500,
+          )) {
+            for (const parent of await q
+              .selectFrom('eduPhuHuynh')
+              .select(['id', 'hoTen', 'soDienThoai'])
+              .where('id', 'in', part)
+              .execute()) {
+              parents.set(Number(parent.id), parent);
+            }
+          }
           for (const link of links) {
             const hvId = Number(link.hocVienId);
             const parent = parents.get(Number(link.phuHuynhId));
@@ -420,13 +433,13 @@ export default [
           c.req.valid('json');
         const userId = currentUserId(c);
         const attendancePolicy = policyOf(c, 'eduDiemDanh');
-        const studentPolicy = await requiredPolicy(
+        const studentPolicy = await required(
           c,
           'edu.hocVien',
           'view',
           'eduHocVien',
         );
-        const sessionPolicy = await requiredPolicy(
+        const sessionPolicy = await required(
           c,
           'edu.buoiHoc',
           'view',

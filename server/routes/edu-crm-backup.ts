@@ -18,10 +18,9 @@ import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
 import { toCsv } from '../edu/csv.js';
-import { anyOf } from '../edu/filters.js';
 import { asText } from '../edu/names.js';
-import { chunksOf, PAGE, readAllRows, type Row } from '../edu/read-all.js';
-import { todayVn } from '../edu/so-du.js';
+import { chunksOf, readAllRows, type Row } from '../edu/read-all.js';
+import { asBoolean, todayVn } from '../edu/so-du.js';
 import {
   currentUserId,
   eduError,
@@ -45,20 +44,30 @@ import {
  */
 
 /** A snapshot or an export of more rows than this is refused: narrow it instead of building a file in memory. */
-export const MAX_CSV_ROWS = 20_000;
+export const MAX_CSV_ROWS = 100_000;
 /** Rows read from one table per query while taking a snapshot. */
 const SNAPSHOT_PAGE = 5000;
 /** A snapshot holds at most this many rows in all (it is built in memory and sent as one JSON document). */
 export const MAX_SNAPSHOT_ROWS = 500_000;
 
-/** The tables of a snapshot, in the order a restore writes them (parents before the rows that point at them). */
+/**
+ * The tables of a snapshot, in the order a restore writes them (parents before the rows that point at them). Every table
+ * the application keeps its own data in is here except the export log and the Lark import log (a record of what was done,
+ * not of the club). A new table of a later phase is added here, in the same change that creates it.
+ *
+ * `eduCoSoQuanLy` and `eduHoSoGv` name accounts (`userId`) that a snapshot does not hold: a restore into a database
+ * without those accounts brings the rows back, and they work again once the same accounts exist.
+ */
 export const BACKUP_TABLES = [
   'eduCoSo',
+  'eduCoSoQuanLy',
   'eduLop',
   'eduLopLich',
   'eduHocVien',
+  'eduHocVienLenCap',
   'eduPhuHuynh',
   'eduHocVienPhuHuynh',
+  'eduDongY',
   'eduBuoiHoc',
   'eduDiemDanh',
   'eduGoiHoc',
@@ -67,8 +76,17 @@ export const BACKUP_TABLES = [
   'eduNhanXetThang',
   'eduSach',
   'eduPhatSach',
+  'eduNopSach',
+  'eduSachHoc',
   'eduLienHe',
+  'eduHoSoGv',
 ] as const;
+
+/** Version written into a snapshot. 1.0 files (15 tables) are still accepted by a restore. */
+export const BACKUP_VERSION = '2.0';
+const SUPPORTED_VERSIONS = ['1.0', '2.0'];
+/** Rows written per insert while restoring. */
+const RESTORE_BATCH = 200;
 
 const CrmLeadInput = z.object({
   hoTen: z.string().trim().min(1).max(191),
@@ -85,6 +103,9 @@ const CrmLeadInput = z.object({
 const BackupImportInput = z.object({
   data: z.record(z.string(), z.array(z.record(z.string(), z.unknown()))),
   xacNhan: z.literal('XAC_NHAN_KHOI_PHUC'),
+  phienBan: z.string().max(16).optional(),
+  /** Only count what a restore would add and skip, write nothing. */
+  chiKiemTra: z.boolean().default(false),
 });
 
 const DiemDanhExportInput = z.object({
@@ -301,7 +322,7 @@ export default [
         await log(userId, 'sao_luu_json', {}, total);
         return c.json({
           data: {
-            phienBan: '1.0',
+            phienBan: BACKUP_VERSION,
             thoiGianTao: new Date().toISOString(),
             ngayVn: todayVn(),
             tongSoBang: BACKUP_TABLES.length,
@@ -313,6 +334,45 @@ export default [
     );
 
     // --- Restore from a snapshot (administrator only) -----------------------------------------------------------
+    /** The fields a row of `table` may carry (`id` included); a snapshot is not trusted to name its own columns. */
+    const fieldsOf = async (table: string): Promise<Set<string>> => {
+      const definition = await database.connection().collections.get(table);
+      return new Set([
+        'id',
+        ...(definition?.fields ?? []).map((field) => field.name),
+      ]);
+    };
+
+    /**
+     * PostgreSQL does not move the sequence of an `id` column when a row is written with its id, so the next ordinary
+     * insert would meet an id that was restored. Sets every restored table's sequence to its highest id. The query
+     * adapter has no raw SQL, so this uses the connection's own client, only on PostgreSQL. Returns whether it ran.
+     */
+    const resetSequences = async (
+      connection: ReturnType<typeof database.connection>,
+      tables: readonly string[],
+    ): Promise<boolean> => {
+      if (connection.dialect !== 'postgres') return true;
+      const client = await (
+        connection as unknown as {
+          resolveClient?: () => Promise<{
+            raw: (sql: string, bindings: unknown[]) => Promise<unknown>;
+          }>;
+        }
+      ).resolveClient?.();
+      if (!client) return false;
+      for (const table of tables) {
+        const physical = await connection.collections.getPhysical(table);
+        if (!physical) return false;
+        const quoted = `"${physical.schema}"."${physical.tableName}"`;
+        await client.raw(
+          `select setval(pg_get_serial_sequence(?, 'id'), greatest((select coalesce(max(id), 1) from ${quoted}), 1))`,
+          [quoted],
+        );
+      }
+      return true;
+    };
+
     router.post(
       '/heThong/backup/importJson',
       declare(
@@ -324,32 +384,127 @@ export default [
       async (c) => {
         const input = c.req.valid('json');
         const userId = currentUserId(c);
+        if (
+          input.phienBan !== undefined &&
+          !SUPPORTED_VERSIONS.includes(input.phienBan)
+        ) {
+          throw eduError(
+            'INVALID_ARGUMENT',
+            'EDU_BACKUP_VERSION',
+            'This backup file was made by a version this application cannot read.',
+            'phienBan',
+          );
+        }
         const q = database.connection().query;
-        let tongKhoiPhuc = 0;
-        let boQua = 0;
-        // Only the tables of a snapshot, in the order of `BACKUP_TABLES` whatever the order in the file: an unknown
-        // table name in the file is ignored, never written.
+        const invalid = (table: string, index: number) =>
+          eduError(
+            'INVALID_ARGUMENT',
+            'EDU_BACKUP_INVALID',
+            `Table ${table}, record ${index + 1} is not a record of this application.`,
+            'data',
+          );
+
+        // 1. Check every row before anything is written: only tables of a snapshot, only known columns, a whole-number
+        //    id, no id twice. A table name outside `BACKUP_TABLES` in the file is ignored, never written.
+        const plan: Record<string, { moi: number; trung: number }> = {};
+        const toWrite: Record<string, Record<string, unknown>[]> = {};
+        let total = 0;
         for (const table of BACKUP_TABLES) {
-          for (const row of input.data[table] ?? []) {
-            try {
-              await q
-                .insertInto(table)
-                .values(row)
-                .execute();
-              tongKhoiPhuc += 1;
-            } catch {
-              // A row that is already there (or no longer fits the schema) is left as it is.
-              boQua += 1;
+          const rows = input.data[table] ?? [];
+          plan[table] = { moi: 0, trung: 0 };
+          if (rows.length === 0) continue;
+          total += rows.length;
+          if (total > MAX_SNAPSHOT_ROWS) {
+            throw eduError(
+              'FAILED_PRECONDITION',
+              'EDU_BACKUP_TOO_LARGE',
+              'The snapshot is too large to restore in one request.',
+            );
+          }
+          const fields = await fieldsOf(table);
+          const seen = new Set<number>();
+          rows.forEach((row, index) => {
+            const id = Number(row.id);
+            if (
+              !Number.isInteger(id) ||
+              id <= 0 ||
+              seen.has(id) ||
+              Object.keys(row).some((key) => !fields.has(key))
+            ) {
+              throw invalid(table, index);
+            }
+            seen.add(id);
+          });
+          // 2. A row whose id is already there is left as it is (a restore never overwrites); the rest is new.
+          const existing = new Set<number>();
+          for (const part of chunksOf([...seen], 500)) {
+            for (const found of await q
+              .selectFrom(table)
+              .select('id')
+              .where('id', 'in', part)
+              .execute()) {
+              existing.add(Number(found.id));
             }
           }
+          toWrite[table] = rows.filter((row) => !existing.has(Number(row.id)));
+          plan[table] = {
+            moi: toWrite[table].length,
+            trung: rows.length - toWrite[table].length,
+          };
         }
-        await log(userId, 'khoi_phuc_json', {}, tongKhoiPhuc);
+        const moi = Object.values(plan).reduce((sum, t) => sum + t.moi, 0);
+        const trung = Object.values(plan).reduce((sum, t) => sum + t.trung, 0);
+        if (input.chiKiemTra) {
+          return c.json({
+            data: {
+              chiKiemTra: true,
+              soBang: BACKUP_TABLES.length,
+              moi,
+              trung,
+              bang: plan,
+            },
+          });
+        }
+
+        // 3. One transaction: everything is written, or nothing is.
+        let sequencesReset = true;
+        try {
+          await database.transaction(async (connection) => {
+            for (const table of BACKUP_TABLES) {
+              for (const part of chunksOf(
+                toWrite[table] ?? [],
+                RESTORE_BATCH,
+              )) {
+                await connection.query.insertInto(table).values(part).execute();
+              }
+            }
+            sequencesReset = await resetSequences(
+              connection,
+              BACKUP_TABLES.filter(
+                (table) => (toWrite[table]?.length ?? 0) > 0,
+              ),
+            );
+          });
+        } catch {
+          throw eduError(
+            'FAILED_PRECONDITION',
+            'EDU_BACKUP_RESTORE_FAILED',
+            'The snapshot could not be restored. Nothing was written.',
+          );
+        }
+        await log(userId, 'khoi_phuc_json', { moi, trung }, moi);
         return c.json({
           data: {
             thanhCong: true,
-            tongKhoiPhuc,
-            boQua,
-            thongBao: `Đã khôi phục thành công ${tongKhoiPhuc} bản ghi vào hệ thống.`,
+            chiKiemTra: false,
+            tongKhoiPhuc: moi,
+            boQua: trung,
+            moi,
+            trung,
+            bang: plan,
+            // false: the sequences of PostgreSQL could not be moved; see `.agents/rules/edu.md` for the statement to run.
+            dayTuTangDaDat: sequencesReset,
+            thongBao: `Đã khôi phục thành công ${moi} bản ghi vào hệ thống.`,
           },
         });
       },
@@ -420,56 +575,51 @@ export default [
         );
         const sessionById = new Map(sessions.map((s) => [Number(s.id), s]));
 
+        // The register of the sessions the policy returned, and the students the caller may see (read once through
+        // their policy). Reading the register page by page through its own policy costs a scope lookup per page,
+        // which for a branch manager took half a minute a month; the caller's `edu.diemDanh` `view` was checked above.
+        const students = new Map<number, Row>();
+        for (const student of await readAllRows(
+          database,
+          'eduHocVien',
+          studentPolicy,
+          undefined,
+          MAX_CSV_ROWS,
+        )) {
+          students.set(Number(student.id), student);
+        }
+        const q = database.connection().query;
         const marks: Row[] = [];
-        for (const part of chunksOf([...sessionById.keys()], PAGE)) {
-          marks.push(
-            ...(await readAllRows(
-              database,
-              'eduDiemDanh',
-              attendancePolicy,
-              anyOf('buoiHocId', part),
-              MAX_CSV_ROWS,
-            )),
-          );
+        const scores = new Map<number, number>();
+        for (const part of chunksOf([...sessionById.keys()], 500)) {
+          const found: Row[] = await q
+            .selectFrom('eduDiemDanh')
+            .select([
+              'id',
+              'buoiHocId',
+              'hocVienId',
+              'trangThai',
+              'daLamBtvn',
+              'nhanXet',
+              'soBuoiDaTru',
+              'yThucDiem',
+            ])
+            .where('buoiHocId', 'in', part)
+            .execute();
+          for (const row of found) {
+            // A row of a student the caller does not see is left out, so no name leaves the scope.
+            if (!students.has(Number(row.hocVienId))) continue;
+            marks.push(row);
+            if (row.yThucDiem != null) {
+              scores.set(Number(row.id), Number(row.yThucDiem));
+            }
+          }
           if (marks.length > MAX_CSV_ROWS) {
             throw eduError(
               'FAILED_PRECONDITION',
               'EDU_EXPORT_TOO_LARGE',
               `More than ${MAX_CSV_ROWS} records: narrow the export to one class or month.`,
             );
-          }
-        }
-
-        // Students the caller may see; a row of any other student is left out, so no name leaves the scope.
-        const students = new Map<number, Row>();
-        const studentIds = [...new Set(marks.map((m) => Number(m.hocVienId)))];
-        for (const part of chunksOf(studentIds, PAGE)) {
-          for (const student of await readAllRows(
-            database,
-            'eduHocVien',
-            studentPolicy,
-            anyOf('id', part),
-            PAGE,
-          )) {
-            students.set(Number(student.id), student);
-          }
-        }
-
-        // The awareness score is not a permission field: it is read only for the rows the policy already returned.
-        const scores = new Map<number, number>();
-        const q = database.connection().query;
-        for (const part of chunksOf(
-          marks.map((m) => Number(m.id)),
-          200,
-        )) {
-          for (const row of await q
-            .selectFrom('eduDiemDanh')
-            .select(['id', 'yThucDiem'])
-            .where('id', 'in', part)
-            .execute()) {
-            if (row.yThucDiem != null) {
-              scores.set(Number(row.id), Number(row.yThucDiem));
-            }
           }
         }
 
@@ -498,7 +648,7 @@ export default [
           asText(student.ma),
           asText(student.hoTen),
           STATUS_LABEL[asText(mark.trangThai)] ?? asText(mark.trangThai),
-          mark.daLamBtvn ? 'Đã làm' : 'Chưa làm',
+          asBoolean(mark.daLamBtvn) ? 'Đã làm' : 'Chưa làm',
           asText(mark.nhanXet),
           scores.get(Number(mark.id)) ?? '',
           Number(mark.soBuoiDaTru),
@@ -593,17 +743,25 @@ export default [
           MAX_CSV_ROWS,
         );
         const studentById = new Map(students.map((s) => [Number(s.id), s]));
+        // The packages of exactly those students (the caller's `edu.goiHoc` `view` was checked above); one policy page
+        // per hundred packages would cost a scope lookup each time.
         const packages: Row[] = [];
-        for (const part of chunksOf([...studentById.keys()], PAGE)) {
-          packages.push(
-            ...(await readAllRows(
-              database,
-              'eduGoiHoc',
-              packagePolicy,
-              anyOf('hocVienId', part),
-              MAX_CSV_ROWS,
-            )),
-          );
+        const q = database.connection().query;
+        for (const part of chunksOf([...studentById.keys()], 500)) {
+          const found: Row[] = await q
+            .selectFrom('eduGoiHoc')
+            .select([
+              'id',
+              'hocVienId',
+              'soBuoi',
+              'donGia',
+              'thanhTien',
+              'ngayMua',
+              'trangThai',
+            ])
+            .where('hocVienId', 'in', part)
+            .execute();
+          packages.push(...found);
           if (packages.length > MAX_CSV_ROWS) {
             throw eduError(
               'FAILED_PRECONDITION',

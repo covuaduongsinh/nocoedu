@@ -22,7 +22,7 @@ import { Input } from '#components/ui/input';
 import { Label } from '#components/ui/label';
 
 import { saveText } from './download.js';
-import { post } from './kit.js';
+import { post, useErrorMessage } from './kit.js';
 
 export interface GenericImportDialogProps {
   readonly entity:
@@ -62,6 +62,7 @@ export function GenericImportDialog({
   onSuccess,
 }: GenericImportDialogProps): ReactElement {
   const api = useApiClient();
+  const message = useErrorMessage();
   const [open, setOpen] = useState(false);
   const [csvContent, setCsvContent] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
@@ -99,12 +100,8 @@ export function GenericImportDialog({
       if (data?.csv) {
         saveText(data.csv, `mau_import_${entity}.csv`);
       }
-    } catch (err: any) {
-      setErrorMessage(
-        err?.response?.data?.error?.message ||
-          err?.message ||
-          'Không thể tải mẫu CSV',
-      );
+    } catch (err) {
+      setErrorMessage(message(err));
     } finally {
       setBusy(undefined);
     }
@@ -144,12 +141,8 @@ export function GenericImportDialog({
         csv: csvContent,
       })) as { data: PreviewReport };
       setPreview(res?.data);
-    } catch (err: any) {
-      setErrorMessage(
-        err?.response?.data?.error?.message ||
-          err?.message ||
-          'Lỗi khi kiểm tra dữ liệu CSV',
-      );
+    } catch (err) {
+      setErrorMessage(message(err));
     } finally {
       setBusy(undefined);
     }
@@ -171,12 +164,8 @@ export function GenericImportDialog({
       setPreview(undefined);
       setCsvContent('');
       if (onSuccess) onSuccess();
-    } catch (err: any) {
-      setErrorMessage(
-        err?.response?.data?.error?.message ||
-          err?.message ||
-          'Lỗi khi nạp dữ liệu',
-      );
+    } catch (err) {
+      setErrorMessage(message(err));
     } finally {
       setBusy(undefined);
     }
@@ -222,7 +211,7 @@ export function GenericImportDialog({
               <Button
                 variant='outline'
                 size='sm'
-                onClick={handleDownloadTemplate}
+                onClick={() => void handleDownloadTemplate()}
                 disabled={busy === 'template'}
                 className='gap-1.5 shrink-0'
               >
@@ -250,7 +239,7 @@ export function GenericImportDialog({
                 />
                 {csvContent && !preview && !successMessage && (
                   <Button
-                    onClick={handlePreview}
+                    onClick={() => void handlePreview()}
                     disabled={busy === 'preview'}
                     className='gap-2 shrink-0 bg-primary font-semibold'
                   >
@@ -315,9 +304,9 @@ export function GenericImportDialog({
                 </div>
 
                 <div className='max-h-60 overflow-y-auto border rounded divide-y text-xs'>
-                  {preview.rows.map((r, idx) => (
+                  {preview.rows.map((r) => (
                     <div
-                      key={idx}
+                      key={r.line}
                       className={`p-2.5 flex items-start gap-2.5 ${
                         r.isValid
                           ? 'bg-background hover:bg-muted/40'
@@ -362,7 +351,7 @@ export function GenericImportDialog({
             </Button>
             {preview && preview.validCount > 0 && (
               <Button
-                onClick={handleCommit}
+                onClick={() => void handleCommit()}
                 disabled={busy === 'commit'}
                 className='gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold'
               >

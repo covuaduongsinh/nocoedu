@@ -57,7 +57,9 @@ export default function CoSoPage(): ReactElement {
               onSuccess={reload}
             />
             {canManage ? (
-              <Button onClick={() => setForm(EMPTY)}>{t('edu.coSo.new')}</Button>
+              <Button onClick={() => setForm(EMPTY)}>
+                {t('edu.coSo.new')}
+              </Button>
             ) : null}
           </div>
         }

@@ -1,6 +1,6 @@
 import type { DatabaseManager } from '@nocobase/db';
 
-import { codeFromId } from './names.js';
+import { codeFromId, tempCode } from './names.js';
 import { levelOrder } from './levels.js';
 import { addDays, todayVn } from './so-du.js';
 
@@ -97,7 +97,7 @@ export async function seedSampleData(
       const lop = CLASSES[classIndex];
       const student = await connection.repository('eduHocVien').createOne({
         values: {
-          ma: `TMP-${crypto.randomUUID()}`,
+          ma: tempCode(),
           hoTen: `Học viên Mẫu ${nn}`,
           namSinh: 2014 + (i % 5),
           levelKey: lop.level,
@@ -172,7 +172,7 @@ export async function seedSampleData(
         .execute();
       const parent = await connection.repository('eduPhuHuynh').createOne({
         values: {
-          ma: `TMP-${crypto.randomUUID()}`,
+          ma: tempCode(),
           hoTen: `Phụ huynh Mẫu ${nn}`,
           soDienThoai: `090000${String(1000 + i).slice(1)}0`.slice(0, 10),
           zalo: null,
