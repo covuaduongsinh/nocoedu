@@ -307,7 +307,6 @@ function AuditTable(): ReactElement {
                 <TableHead>{t('edu.hocVien.ma')}</TableHead>
                 <TableHead>{t('edu.hocVien.hoTen')}</TableHead>
                 <TableHead>{t('edu.hocVien.lop')}</TableHead>
-                <TableHead>{t('edu.lop.coSo')}</TableHead>
                 <TableHead>{t('edu.doiSoat.col.phuHuynh')}</TableHead>
                 <TableHead className='text-right'>
                   {t('edu.doiSoat.col.daNop')}
@@ -344,9 +343,11 @@ function AuditTable(): ReactElement {
                     ) : (
                       <span className='text-muted-foreground'>—</span>
                     )}
-                  </TableCell>
-                  <TableCell className='text-muted-foreground'>
-                    {row.coSoTen ?? '—'}
+                    {row.coSoTen ? (
+                      <span className='block text-[11px] text-muted-foreground'>
+                        {row.coSoTen}
+                      </span>
+                    ) : null}
                   </TableCell>
                   <TableCell>
                     {row.phuHuynhTen ? (

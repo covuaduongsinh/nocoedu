@@ -23,16 +23,16 @@ Quyết định Thầy đã chọn: (1) khung kiến thức 6 cấp + nhập CSV
 
 Sidebar hỗ trợ nhóm tiêu đề (route có `navigation` + `children`, không `componentLoader` — mẫu ở `client/pages/settings/shell-routes.ts`). Chia 5 nhóm:
 
-| Nhóm | Mục | Vai trò của trang |
-|---|---|---|
-| — | Trang chủ | Việc hôm nay, cảnh báo |
-| **Hằng ngày** | Điểm danh · Nhận xét · Tuyển sinh | Thao tác lặp lại mỗi ngày |
-| **Học viên** | Học viên · **Hồ sơ 360°** (mới) | Danh sách để quản lý · Tra cứu sâu một em |
-| **Học phí & sách** | Học phí · Đối soát buổi học · Phát sách | Thu tiền · Soát toàn trung tâm · Sách |
-| **Chuyên môn** (mới) | Chương trình · Tiến độ kiến thức · Kiểm tra | Khung kiến thức · Ma trận lớp × kỹ năng · Sát hạch |
-| **Danh mục** | Lớp học · Cơ sở · Giáo viên · Sách | Dữ liệu nền |
-| — | Báo cáo | |
-| System settings | Sao lưu dữ liệu chuyển vào đây | Theo quy định AGENTS.md: trang quản trị không nằm ở sidebar |
+| Nhóm                 | Mục                                         | Vai trò của trang                                           |
+| -------------------- | ------------------------------------------- | ----------------------------------------------------------- |
+| —                    | Trang chủ                                   | Việc hôm nay, cảnh báo                                      |
+| **Hằng ngày**        | Điểm danh · Nhận xét · Tuyển sinh           | Thao tác lặp lại mỗi ngày                                   |
+| **Học viên**         | Học viên · **Hồ sơ 360°** (mới)             | Danh sách để quản lý · Tra cứu sâu một em                   |
+| **Học phí & sách**   | Học phí · Đối soát buổi học · Phát sách     | Thu tiền · Soát toàn trung tâm · Sách                       |
+| **Chuyên môn** (mới) | Chương trình · Tiến độ kiến thức · Kiểm tra | Khung kiến thức · Ma trận lớp × kỹ năng · Sát hạch          |
+| **Danh mục**         | Lớp học · Cơ sở · Giáo viên · Sách          | Dữ liệu nền                                                 |
+| —                    | Báo cáo                                     |                                                             |
+| System settings      | Sao lưu dữ liệu chuyển vào đây              | Theo quy định AGENTS.md: trang quản trị không nằm ở sidebar |
 
 Nguyên tắc chống trùng: **mỗi câu hỏi chỉ có một trang trả lời**.
 
@@ -43,6 +43,7 @@ Nguyên tắc chống trùng: **mỗi câu hỏi chỉ có một trang trả l�
 ## 3. Cấu trúc từng trang
 
 ### 3.1 Hồ sơ 360° — trang chi tiết duy nhất của học viên
+
 - **Mục menu `/ho-so-360`**: ô tìm lớn (tên / mã HV / SĐT phụ huynh), lọc cơ sở–lớp, kết quả phân trang server → mở `/hoc-vien/:id`. Dùng lại quyền trang `edu.hocVien`.
 - **`/hoc-vien/:id`**, tab lưu trên URL `?tab=`:
   1. **Tổng quan** — thẻ: buổi còn lại, đã học, đã nộp, nợ học phí/sách, cấp, nhóm, % kiến thức cấp hiện tại, số lỗ hổng cần bù; cột mốc theo kỳ nộp (chuyển từ Đối soát).
@@ -56,14 +57,17 @@ Nguyên tắc chống trùng: **mỗi câu hỏi chỉ có một trang trả l�
 - Mỗi tab chỉ hiện khi người dùng có quyền `view` composite tương ứng (giữ quy tắc hiện có).
 
 ### 3.2 Đối soát buổi học — chỉ còn bảng tổng
+
 - Giữ 6 thẻ KPI + bộ lọc + bảng; thêm phân trang server, bộ lọc lên URL.
 - Nút mỗi dòng đổi thành **"Mở hồ sơ"** → `/hoc-vien/:id?tab=buoi-hoc`. Bỏ chế độ chi tiết; `/doi-soat?hocVienId=X` tự chuyển hướng sang Hồ sơ 360°.
 
 ### 3.3 Học phí
+
 - 3 tab giữ nguyên (lưu trên URL): Quầy thu ngân · Sổ quỹ (thêm lọc tháng, hiện tên học viên thay vì "#id") · Cần thu (lấy từ nguồn chung với Đối soát).
 - Đọc `?search=` để mở sẵn học viên. Bỏ nút "Xem phiếu đối soát", thay bằng link Hồ sơ 360°.
 
 ### 3.4 Điểm danh — 2 tab
+
 - **Điểm danh** (mặc định): ca hôm nay + bảng điểm danh như hiện tại; bảng chia khối theo **nhóm**; phần "Nội dung buổi học" thêm chọn **kỹ năng đã dạy** cho từng nhóm.
 - **Sổ điểm danh** (tra cứu):
   - Tab thời gian dựng sẵn: Hôm nay · Tuần này · Tháng này · Năm nay · Tuỳ chọn, có nút ‹ › lùi/tiến một kỳ.
@@ -72,10 +76,12 @@ Nguyên tắc chống trùng: **mỗi câu hỏi chỉ có một trang trả l�
   - Lọc và phân trang trên server; toàn bộ trạng thái nằm trên URL; ngày tính theo giờ VN (`todayVn`).
 
 ### 3.5 Lớp học (`/lop/:id`)
+
 - Thêm tab **Nhóm**: 3 nhóm mặc định Nhập môn / Cơ bản / Nâng cao; đổi tên, thêm, ẩn; chuyển học viên giữa các nhóm (ghi lịch sử).
 - Thêm tab **Tiến độ kiến thức**: ma trận của lớp (dùng chung component với 3.6).
 
 ### 3.6 Chuyên môn (mới)
+
 - **Chương trình `/chuong-trinh`**: cây 6 cấp (cố định) → Chủ đề → Kỹ năng/bài; thêm–sửa–ẩn–sắp thứ tự; nhập/xuất CSV. Chỉ Quản trị sửa, vai trò khác xem.
 - **Tiến độ kiến thức `/kien-thuc`**: chọn lớp (+ nhóm, cấp) → ma trận Học viên × Kỹ năng; bấm ô để chấm tay (Chưa học / Chưa vững / Đạt / Vững); chế độ xem **"Lỗ hổng cần bù"** liệt kê theo kỹ năng những em vắng buổi dạy hoặc chưa vững.
 - **Kiểm tra `/kiem-tra`**: danh sách bài kiểm tra (định kỳ / lên cấp) → tạo bài (chọn cấp, lớp, các kỹ năng, điểm tối đa, ngưỡng đạt) → nhập điểm theo kỹ năng cho từng em → kết quả tự cập nhật mức nắm; em đạt bài lên cấp được gắn nhãn "Đủ điều kiện lên cấp" kèm nút gọi `/hocVien/lenCap` sẵn có (không tự động lên cấp).
@@ -84,43 +90,43 @@ Nguyên tắc chống trùng: **mỗi câu hỏi chỉ có một trang trả l�
 
 Mọi bảng là migration mới, tự chứa, có `down` (mẫu: `database/main/migrations/202611090003_edu_buoi_hoc_rule_snapshot.ts`). Ngày dạng chữ `YYYY-MM-DD`.
 
-| Bảng | Cột chính | Ghi chú |
-|---|---|---|
-| `eduLopNhom` | `lopId` FK, `ten`, `thuTu`, `trangThai` | Migration kèm tạo 3 nhóm cho mọi lớp đang có; tạo lớp mới thì tự sinh 3 nhóm |
-| `eduHocVien.nhomId` | FK nullable → `eduLopNhom` | Chỉ đổi qua `POST /hocVien/chuyenNhom`; `/hocVien/chuyenLop` đặt về null |
-| `eduHocVienChuyenNhom` | `hocVienId`, `tuNhomId`, `denNhomId`, `ngay`, `nguoiThucHienId`, `ghiChu` | Lịch sử, chỉ thêm |
-| `eduChuDe` | `levelKey`, `ma` unique, `ten`, `thuTu`, `trangThai` | Cấp lấy từ `server/edu/levels.ts`, không tạo bảng cấp |
-| `eduKyNang` | `chuDeId` FK, `ma` unique, `ten`, `moTa`, `thuTu`, `trangThai`, `sachId` nullable | Đơn vị kiến thức nhỏ nhất |
-| `eduBuoiHocKyNang` | `buoiHocId` FK, `lopId` FK, `kyNangId` FK, `nhomId` nullable; unique | Bài đã dạy trong buổi, theo nhóm |
-| `eduHocVienKyNang` | `hocVienId` FK, `kyNangId` FK (unique cặp), `mucDo` (`da_hoc`/`chua_vung`/`dat`/`vung`), `nguon` (`buoi_hoc`/`cham_tay`/`kiem_tra`), `buoiHocId` nullable, `nguoiChamId`, `capNhatLuc` | Trạng thái hiện tại |
-| `eduBaiKiemTra` | `ten`, `loai` (`dinh_ky`/`len_cap`), `levelKey`, `lopId` FK, `coSoId` FK, `ngay`, `diemDat` (%), `trangThai`, `nguoiTaoId` | |
-| `eduBaiKiemTraKyNang` | `baiKiemTraId` FK, `kyNangId` FK, `diemToiDa` | |
-| `eduKetQuaKiemTra` | `baiKiemTraId`, `hocVienId`, `kyNangId` (unique bộ ba), `diem` | |
-| Chỉ mục | `eduDiemDanh(hocVienId)` | Phục vụ tra cứu theo học viên |
+| Bảng                   | Cột chính                                                                                                                                                                              | Ghi chú                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `eduLopNhom`           | `lopId` FK, `ten`, `thuTu`, `trangThai`                                                                                                                                                | Migration kèm tạo 3 nhóm cho mọi lớp đang có; tạo lớp mới thì tự sinh 3 nhóm |
+| `eduHocVien.nhomId`    | FK nullable → `eduLopNhom`                                                                                                                                                             | Chỉ đổi qua `POST /hocVien/chuyenNhom`; `/hocVien/chuyenLop` đặt về null     |
+| `eduHocVienChuyenNhom` | `hocVienId`, `tuNhomId`, `denNhomId`, `ngay`, `nguoiThucHienId`, `ghiChu`                                                                                                              | Lịch sử, chỉ thêm                                                            |
+| `eduChuDe`             | `levelKey`, `ma` unique, `ten`, `thuTu`, `trangThai`                                                                                                                                   | Cấp lấy từ `server/edu/levels.ts`, không tạo bảng cấp                        |
+| `eduKyNang`            | `chuDeId` FK, `ma` unique, `ten`, `moTa`, `thuTu`, `trangThai`, `sachId` nullable                                                                                                      | Đơn vị kiến thức nhỏ nhất                                                    |
+| `eduBuoiHocKyNang`     | `buoiHocId` FK, `lopId` FK, `kyNangId` FK, `nhomId` nullable; unique                                                                                                                   | Bài đã dạy trong buổi, theo nhóm                                             |
+| `eduHocVienKyNang`     | `hocVienId` FK, `kyNangId` FK (unique cặp), `mucDo` (`da_hoc`/`chua_vung`/`dat`/`vung`), `nguon` (`buoi_hoc`/`cham_tay`/`kiem_tra`), `buoiHocId` nullable, `nguoiChamId`, `capNhatLuc` | Trạng thái hiện tại                                                          |
+| `eduBaiKiemTra`        | `ten`, `loai` (`dinh_ky`/`len_cap`), `levelKey`, `lopId` FK, `coSoId` FK, `ngay`, `diemDat` (%), `trangThai`, `nguoiTaoId`                                                             |                                                                              |
+| `eduBaiKiemTraKyNang`  | `baiKiemTraId` FK, `kyNangId` FK, `diemToiDa`                                                                                                                                          |                                                                              |
+| `eduKetQuaKiemTra`     | `baiKiemTraId`, `hocVienId`, `kyNangId` (unique bộ ba), `diem`                                                                                                                         |                                                                              |
+| Chỉ mục                | `eduDiemDanh(hocVienId)`                                                                                                                                                               | Phục vụ tra cứu theo học viên                                                |
 
 **Quy tắc suy ra "lỗ hổng"** (tính khi đọc, không lưu): kỹ năng đã dạy cho lớp/nhóm của em (`eduBuoiHocKyNang`) mà em không `co_mat`/`hoc_bu` ở buổi đó và chưa có bản ghi `eduHocVienKyNang` từ nguồn khác; hoặc `mucDo = chua_vung`. Khi lưu điểm danh, em có mặt được ghi `da_hoc` cho các kỹ năng của buổi (không ghi đè mức cao hơn đã có).
 
 **Quyền** (thêm vào `server/edu/permissions.ts`, `server/edu/pages.ts`, `database/seed-data/edu-permission-sets.ts`; cấp quyền bằng **seed mới**, không sửa seed cũ):
 
-| Composite | Quản trị | QL cơ sở | HLV | Kế toán |
-|---|---|---|---|---|
-| `edu.chuongTrinh` view / manage | cả hai | view | view | view |
-| `edu.lopNhom` view / manage | cả hai | cả hai (cơ sở mình) | cả hai (lớp mình) | view |
-| `edu.kienThuc` view / record | cả hai | cả hai | cả hai (lớp mình) | — |
-| `edu.kiemTra` view / manage | cả hai | cả hai | cả hai (lớp mình) | — |
+| Composite                       | Quản trị | QL cơ sở            | HLV               | Kế toán |
+| ------------------------------- | -------- | ------------------- | ----------------- | ------- |
+| `edu.chuongTrinh` view / manage | cả hai   | view                | view              | view    |
+| `edu.lopNhom` view / manage     | cả hai   | cả hai (cơ sở mình) | cả hai (lớp mình) | view    |
+| `edu.kienThuc` view / record    | cả hai   | cả hai              | cả hai (lớp mình) | —       |
+| `edu.kiemTra` view / manage     | cả hai   | cả hai              | cả hai (lớp mình) | —       |
 
 Trang: `edu.chuongTrinh`, `edu.kienThuc`, `edu.kiemTra`. Không gán cho `authenticated:*` hay vai `member`.
 
 ## 5. Kế hoạch 6 giai đoạn (mỗi giai đoạn một phiên, một PR)
 
-| GĐ | Nội dung | Tệp chính |
-|---|---|---|
-| **0. Gia cố nền** | Thêm kiểm tra quyền + phạm vi cho `edu-crm-backup.ts`, `edu-import-universal.ts`, `edu-doi-soat.ts`, `edu-nhan-xet.ts` (2 route); mọi thay đổi số dư đi qua `moveBalance`; ghi nhật ký xuất + `csvCell`; sửa 3 link hỏng; cập nhật 3 test lệch; thêm test cho các route chưa có | `server/routes/edu-*.ts`, `tests/server/`, `tests/client/` |
-| **1. Menu + Hồ sơ 360°** | Nhóm menu; `/ho-so-360`; gộp chi tiết Đối soát vào `/hoc-vien/:id` (một endpoint tổng hợp duy nhất, dùng `server/edu/phan-bo-goi.ts`); chuyển hướng link cũ; tab trên URL; Học phí đọc `?search=`; một nguồn "cần thu"; gom tiện ích dùng chung (định dạng tiền, tải CSV, `SessionBalanceBadge`); Sao lưu vào System settings | `client/routes.ts`, `client/pages/edu/{hoc-vien-chi-tiet,doi-soat,hoc-phi}.tsx`, `client/lib/navigation-transform.ts`, `client/locales/edu-copy*.ts` |
-| **2. Sổ điểm danh** | `POST /diemDanh/traCuu` (lọc ngày/cơ sở/lớp/GV/HV/trạng thái, 3 chế độ, phân trang, qua policy); tab Sổ điểm danh; sửa lệch ngày UTC | `server/routes/edu-hoc-phi.ts` hoặc tệp mới `edu-diem-danh-tra-cuu.ts`, `client/pages/edu/diem-danh.tsx` (tách thư mục) |
-| **3. Nhóm trình độ** | 3 bảng/cột nhóm; `/hocVien/chuyenNhom`; tab Nhóm ở lớp; chia khối + lọc nhóm ở Điểm danh và Sổ điểm danh | migrations, `server/routes/edu-actions.ts`, `client/pages/edu/lop-chi-tiet.tsx` |
-| **4. Hệ thống kiến thức** | Bảng chủ đề/kỹ năng + nhập CSV; chọn kỹ năng đã dạy khi điểm danh; ma trận chấm tay; tab Kiến thức ở Hồ sơ 360°; xem "Lỗ hổng cần bù"; loại báo cáo mới | migrations, `server/routes/edu-kien-thuc.ts`, `client/pages/edu/{chuong-trinh,kien-thuc}/` |
-| **5. Kiểm tra cấp** | 3 bảng kiểm tra; trang Kiểm tra; cập nhật mức nắm; gợi ý lên cấp | migrations, `server/routes/edu-kiem-tra.ts`, `client/pages/edu/kiem-tra/` |
+| GĐ                        | Nội dung                                                                                                                                                                                                                                                                                                                      | Tệp chính                                                                                                                                            |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **0. Gia cố nền**         | Thêm kiểm tra quyền + phạm vi cho `edu-crm-backup.ts`, `edu-import-universal.ts`, `edu-doi-soat.ts`, `edu-nhan-xet.ts` (2 route); mọi thay đổi số dư đi qua `moveBalance`; ghi nhật ký xuất + `csvCell`; sửa 3 link hỏng; cập nhật 3 test lệch; thêm test cho các route chưa có                                               | `server/routes/edu-*.ts`, `tests/server/`, `tests/client/`                                                                                           |
+| **1. Menu + Hồ sơ 360°**  | Nhóm menu; `/ho-so-360`; gộp chi tiết Đối soát vào `/hoc-vien/:id` (một endpoint tổng hợp duy nhất, dùng `server/edu/phan-bo-goi.ts`); chuyển hướng link cũ; tab trên URL; Học phí đọc `?search=`; một nguồn "cần thu"; gom tiện ích dùng chung (định dạng tiền, tải CSV, `SessionBalanceBadge`); Sao lưu vào System settings | `client/routes.ts`, `client/pages/edu/{hoc-vien-chi-tiet,doi-soat,hoc-phi}.tsx`, `client/lib/navigation-transform.ts`, `client/locales/edu-copy*.ts` |
+| **2. Sổ điểm danh**       | `POST /diemDanh/traCuu` (lọc ngày/cơ sở/lớp/GV/HV/trạng thái, 3 chế độ, phân trang, qua policy); tab Sổ điểm danh; sửa lệch ngày UTC                                                                                                                                                                                          | `server/routes/edu-hoc-phi.ts` hoặc tệp mới `edu-diem-danh-tra-cuu.ts`, `client/pages/edu/diem-danh.tsx` (tách thư mục)                              |
+| **3. Nhóm trình độ**      | 3 bảng/cột nhóm; `/hocVien/chuyenNhom`; tab Nhóm ở lớp; chia khối + lọc nhóm ở Điểm danh và Sổ điểm danh                                                                                                                                                                                                                      | migrations, `server/routes/edu-actions.ts`, `client/pages/edu/lop-chi-tiet.tsx`                                                                      |
+| **4. Hệ thống kiến thức** | Bảng chủ đề/kỹ năng + nhập CSV; chọn kỹ năng đã dạy khi điểm danh; ma trận chấm tay; tab Kiến thức ở Hồ sơ 360°; xem "Lỗ hổng cần bù"; loại báo cáo mới                                                                                                                                                                       | migrations, `server/routes/edu-kien-thuc.ts`, `client/pages/edu/{chuong-trinh,kien-thuc}/`                                                           |
+| **5. Kiểm tra cấp**       | 3 bảng kiểm tra; trang Kiểm tra; cập nhật mức nắm; gợi ý lên cấp                                                                                                                                                                                                                                                              | migrations, `server/routes/edu-kiem-tra.ts`, `client/pages/edu/kiem-tra/`                                                                            |
 
 GĐ 0 phải xong trước; GĐ 1 và 2 độc lập nhau; GĐ 3 → 4 → 5 theo thứ tự.
 
@@ -156,6 +162,7 @@ Ràng buộc bắt buộc:
 ```
 
 **Prompt GĐ 0 — Gia cố nền**
+
 ```
 [Phần chung]
 Nhiệm vụ: thực hiện Giai đoạn 0 trong kế hoạch. Cụ thể:
@@ -175,6 +182,7 @@ Không đổi giao diện ngoài mục 5. Nếu sửa một route làm hỏng tr
 ```
 
 **Prompt GĐ 1 — Menu + Hồ sơ 360°**
+
 ```
 [Phần chung]
 Nhiệm vụ: Giai đoạn 1 (mục 2, 3.1, 3.2, 3.3 của kế hoạch).
@@ -196,6 +204,7 @@ Nhiệm vụ: Giai đoạn 1 (mục 2, 3.1, 3.2, 3.3 của kế hoạch).
 ```
 
 **Prompt GĐ 2 — Sổ điểm danh**
+
 ```
 [Phần chung]
 Nhiệm vụ: Giai đoạn 2 (mục 3.4 phần "Sổ điểm danh").
@@ -214,6 +223,7 @@ Bộ lọc Nhóm sẽ thêm ở GĐ 3 — chừa chỗ, chưa làm.
 ```
 
 **Prompt GĐ 3 — Nhóm trình độ trong lớp**
+
 ```
 [Phần chung]
 Nhiệm vụ: Giai đoạn 3 (mục 3.5 tab Nhóm, mục 4 các dòng eduLopNhom, eduHocVien.nhomId,
@@ -231,6 +241,7 @@ eduHocVienChuyenNhom, composite edu.lopNhom).
 ```
 
 **Prompt GĐ 4 — Hệ thống kiến thức**
+
 ```
 [Phần chung]
 Nhiệm vụ: Giai đoạn 4 (mục 3.6 Chương trình + Tiến độ kiến thức, mục 3.1 tab Kiến thức, mục 4).
@@ -251,6 +262,7 @@ Kèm tệp CSV mẫu (chỉ tiêu đề cột + 2 dòng ví dụ) trong docs/ đ
 ```
 
 **Prompt GĐ 5 — Kiểm tra cấp**
+
 ```
 [Phần chung]
 Nhiệm vụ: Giai đoạn 5 (mục 3.6 Kiểm tra, mục 4 các bảng eduBaiKiemTra*, eduKetQuaKiemTra).
