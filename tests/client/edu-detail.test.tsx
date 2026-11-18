@@ -362,16 +362,18 @@ describe('student file', () => {
     expect(overview.getByText('Đã học 8 / 12 buổi')).toBeInTheDocument();
     expect(overview.getByText('Đã nộp: 1.000.000 đ')).toBeInTheDocument();
     expect(overview.getByText('Còn nợ: 800.000 đ')).toBeInTheDocument();
-    // Seven tabs for a person who may view everything.
-    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
-      'Tổng quan',
-      'Buổi học',
-      'Học phí',
-      'Sách & quỹ',
-      'Kiến thức',
-      'Nhận xét',
-      'Phụ huynh',
-    ]);
+    // Seven tabs for a person who may view everything (the permissions arrive after the page, so wait for them).
+    await waitFor(() =>
+      expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+        'Tổng quan',
+        'Buổi học',
+        'Học phí',
+        'Sách & quỹ',
+        'Kiến thức',
+        'Nhận xét',
+        'Phụ huynh',
+      ]),
+    );
   });
 
   it('keeps the active tab in the address and opens a tab named by it', async () => {
@@ -437,7 +439,9 @@ describe('student file', () => {
       await screen.findByText('2026-11-03', { selector: 'a' })
     ).closest('tr') as HTMLElement;
     await userEvent.click(
-      within(row).getByRole('button', { name: 'Sửa thông tin buổi học' }),
+      await within(row).findByRole('button', {
+        name: 'Sửa thông tin buổi học',
+      }),
     );
     const comment = await screen.findByLabelText('Nhận xét của giáo viên');
     await userEvent.clear(comment);
