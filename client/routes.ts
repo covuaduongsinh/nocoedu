@@ -9,7 +9,9 @@ import {
   CalendarCheck,
   ClipboardCheck,
   GraduationCap,
+  Grid3x3,
   Home,
+  ListTree,
   UserPlus,
   UserCog,
   MessageSquareText,
@@ -44,7 +46,9 @@ function eduPage(
     | 'sach'
     | 'phatSach'
     | 'tuyenSinh'
-    | 'hoSoGv',
+    | 'hoSoGv'
+    | 'chuongTrinh'
+    | 'kienThuc',
   path: string,
   icon: typeof Home,
   order: number,
@@ -71,7 +75,12 @@ function eduPage(
  * the menu never moves a stored grant. The title is `edu.nav.<id>`.
  */
 function eduGroup(
-  id: 'nhomHangNgay' | 'nhomHocVien' | 'nhomHocPhiSach' | 'nhomDanhMuc',
+  id:
+    | 'nhomHangNgay'
+    | 'nhomHocVien'
+    | 'nhomHocPhiSach'
+    | 'nhomChuyenMon'
+    | 'nhomDanhMuc',
   order: number,
   children: readonly AppClientRouteDefinition[],
 ): AppClientRouteDefinition {
@@ -113,7 +122,7 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
     navigation: { title: 'edu.nav.home', icon: Home, order: 0 },
     path: '/',
   },
-  // The sidebar is five sections (docs/plans/2026-11-17-tai-cau-truc-nocoedu.md, section 2): daily work, students,
+  // The sidebar is six sections (docs/plans/2026-11-17-tai-cau-truc-nocoedu.md, section 2): daily work, students,
   // tuition and books, the catalogue, and the reports. Page ids, paths and `authz` are unchanged by the grouping.
   eduGroup('nhomHangNgay', 10, [
     ...eduPage(
@@ -184,6 +193,23 @@ const appRoutes: AppClientRouteContribution = defineAppRoutes([
       BookMarked,
       3,
       () => import('./pages/edu/phat-sach.js'),
+    ),
+  ]),
+  // The knowledge system (GĐ 4): the curriculum, and what each class and student has learned of it.
+  eduGroup('nhomChuyenMon', 35, [
+    ...eduPage(
+      'chuongTrinh',
+      '/chuong-trinh',
+      ListTree,
+      1,
+      () => import('./pages/edu/chuong-trinh/index.js'),
+    ),
+    ...eduPage(
+      'kienThuc',
+      '/kien-thuc',
+      Grid3x3,
+      2,
+      () => import('./pages/edu/kien-thuc/index.js'),
     ),
   ]),
   eduGroup('nhomDanhMuc', 40, [

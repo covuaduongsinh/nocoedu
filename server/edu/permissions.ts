@@ -34,6 +34,10 @@ export const COLLECTIONS = {
     name: 'eduHocVienChuyenNhom',
     title: 'Lịch sử chuyển nhóm',
   },
+  chuDe: { name: 'eduChuDe', title: 'Chủ đề kiến thức' },
+  kyNang: { name: 'eduKyNang', title: 'Kỹ năng' },
+  buoiKyNang: { name: 'eduBuoiHocKyNang', title: 'Kỹ năng đã dạy trong buổi' },
+  hocVienKyNang: { name: 'eduHocVienKyNang', title: 'Mức nắm kỹ năng' },
 } as const;
 
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -329,6 +333,55 @@ export const FIELDS = {
     ],
     write: [],
   },
+  // The curriculum (GĐ 4): a topic of one level and its skills. Hidden (`an`), never deleted; the level, the code and
+  // the topic of a skill never change after creation.
+  chuDe: {
+    read: ['id', 'levelKey', 'ma', 'ten', 'thuTu', 'trangThai'],
+    write: ['levelKey', 'ma', 'ten', 'thuTu', 'trangThai'],
+    edit: ['ten', 'thuTu', 'trangThai'],
+  },
+  kyNang: {
+    read: [
+      'id',
+      'chuDeId',
+      'ma',
+      'ten',
+      'moTa',
+      'thuTu',
+      'trangThai',
+      'sachId',
+    ],
+    write: ['chuDeId', 'ma', 'ten', 'moTa', 'thuTu', 'trangThai', 'sachId'],
+    edit: ['ten', 'moTa', 'thuTu', 'trangThai', 'sachId'],
+  },
+  // A skill taught in a session, for the whole class (`nhomId` null) or one group of it.
+  buoiKyNang: {
+    read: ['id', 'buoiHocId', 'lopId', 'kyNangId', 'nhomId'],
+    write: ['buoiHocId', 'lopId', 'kyNangId', 'nhomId'],
+  },
+  // What one student has learned of one skill. `da_hoc` is written by the register, the others by a coach's grading.
+  hocVienKyNang: {
+    read: [
+      'id',
+      'hocVienId',
+      'kyNangId',
+      'mucDo',
+      'nguon',
+      'buoiHocId',
+      'nguoiChamId',
+      'capNhatLuc',
+    ],
+    write: [
+      'hocVienId',
+      'kyNangId',
+      'mucDo',
+      'nguon',
+      'buoiHocId',
+      'nguoiChamId',
+      'capNhatLuc',
+    ],
+    edit: ['mucDo', 'nguon', 'buoiHocId', 'nguoiChamId', 'capNhatLuc'],
+  },
   hoSoGv: {
     read: ['id', 'userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
     write: ['userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
@@ -449,6 +502,69 @@ export const lopNhom = defineCompositeResource('edu.lopNhom', (r) =>
           lopNhomRead
             .create([...FIELDS.lopNhom.write])
             .update([...FIELDS.lopNhom.edit]),
+        ),
+    ),
+);
+
+// The curriculum (GĐ 4): view for everybody who teaches or manages, manage for the administrator only. The catalogue is
+// global (the same for every branch), so every holder reads all of it. One resource, two collections: the routes of
+// `edu-kien-thuc.ts` use it with `needs()`, never through a record API.
+const chuDeRead = perm('chuDe', FIELDS.chuDe);
+const kyNangRead = perm('kyNang', FIELDS.kyNang);
+export const chuongTrinh = defineCompositeResource('edu.chuongTrinh', (r) =>
+  r
+    .title('Chương trình kiến thức')
+    .action('view', (a) =>
+      a
+        .title('Xem chương trình')
+        .grant('chuDe', chuDeRead)
+        .grant('kyNang', kyNangRead),
+    )
+    .action('manage', (a) =>
+      a
+        .title('Sửa chương trình và nhập CSV')
+        .grant(
+          'chuDe',
+          chuDeRead
+            .create([...FIELDS.chuDe.write])
+            .update([...FIELDS.chuDe.edit]),
+        )
+        .grant(
+          'kyNang',
+          kyNangRead
+            .create([...FIELDS.kyNang.write])
+            .update([...FIELDS.kyNang.edit]),
+        ),
+    ),
+);
+
+// What each student has learned (GĐ 4): view, and record (choose the skills taught in a session, grade a cell by hand).
+// `data` is the state of a student (scope by student), `taught` the skills of a session (scope by class). The register
+// writes `da_hoc` rows itself, in the transaction of the attendance, for the students it has just marked present.
+const hocVienKyNangRead = perm('hocVienKyNang', FIELDS.hocVienKyNang);
+const buoiKyNangRead = perm('buoiKyNang', FIELDS.buoiKyNang);
+export const kienThuc = defineCompositeResource('edu.kienThuc', (r) =>
+  r
+    .title('Tiến độ kiến thức')
+    .action('view', (a) =>
+      a
+        .title('Xem tiến độ và lỗ hổng')
+        .grant('data', hocVienKyNangRead)
+        .grant('taught', buoiKyNangRead),
+    )
+    .action('record', (a) =>
+      a
+        .title('Chấm kỹ năng và chọn kỹ năng đã dạy')
+        .grant(
+          'data',
+          hocVienKyNangRead
+            .create([...FIELDS.hocVienKyNang.write])
+            .update([...FIELDS.hocVienKyNang.edit])
+            .delete(),
+        )
+        .grant(
+          'taught',
+          buoiKyNangRead.create([...FIELDS.buoiKyNang.write]).delete(),
         ),
     ),
 );

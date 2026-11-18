@@ -83,11 +83,20 @@ export const BACKUP_TABLES = [
   'eduSachHoc',
   'eduLienHe',
   'eduHoSoGv',
+  // The knowledge system (GĐ 4): the curriculum (a skill may point at a book), then what was taught and what each
+  // student has learned (they point at sessions, students, groups and skills).
+  'eduChuDe',
+  'eduKyNang',
+  'eduBuoiHocKyNang',
+  'eduHocVienKyNang',
 ] as const;
 
-/** Version written into a snapshot. 1.0 files (15 tables) and 2.0 files (21 tables, before the groups of GĐ 3) are still accepted by a restore. */
-export const BACKUP_VERSION = '2.1';
-const SUPPORTED_VERSIONS = ['1.0', '2.0', '2.1'];
+/**
+ * Version written into a snapshot. 1.0 files (15 tables), 2.0 files (21 tables, before the groups of GĐ 3) and 2.1
+ * files (before the knowledge system of GĐ 4) are still accepted by a restore: a table the file does not hold stays as it is.
+ */
+export const BACKUP_VERSION = '2.2';
+const SUPPORTED_VERSIONS = ['1.0', '2.0', '2.1', '2.2'];
 /** Rows written per insert while restoring. */
 const RESTORE_BATCH = 200;
 

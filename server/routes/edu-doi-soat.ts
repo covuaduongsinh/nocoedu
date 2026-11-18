@@ -17,6 +17,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
 import { lockSessionRule, saveAttendanceRow } from '../edu/balance.js';
+import { refreshTaughtKnowledge } from '../edu/kien-thuc-doc.js';
 import { balanceBand, isStudying } from '../edu/can-thu.js';
 import { asText } from '../edu/names.js';
 import { chunksOf, readAllRows, type Row } from '../edu/read-all.js';
@@ -499,6 +500,11 @@ export default [
             },
             rule,
             userId,
+          );
+          // A status corrected here changes who learned the skills of that session (GĐ 4).
+          await refreshTaughtKnowledge(
+            connection.query,
+            Number(record.buoiHocId),
           );
           if (yThucDiem !== undefined) {
             // The awareness score is not a permission field; the row above was checked against the caller's scope.

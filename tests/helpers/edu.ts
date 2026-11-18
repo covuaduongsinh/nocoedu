@@ -107,6 +107,11 @@ export async function seedSchool(
   const q = connection.query;
   // The file shares one application, so start every case from an empty school.
   for (const table of [
+    // The knowledge system (GĐ 4) points at students, sessions and groups, so it goes first.
+    'eduHocVienKyNang',
+    'eduBuoiHocKyNang',
+    'eduKyNang',
+    'eduChuDe',
     'eduSachHoc',
     'eduLienHe',
     'eduHoSoGv',

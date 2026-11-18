@@ -570,7 +570,7 @@ type Snapshot = {
   };
 };
 
-/** A row in every one of the 23 tables of a snapshot (made-up data), on top of what `seedSchool` made. */
+/** A row in every one of the 27 tables of a snapshot (made-up data), on top of what `seedSchool` made. */
 async function everyTable(
   connection: Parameters<typeof seedSchool>[0],
   ids: Awaited<ReturnType<typeof seedSchool>>,
@@ -679,6 +679,44 @@ async function everyTable(
     })
     .execute();
   const markId = await one('eduDiemDanh', ['buoiHocId', sessionId]);
+  // The knowledge system (GĐ 4): a topic, a skill, the skill taught in the session, and what the student learned.
+  await q
+    .insertInto('eduChuDe')
+    .values({ levelKey: 'tot', ma: 'CD-MAU', ten: 'Chủ đề Mẫu', thuTu: 1 })
+    .execute();
+  const topicId = await one('eduChuDe', ['ma', 'CD-MAU']);
+  await q
+    .insertInto('eduKyNang')
+    .values({
+      chuDeId: topicId,
+      ma: 'KN-MAU',
+      ten: 'Kỹ năng Mẫu',
+      moTa: 'Mô tả mẫu',
+      thuTu: 1,
+    })
+    .execute();
+  const skillId = await one('eduKyNang', ['ma', 'KN-MAU']);
+  await q
+    .insertInto('eduBuoiHocKyNang')
+    .values({
+      buoiHocId: sessionId,
+      lopId: ids.lopA,
+      kyNangId: skillId,
+      nhomId: groupId,
+    })
+    .execute();
+  await q
+    .insertInto('eduHocVienKyNang')
+    .values({
+      hocVienId: ids.hocVienA,
+      kyNangId: skillId,
+      mucDo: 'da_hoc',
+      nguon: 'buoi_hoc',
+      buoiHocId: sessionId,
+      nguoiChamId: null,
+      capNhatLuc: new Date('2026-11-02T10:00:00.000Z'),
+    })
+    .execute();
   await q
     .insertInto('eduGoiHoc')
     .values({
@@ -787,7 +825,7 @@ async function everyTable(
     .execute();
 }
 
-test('a snapshot holds all 23 tables and restoring it brings every one of them back', async ({
+test('a snapshot holds all 27 tables and restoring it brings every one of them back', async ({
   testApp,
   connection,
 }) => {
@@ -795,8 +833,8 @@ test('a snapshot holds all 23 tables and restoring it brings every one of them b
   await everyTable(connection, ids, hlvA.id);
 
   const before = (await (await post(admin, BACKUP, {})).json()) as Snapshot;
-  expect(before.data.phienBan).toBe('2.1');
-  expect(before.data.tongSoBang).toBe(23);
+  expect(before.data.phienBan).toBe('2.2');
+  expect(before.data.tongSoBang).toBe(27);
   for (const table of Object.keys(before.data.duLieu)) {
     expect(
       before.data.duLieu[table]?.length,

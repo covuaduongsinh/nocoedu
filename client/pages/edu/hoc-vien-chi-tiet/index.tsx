@@ -117,6 +117,7 @@ function StudentFile({
   const canBookLearning = useCanView('edu.sachHoc');
   const canComments = useCanView('edu.nhanXet');
   const canParents = useCanView('edu.phuHuynh');
+  const canKnowledge = useCanView('edu.kienThuc');
   const { can: canCollect } = useCan({
     resource: { type: 'composite', id: 'edu.thanhToan' },
     action: 'manage',
@@ -133,7 +134,7 @@ function StudentFile({
     'buoi-hoc': canSessions,
     'hoc-phi': canPackages && canLedger,
     'sach-quy': canBookFund || canBookLearning,
-    'kien-thuc': true,
+    'kien-thuc': canKnowledge,
     'nhan-xet': canComments,
     'phu-huynh': canParents,
   };
@@ -335,9 +336,11 @@ function StudentFile({
             </Section>
           </TabsContent>
         ) : null}
-        <TabsContent value='kien-thuc' className='pt-4'>
-          <Knowledge />
-        </TabsContent>
+        {visible['kien-thuc'] ? (
+          <TabsContent value='kien-thuc' className='pt-4'>
+            <Knowledge studentId={student.id} />
+          </TabsContent>
+        ) : null}
         {visible['nhan-xet'] ? (
           <TabsContent value='nhan-xet' className='pt-4'>
             <Comments studentId={student.id} />

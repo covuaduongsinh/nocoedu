@@ -16,6 +16,8 @@ import {
   lop,
   lopLich,
   lopNhom,
+  chuongTrinh,
+  kienThuc,
   nhanXet,
   phatSach,
   phuHuynh,
@@ -52,7 +54,9 @@ const everyPage = Object.entries(PAGES)
       key !== 'phatSach' &&
       key !== 'tuyenSinh' &&
       key !== 'hoSoGv' &&
-      key !== 'heThong',
+      key !== 'heThong' &&
+      key !== 'chuongTrinh' &&
+      key !== 'kienThuc',
   )
   .map(([, id]) => page(id));
 const sachPage = page(PAGES.sach);
@@ -64,6 +68,9 @@ const tuyenSinhPage = page(PAGES.tuyenSinh);
 const hoSoGvPage = page(PAGES.hoSoGv);
 // The backup page is the last: `202611170001_edu_he_thong_grant` (administrator only).
 const heThongPage = page(PAGES.heThong);
+// The curriculum and knowledge pages come last: `202611180005_edu_kien_thuc_grant` (GĐ 4).
+const chuongTrinhPage = page(PAGES.chuongTrinh);
+const kienThucPage = page(PAGES.kienThuc);
 
 export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .title('NocoEdu - Quản trị')
@@ -152,6 +159,20 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
     lopNhom.reference().grant({
       view: { data: ALL },
       manage: { data: ALL },
+    }),
+  )
+  // The curriculum and the knowledge matrix (GĐ 4): `202611180005_edu_kien_thuc_grant`.
+  .grant(chuongTrinhPage, kienThucPage)
+  .grant(
+    chuongTrinh.reference().grant({
+      view: { chuDe: ALL, kyNang: ALL },
+      manage: { chuDe: ALL, kyNang: ALL },
+    }),
+  )
+  .grant(
+    kienThuc.reference().grant({
+      view: { data: ALL, taught: ALL },
+      record: { data: ALL, taught: ALL },
     }),
   )
   .build();
@@ -259,6 +280,15 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
       manage: { data: MY_BRANCHES },
     }),
   )
+  // The curriculum is read-only for a branch manager; the knowledge matrix is theirs over their branches.
+  .grant(chuongTrinhPage, kienThucPage)
+  .grant(chuongTrinh.reference().grant({ view: { chuDe: ALL, kyNang: ALL } }))
+  .grant(
+    kienThuc.reference().grant({
+      view: { data: MY_BRANCHES, taught: MY_BRANCHES },
+      record: { data: MY_BRANCHES, taught: MY_BRANCHES },
+    }),
+  )
   .build();
 
 export const eduHlv = definePermissionSet('edu_hlv')
@@ -307,6 +337,14 @@ export const eduHlv = definePermissionSet('edu_hlv')
       manage: { data: MY_CLASSES },
     }),
   )
+  .grant(chuongTrinhPage, kienThucPage)
+  .grant(chuongTrinh.reference().grant({ view: { chuDe: ALL, kyNang: ALL } }))
+  .grant(
+    kienThuc.reference().grant({
+      view: { data: MY_CLASSES, taught: MY_CLASSES },
+      record: { data: MY_CLASSES, taught: MY_CLASSES },
+    }),
+  )
   .build();
 
 export const eduKeToan = definePermissionSet('edu_ke_toan')
@@ -342,6 +380,9 @@ export const eduKeToan = definePermissionSet('edu_ke_toan')
   .grant(sachHoc.reference().grant({ view: { data: ALL } }))
   // Groups of level inside a class (GĐ 3): `202611180003_edu_lop_nhom_grant`.
   .grant(lopNhom.reference().grant({ view: { data: ALL } }))
+  // The accountant may read the curriculum, nothing of what a student has learned.
+  .grant(chuongTrinhPage)
+  .grant(chuongTrinh.reference().grant({ view: { chuDe: ALL, kyNang: ALL } }))
   .build();
 
 export const eduApiDoc = definePermissionSet('edu_api_doc')

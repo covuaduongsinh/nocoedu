@@ -526,3 +526,140 @@ describeMigration('202611180002_create_edu_lop_nhom', {
     await expectCollection('eduHocVien').not.toHaveField('nhomId');
   },
 });
+
+describeMigration('202611180004_create_edu_kien_thuc', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ connection, expectCollection }) => {
+    for (const name of [
+      'eduChuDe',
+      'eduKyNang',
+      'eduBuoiHocKyNang',
+      'eduHocVienKyNang',
+    ]) {
+      await expectCollection(name).toExist();
+    }
+    // Nothing is seeded: the head coach loads the curriculum from a CSV file.
+    for (const name of ['eduChuDe', 'eduKyNang']) {
+      expect(
+        await connection.query.selectFrom(name).select('id').execute(),
+      ).toHaveLength(0);
+    }
+    await expectCollection('eduChuDe').toHaveIndex(['ma'], { unique: true });
+    await expectCollection('eduKyNang').toHaveIndex(['ma'], { unique: true });
+    await expectCollection('eduHocVienKyNang').toHaveIndex(
+      ['hocVienId', 'kyNangId'],
+      { unique: true },
+    );
+    await expectCollection('eduBuoiHocKyNang').toHaveField('nhomId', {
+      nullable: true,
+    });
+
+    // A topic, a skill and its state; a code and a (student, skill) pair are taken once.
+    await connection.query
+      .insertInto('eduChuDe')
+      .values({ levelKey: 'tot', ma: 'CD-MAU', ten: 'Chủ đề Mẫu' })
+      .execute();
+    const topic = await connection.query
+      .selectFrom('eduChuDe')
+      .select(['id', 'thuTu', 'trangThai'])
+      .where('ma', '=', 'CD-MAU')
+      .executeTakeFirstOrThrow();
+    expect(Number(topic.thuTu)).toBe(0);
+    expect(topic.trangThai).toBe('hoat_dong');
+    await expect(
+      connection.query
+        .insertInto('eduChuDe')
+        .values({ levelKey: 'ma', ma: 'CD-MAU', ten: 'Trùng mã' })
+        .execute(),
+    ).rejects.toThrow();
+    await connection.query
+      .insertInto('eduKyNang')
+      .values({ chuDeId: Number(topic.id), ma: 'KN-MAU', ten: 'Kỹ năng Mẫu' })
+      .execute();
+    const skill = await connection.query
+      .selectFrom('eduKyNang')
+      .select('id')
+      .where('ma', '=', 'KN-MAU')
+      .executeTakeFirstOrThrow();
+    await expect(
+      connection.query
+        .insertInto('eduKyNang')
+        .values({ chuDeId: 999_999, ma: 'KN-LAC', ten: 'Chủ đề không có' })
+        .execute(),
+    ).rejects.toThrow();
+    await connection.query
+      .insertInto('eduCoSo')
+      .values({ ma: 'CS-KT', ten: 'Cơ sở Mẫu' })
+      .execute();
+    const branch = await connection.query
+      .selectFrom('eduCoSo')
+      .select('id')
+      .where('ma', '=', 'CS-KT')
+      .executeTakeFirstOrThrow();
+    await connection.query
+      .insertInto('eduHocVien')
+      .values({
+        ma: 'HS-KT',
+        hoTen: 'Học viên Mẫu 01',
+        namSinh: 2016,
+        levelKey: 'tot',
+        levelOrder: 1,
+        coSoId: Number(branch.id),
+      })
+      .execute();
+    const student = await connection.query
+      .selectFrom('eduHocVien')
+      .select('id')
+      .where('ma', '=', 'HS-KT')
+      .executeTakeFirstOrThrow();
+    const state = {
+      hocVienId: Number(student.id),
+      kyNangId: Number(skill.id),
+      mucDo: 'da_hoc',
+      nguon: 'buoi_hoc',
+      capNhatLuc: new Date('2026-11-02T10:00:00.000Z'),
+    };
+    await connection.query
+      .insertInto('eduHocVienKyNang')
+      .values(state)
+      .execute();
+    await expect(
+      connection.query.insertInto('eduHocVienKyNang').values(state).execute(),
+    ).rejects.toThrow();
+    // The check runs again after the roll back: leave the students and branches as they were.
+    await connection.query
+      .deleteFrom('eduHocVienKyNang')
+      .allowAllRows()
+      .execute();
+    await connection.query
+      .deleteFrom('eduHocVien')
+      .where('ma', '=', 'HS-KT')
+      .execute();
+    await connection.query
+      .deleteFrom('eduCoSo')
+      .where('ma', '=', 'CS-KT')
+      .execute();
+  },
+  down: async ({ expectCollection }) => {
+    for (const name of [
+      'eduChuDe',
+      'eduKyNang',
+      'eduBuoiHocKyNang',
+      'eduHocVienKyNang',
+    ]) {
+      await expectCollection(name).not.toExist();
+    }
+    // The tables the knowledge system points at are untouched.
+    await expectCollection('eduHocVien').toExist();
+    await expectCollection('eduBuoiHoc').toExist();
+    await expectCollection('eduLopNhom').toExist();
+  },
+});

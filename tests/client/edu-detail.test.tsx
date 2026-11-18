@@ -159,6 +159,15 @@ const api = vi.fn(({ method, path, json }: ApiCall) => {
   if (path === 'hocVien/findOne')
     return { data: studentFound ? student : null };
   if (path === 'hocVien/hoSo360') return { data: profileAnswer };
+  if (path === 'kienThuc/hoSo')
+    return {
+      data: {
+        hocVienId: 7,
+        levelKey: 'ma',
+        capDo: [],
+        canBu: [],
+      },
+    };
   if (path === 'doiSoat/capNhatBuoiHoc') return { data: { success: true } };
   if (path === 'nhanXetThang/findMany')
     return {
@@ -410,7 +419,7 @@ describe('student file', () => {
     );
   });
 
-  it('shows the books and the fund, the comments, the parents and the empty knowledge tab', async () => {
+  it('shows the books and the fund, the comments, the parents and the knowledge tab', async () => {
     await render('/hoc-vien/7?tab=sach-quy');
     expect(
       await screen.findByText('Sách Mẫu 1', { exact: false }),
@@ -430,7 +439,9 @@ describe('student file', () => {
     expect(screen.getByText('Mẹ')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('tab', { name: 'Kiến thức' }));
-    expect(await screen.findByText(/giai đoạn 4/u)).toBeInTheDocument();
+    // The knowledge tab asks for the student's own tree, not for the profile again.
+    expect(await screen.findByText('Cần bù')).toBeInTheDocument();
+    expect(callsTo('kienThuc/hoSo')[0]?.json).toEqual({ hocVienId: 7 });
   });
 
   it('quick-edits a session and reads the file again', async () => {

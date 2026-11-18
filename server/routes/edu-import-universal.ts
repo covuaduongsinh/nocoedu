@@ -23,6 +23,7 @@ import {
   saveAttendanceRow,
 } from '../edu/balance.js';
 import { parseCsv } from '../edu/import-csv.js';
+import { refreshTaughtKnowledge } from '../edu/kien-thuc-doc.js';
 import { LEVEL_KEYS, levelOrder } from '../edu/levels.js';
 import { ATTENDANCE_STATUSES, todayVn } from '../edu/so-du.js';
 import type { AttendanceStatus } from '../edu/so-du.js';
@@ -806,6 +807,7 @@ async function handleRow(
       .set({ trangThai: 'da_diem_danh' })
       .where('id', '=', buoiHocId)
       .execute();
+    await refreshTaughtKnowledge(conn.query, buoiHocId);
     return problems;
   }
 

@@ -4,10 +4,12 @@ import {
   CalendarCheck,
   GraduationCap,
   Layers,
+  Network,
   Users,
   Wallet,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useNavigate } from 'react-router';
 
 import { Alert, AlertDescription, AlertTitle } from '#components/ui/alert';
 import { Card, CardContent } from '#components/ui/card';
@@ -28,7 +30,8 @@ export function Overview({
   readonly profile: Profile;
 }): ReactElement {
   const { t } = useTranslation();
-  const { tongHop: sum } = profile;
+  const navigate = useNavigate();
+  const { tongHop: sum, kienThuc: knowledge } = profile;
   const terms = profile.hocPhi?.cacKy ?? [];
   return (
     <div className='flex flex-col gap-6'>
@@ -46,6 +49,38 @@ export function Overview({
             value={profile.hocVien.nhomTen ?? t('edu.nhom.none')}
             subtitle={profile.hocVien.lopTen ?? undefined}
             icon={Users}
+          />
+        ) : null}
+        {knowledge ? (
+          <MetricCard
+            title={t('edu.kt.kpi.percent')}
+            value={`${knowledge.phanTram}%`}
+            subtitle={t('edu.kt.kpi.percentHint', {
+              level: t(`edu.level.${knowledge.levelKey}`),
+              done: knowledge.daHoc,
+              total: knowledge.tong,
+            })}
+            icon={Network}
+            tone='primary'
+            onClick={() =>
+              void navigate(`/hoc-vien/${profile.hocVien.id}?tab=kien-thuc`)
+            }
+          />
+        ) : null}
+        {knowledge ? (
+          <MetricCard
+            title={t('edu.kt.kpi.makeup')}
+            value={knowledge.canBu}
+            subtitle={
+              knowledge.canBu > 0
+                ? t('edu.kt.kpi.makeupHint')
+                : t('edu.kt.kpi.makeupNone')
+            }
+            icon={Layers}
+            tone={knowledge.canBu > 0 ? 'warning' : 'neutral'}
+            onClick={() =>
+              void navigate(`/hoc-vien/${profile.hocVien.id}?tab=kien-thuc`)
+            }
           />
         ) : null}
         {sum.tongSoBuoiDaHoc !== null ? (

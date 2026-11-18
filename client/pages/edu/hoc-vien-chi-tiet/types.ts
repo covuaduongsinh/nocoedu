@@ -38,6 +38,16 @@ export interface Profile {
   };
   readonly hocPhi: { readonly cacKy: readonly Term[] } | null;
   readonly buoiHoc: readonly SessionRow[] | null;
+  /** The share of the student's level learned and the gaps open; `null` without `edu.kienThuc` and what it reads. */
+  readonly kienThuc: {
+    readonly levelKey: string;
+    readonly tong: number;
+    readonly daHoc: number;
+    readonly dat: number;
+    readonly chuaVung: number;
+    readonly phanTram: number;
+    readonly canBu: number;
+  } | null;
   readonly sach: {
     readonly cacLanPhat: readonly BookHandout[];
     readonly daPhat: number;
