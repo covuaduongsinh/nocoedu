@@ -26,6 +26,7 @@ import { Sessions } from './buoi-hoc.js';
 import { Tuition } from './hoc-phi.js';
 import { PrintSheet } from './in-phieu.js';
 import { Knowledge } from './kien-thuc.js';
+import { TestResults } from './kiem-tra.js';
 import { GroupHistory } from './nhom-lich-su.js';
 import { Comments } from './nhan-xet.js';
 import { Parents } from './phu-huynh.js';
@@ -119,6 +120,8 @@ function StudentFile({
   const canComments = useCanView('edu.nhanXet');
   const canParents = useCanView('edu.phuHuynh');
   const canKnowledge = useCanView('edu.kienThuc');
+  // The results of the tests of a level (GĐ 5) sit under the knowledge tab, for who may view them.
+  const canTests = useCanView('edu.kiemTra');
   const { can: canCollect } = useCan({
     resource: { type: 'composite', id: 'edu.thanhToan' },
     action: 'manage',
@@ -135,7 +138,7 @@ function StudentFile({
     'buoi-hoc': canSessions,
     'hoc-phi': canPackages && canLedger,
     'sach-quy': canBookFund || canBookLearning,
-    'kien-thuc': canKnowledge,
+    'kien-thuc': canKnowledge || canTests,
     'nhan-xet': canComments,
     'phu-huynh': canParents,
   };
@@ -342,7 +345,10 @@ function StudentFile({
         ) : null}
         {visible['kien-thuc'] ? (
           <TabsContent value='kien-thuc' className='pt-4'>
-            <Knowledge studentId={student.id} />
+            <div className='flex flex-col gap-8'>
+              {canKnowledge ? <Knowledge studentId={student.id} /> : null}
+              {canTests ? <TestResults studentId={student.id} /> : null}
+            </div>
           </TabsContent>
         ) : null}
         {visible['nhan-xet'] ? (

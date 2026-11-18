@@ -18,6 +18,7 @@ import {
   lopNhom,
   chuongTrinh,
   kienThuc,
+  kiemTra,
   nhanXet,
   phatSach,
   phuHuynh,
@@ -56,7 +57,8 @@ const everyPage = Object.entries(PAGES)
       key !== 'hoSoGv' &&
       key !== 'heThong' &&
       key !== 'chuongTrinh' &&
-      key !== 'kienThuc',
+      key !== 'kienThuc' &&
+      key !== 'kiemTra',
   )
   .map(([, id]) => page(id));
 const sachPage = page(PAGES.sach);
@@ -71,6 +73,8 @@ const heThongPage = page(PAGES.heThong);
 // The curriculum and knowledge pages come last: `202611180005_edu_kien_thuc_grant` (GĐ 4).
 const chuongTrinhPage = page(PAGES.chuongTrinh);
 const kienThucPage = page(PAGES.kienThuc);
+// The tests page is the last: `202611180006_edu_kiem_tra_grant` (GĐ 5). The accountant has neither it nor its grant.
+const kiemTraPage = page(PAGES.kiemTra);
 
 export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .title('NocoEdu - Quản trị')
@@ -175,6 +179,14 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
     kienThuc.reference().grant({
       view: { data: ALL, taught: ALL },
       record: { data: ALL, taught: ALL },
+    }),
+  )
+  // The tests of a level (GĐ 5): `202611180006_edu_kiem_tra_grant`.
+  .grant(kiemTraPage)
+  .grant(
+    kiemTra.reference().grant({
+      view: { bai: ALL, ketQua: ALL },
+      manage: { bai: ALL, ketQua: ALL, mucDo: ALL },
     }),
   )
   .build();
@@ -293,6 +305,13 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
       record: { data: MY_BRANCHES, taught: MY_BRANCHES },
     }),
   )
+  .grant(kiemTraPage)
+  .grant(
+    kiemTra.reference().grant({
+      view: { bai: MY_BRANCHES, ketQua: MY_BRANCHES },
+      manage: { bai: MY_BRANCHES, ketQua: MY_BRANCHES, mucDo: MY_BRANCHES },
+    }),
+  )
   .build();
 
 export const eduHlv = definePermissionSet('edu_hlv')
@@ -349,6 +368,13 @@ export const eduHlv = definePermissionSet('edu_hlv')
     kienThuc.reference().grant({
       view: { data: MY_CLASSES, taught: MY_CLASSES },
       record: { data: MY_CLASSES, taught: MY_CLASSES },
+    }),
+  )
+  .grant(kiemTraPage)
+  .grant(
+    kiemTra.reference().grant({
+      view: { bai: MY_CLASSES, ketQua: MY_CLASSES },
+      manage: { bai: MY_CLASSES, ketQua: MY_CLASSES, mucDo: MY_CLASSES },
     }),
   )
   .build();

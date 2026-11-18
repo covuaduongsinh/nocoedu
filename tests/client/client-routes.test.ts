@@ -192,6 +192,8 @@ describe('app client routes', () => {
       // The student file and the class page open with the grant of their list.
       { name: 'edu-lop-chi-tiet', authorizedAs: 'edu.lop' },
       { name: 'edu-hocVien-chi-tiet', authorizedAs: 'edu.hocVien' },
+      // A test opens with the grant of the tests page (GĐ 5).
+      { name: 'edu-kiemTra-chi-tiet', authorizedAs: 'edu.kiemTra' },
       { name: 'edu-phuHuynh', authorizedAs: 'edu.phuHuynh' },
       { name: 'inbox', authorizedAs: null },
       // The sidebar sections, in menu order. Grouping the menu never changes the grant of a page.
@@ -207,6 +209,8 @@ describe('app client routes', () => {
       // The knowledge system (GĐ 4): the curriculum and the matrix of what each class has learned.
       { name: 'edu-chuongTrinh', authorizedAs: 'edu.chuongTrinh' },
       { name: 'edu-kienThuc', authorizedAs: 'edu.kienThuc' },
+      // The tests of a level (GĐ 5).
+      { name: 'edu-kiemTra', authorizedAs: 'edu.kiemTra' },
       { name: 'edu-lop', authorizedAs: 'edu.lop' },
       { name: 'edu-coSo', authorizedAs: 'edu.coSo' },
       { name: 'edu-hoSoGv', authorizedAs: 'edu.hoSoGv' },
@@ -265,7 +269,11 @@ describe('app client routes', () => {
       '/doi-soat',
       '/phat-sach',
     ]);
-    expect(pages('edu-nhomChuyenMon')).toEqual(['/chuong-trinh', '/kien-thuc']);
+    expect(pages('edu-nhomChuyenMon')).toEqual([
+      '/chuong-trinh',
+      '/kien-thuc',
+      '/kiem-tra',
+    ]);
     expect(pages('edu-nhomDanhMuc')).toEqual([
       '/lop',
       '/co-so',

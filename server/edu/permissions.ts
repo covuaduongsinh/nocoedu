@@ -38,6 +38,8 @@ export const COLLECTIONS = {
   kyNang: { name: 'eduKyNang', title: 'Kỹ năng' },
   buoiKyNang: { name: 'eduBuoiHocKyNang', title: 'Kỹ năng đã dạy trong buổi' },
   hocVienKyNang: { name: 'eduHocVienKyNang', title: 'Mức nắm kỹ năng' },
+  baiKiemTra: { name: 'eduBaiKiemTra', title: 'Bài kiểm tra' },
+  ketQuaKiemTra: { name: 'eduKetQuaKiemTra', title: 'Kết quả kiểm tra' },
 } as const;
 
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -382,6 +384,69 @@ export const FIELDS = {
     ],
     edit: ['mucDo', 'nguon', 'buoiHocId', 'nguoiChamId', 'capNhatLuc'],
   },
+  // A test of one level for one class (GĐ 5). `eduBaiKiemTraKyNang` (its skills and top marks) has no permission of its
+  // own: it is read and written by the id of a test the caller's `baiKiemTra` policy returned.
+  baiKiemTra: {
+    read: [
+      'id',
+      'ten',
+      'loai',
+      'levelKey',
+      'lopId',
+      'coSoId',
+      'ngay',
+      'diemDat',
+      'trangThai',
+      'nguoiTaoId',
+      'chotLuc',
+      'createdAt',
+    ],
+    write: [
+      'ten',
+      'loai',
+      'levelKey',
+      'lopId',
+      'coSoId',
+      'ngay',
+      'diemDat',
+      'trangThai',
+      'nguoiTaoId',
+      'chotLuc',
+      'createdAt',
+    ],
+    edit: [
+      'ten',
+      'loai',
+      'levelKey',
+      'lopId',
+      'coSoId',
+      'ngay',
+      'diemDat',
+      'trangThai',
+      'chotLuc',
+    ],
+  },
+  // One mark of one student on one skill of a test.
+  ketQuaKiemTra: {
+    read: [
+      'id',
+      'baiKiemTraId',
+      'hocVienId',
+      'kyNangId',
+      'diem',
+      'nguoiNhapId',
+      'capNhatLuc',
+    ],
+    write: [
+      'baiKiemTraId',
+      'hocVienId',
+      'kyNangId',
+      'diem',
+      'nguoiNhapId',
+      'capNhatLuc',
+    ],
+    edit: ['diem', 'nguoiNhapId', 'capNhatLuc'],
+  },
   hoSoGv: {
     read: ['id', 'userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
     write: ['userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
@@ -569,6 +634,47 @@ export const kienThuc = defineCompositeResource('edu.kienThuc', (r) =>
         .grant(
           'taught',
           buoiKyNangRead.create([...FIELDS.buoiKyNang.write]).delete(),
+        ),
+    ),
+);
+
+// The tests of a level (GĐ 5): view, and manage (make and edit a test, enter marks, close it). One resource, three
+// collections: the routes of `edu-kiem-tra.ts` use it with `needs()`, never through a record API. A test belongs to one
+// class (`bai`, scope by class or branch); a mark belongs to one student (`ketQua`, scope by student); closing a test
+// writes the state of the student on each skill (`mucDo` = `eduHocVienKyNang`, `nguon = kiem_tra`), the same rows as
+// `edu.kienThuc` `record`.
+const baiKiemTraRead = perm('baiKiemTra', FIELDS.baiKiemTra);
+const ketQuaKiemTraRead = perm('ketQuaKiemTra', FIELDS.ketQuaKiemTra);
+export const kiemTra = defineCompositeResource('edu.kiemTra', (r) =>
+  r
+    .title('Kiểm tra theo cấp')
+    .action('view', (a) =>
+      a
+        .title('Xem bài kiểm tra và kết quả')
+        .grant('bai', baiKiemTraRead)
+        .grant('ketQua', ketQuaKiemTraRead),
+    )
+    .action('manage', (a) =>
+      a
+        .title('Tạo bài, nhập điểm và chốt bài')
+        .grant(
+          'bai',
+          baiKiemTraRead
+            .create([...FIELDS.baiKiemTra.write])
+            .update([...FIELDS.baiKiemTra.edit]),
+        )
+        .grant(
+          'ketQua',
+          ketQuaKiemTraRead
+            .create([...FIELDS.ketQuaKiemTra.write])
+            .update([...FIELDS.ketQuaKiemTra.edit])
+            .delete(),
+        )
+        .grant(
+          'mucDo',
+          hocVienKyNangRead
+            .create([...FIELDS.hocVienKyNang.write])
+            .update([...FIELDS.hocVienKyNang.edit]),
         ),
     ),
 );

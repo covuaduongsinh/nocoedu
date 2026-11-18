@@ -20,6 +20,7 @@ import eduDiemDanhTraCuu from './edu-diem-danh-tra-cuu.js';
 import eduHoSo from './edu-ho-so.js';
 import eduNhom from './edu-nhom.js';
 import eduKienThuc from './edu-kien-thuc.js';
+import eduKiemTra from './edu-kiem-tra.js';
 import eduImportUniversal from './edu-import-universal.js';
 
 const routes: readonly AppRouteContribution<Application>[] = [
@@ -41,6 +42,7 @@ const routes: readonly AppRouteContribution<Application>[] = [
   ...eduHoSo,
   ...eduNhom,
   ...eduKienThuc,
+  ...eduKiemTra,
   ...eduImportUniversal,
   ...eduExt,
 ];

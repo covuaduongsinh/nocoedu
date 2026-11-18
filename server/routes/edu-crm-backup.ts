@@ -89,14 +89,18 @@ export const BACKUP_TABLES = [
   'eduKyNang',
   'eduBuoiHocKyNang',
   'eduHocVienKyNang',
+  // The tests of a level (GĐ 5): a test points at a class, a branch and (through its skills and marks) skills and students.
+  'eduBaiKiemTra',
+  'eduBaiKiemTraKyNang',
+  'eduKetQuaKiemTra',
 ] as const;
 
 /**
- * Version written into a snapshot. 1.0 files (15 tables), 2.0 files (21 tables, before the groups of GĐ 3) and 2.1
- * files (before the knowledge system of GĐ 4) are still accepted by a restore: a table the file does not hold stays as it is.
+ * Version written into a snapshot. 1.0 files (15 tables), 2.0 files (21 tables, before the groups of GĐ 3), 2.1
+ * files (before the knowledge system of GĐ 4) and 2.2 files (before the tests of GĐ 5) are still accepted by a restore: a table the file does not hold stays as it is.
  */
-export const BACKUP_VERSION = '2.2';
-const SUPPORTED_VERSIONS = ['1.0', '2.0', '2.1', '2.2'];
+export const BACKUP_VERSION = '2.3';
+const SUPPORTED_VERSIONS = ['1.0', '2.0', '2.1', '2.2', '2.3'];
 /** Rows written per insert while restoring. */
 const RESTORE_BATCH = 200;
 
