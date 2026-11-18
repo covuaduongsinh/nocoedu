@@ -22,6 +22,7 @@ import {
   useRows,
   type Row,
 } from './kit.js';
+import { useGroupNames } from './nhom.js';
 import { ListPage } from './list-page.js';
 import { RowManage } from './sua-xoa.js';
 import { ExportCsv } from './xuat-csv.js';
@@ -114,6 +115,7 @@ export default function HocVienPage(): ReactElement {
       : text(classRows.find((row) => row.id === id)?.ten);
 
   const rawRows = loaded.state === 'ready' ? loaded.rows : [];
+  const groupName = useGroupNames(rawRows.map((row) => row.nhomId));
   const activeStudents = rawRows.filter((r) => r.trangThai === 'dang_hoc');
   const waitingStudents = rawRows.filter(
     (r) => r.trangThai === 'cho_xep_lop' || r.lopId == null,
@@ -347,6 +349,11 @@ export default function HocVienPage(): ReactElement {
               ) : (
                 className(row.lopId)
               ),
+          },
+          {
+            key: 'nhom',
+            label: t('edu.nhom.label'),
+            render: (row) => groupName(row.nhomId),
           },
           {
             key: 'trangThai',

@@ -192,6 +192,12 @@ function StudentFile({
                       ? t('edu.hocVien.noClass')
                       : (profile?.hocVien.lopTen ?? t('edu.lop.detail'))}
                   </span>
+                  {profile?.hocVien.nhomTen ? (
+                    <>
+                      <span>·</span>
+                      <span>{profile.hocVien.nhomTen}</span>
+                    </>
+                  ) : null}
                   {profile?.hocVien.coSoTen ? (
                     <>
                       <span>·</span>

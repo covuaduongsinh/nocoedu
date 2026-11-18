@@ -63,7 +63,10 @@ export const BACKUP_TABLES = [
   'eduCoSoQuanLy',
   'eduLop',
   'eduLopLich',
+  // A student points at a group, so the groups come before the students.
+  'eduLopNhom',
   'eduHocVien',
+  'eduHocVienChuyenNhom',
   'eduHocVienLenCap',
   'eduPhuHuynh',
   'eduHocVienPhuHuynh',
@@ -82,9 +85,9 @@ export const BACKUP_TABLES = [
   'eduHoSoGv',
 ] as const;
 
-/** Version written into a snapshot. 1.0 files (15 tables) are still accepted by a restore. */
-export const BACKUP_VERSION = '2.0';
-const SUPPORTED_VERSIONS = ['1.0', '2.0'];
+/** Version written into a snapshot. 1.0 files (15 tables) and 2.0 files (21 tables, before the groups of GĐ 3) are still accepted by a restore. */
+export const BACKUP_VERSION = '2.1';
+const SUPPORTED_VERSIONS = ['1.0', '2.0', '2.1'];
 /** Rows written per insert while restoring. */
 const RESTORE_BATCH = 200;
 

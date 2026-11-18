@@ -29,6 +29,11 @@ export const COLLECTIONS = {
   lienHe: { name: 'eduLienHe', title: 'Liên hệ tuyển sinh' },
   hoSoGv: { name: 'eduHoSoGv', title: 'Hồ sơ giáo viên' },
   sachHoc: { name: 'eduSachHoc', title: 'Sách đã và đang học' },
+  lopNhom: { name: 'eduLopNhom', title: 'Nhóm trong lớp' },
+  chuyenNhom: {
+    name: 'eduHocVienChuyenNhom',
+    title: 'Lịch sử chuyển nhóm',
+  },
 } as const;
 
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -96,6 +101,8 @@ export const FIELDS = {
       'trangThai',
       'ghiChuHlv',
       'soBuoiConLai',
+      // The group changes only through `/hocVien/chuyenNhom` (and `/hocVien/chuyenLop` clears it).
+      'nhomId',
     ],
     // The balance and the level are only changed by the services that keep their history.
     write: [
@@ -303,6 +310,25 @@ export const FIELDS = {
     read: ['id', 'hocVienId', 'sachId', 'trangThai'],
     write: [],
   },
+  // A group of one class: hidden (`an`), never deleted. The class of a group never changes.
+  lopNhom: {
+    read: ['id', 'lopId', 'ten', 'thuTu', 'trangThai'],
+    write: ['lopId', 'ten', 'thuTu', 'trangThai'],
+    edit: ['ten', 'thuTu', 'trangThai'],
+  },
+  // Append only; written by `/hocVien/chuyenNhom` and `/hocVien/chuyenLop`.
+  chuyenNhom: {
+    read: [
+      'id',
+      'hocVienId',
+      'tuNhomId',
+      'denNhomId',
+      'ngay',
+      'nguoiThucHienId',
+      'ghiChu',
+    ],
+    write: [],
+  },
   hoSoGv: {
     read: ['id', 'userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
     write: ['userId', 'tenVietTat', 'viTri', 'tinhTrang', 'thuLaoMotBuoi'],
@@ -407,6 +433,26 @@ export const coSo = simple('edu.coSo', 'Cơ sở', 'coSo', {
 });
 // The books a student is learning (`dang_hoc`) or has finished (`da_hoc`), shown on his file. Written by the Lark import
 // only; read by whoever sees the student (the record scope is by `hocVienId`).
+// Groups of level inside a class (GĐ 3): view, and manage (rename, add, hide a group). One collection and one scope
+// (`data`, by class), so the record API of the groups can use it. Moving a student is `/hocVien/chuyenNhom`, which
+// writes the history (`eduHocVienChuyenNhom`) itself; no action reads that table yet.
+const lopNhomRead = perm('lopNhom', FIELDS.lopNhom);
+export const lopNhom = defineCompositeResource('edu.lopNhom', (r) =>
+  r
+    .title('Nhóm trong lớp')
+    .action('view', (a) => a.title('Xem').grant('data', lopNhomRead))
+    .action('manage', (a) =>
+      a
+        .title('Quản lý nhóm và chuyển học viên')
+        .grant(
+          'data',
+          lopNhomRead
+            .create([...FIELDS.lopNhom.write])
+            .update([...FIELDS.lopNhom.edit]),
+        ),
+    ),
+);
+
 const sachHocRead = perm('sachHoc', FIELDS.sachHoc);
 export const sachHoc = defineCompositeResource('edu.sachHoc', (r) =>
   r

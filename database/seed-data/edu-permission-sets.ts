@@ -15,6 +15,7 @@ import {
   lienKet,
   lop,
   lopLich,
+  lopNhom,
   nhanXet,
   phatSach,
   phuHuynh,
@@ -146,6 +147,13 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
       .reference()
       .grant({ backup: { data: ALL }, restore: { data: ALL } }),
   )
+  // Groups of level inside a class (GĐ 3): `202611180003_edu_lop_nhom_grant`.
+  .grant(
+    lopNhom.reference().grant({
+      view: { data: ALL },
+      manage: { data: ALL },
+    }),
+  )
   .build();
 
 export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
@@ -244,6 +252,13 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
     }),
   )
   .grant(sachHoc.reference().grant({ view: { data: MY_BRANCHES } }))
+  // Groups of level inside a class (GĐ 3): `202611180003_edu_lop_nhom_grant`.
+  .grant(
+    lopNhom.reference().grant({
+      view: { data: MY_BRANCHES },
+      manage: { data: MY_BRANCHES },
+    }),
+  )
   .build();
 
 export const eduHlv = definePermissionSet('edu_hlv')
@@ -285,6 +300,13 @@ export const eduHlv = definePermissionSet('edu_hlv')
   .grant(sachPage)
   .grant(sach.reference().grant({ view: { data: ALL } }))
   .grant(sachHoc.reference().grant({ view: { data: MY_CLASSES } }))
+  // Groups of level inside a class (GĐ 3): `202611180003_edu_lop_nhom_grant`.
+  .grant(
+    lopNhom.reference().grant({
+      view: { data: MY_CLASSES },
+      manage: { data: MY_CLASSES },
+    }),
+  )
   .build();
 
 export const eduKeToan = definePermissionSet('edu_ke_toan')
@@ -318,6 +340,8 @@ export const eduKeToan = definePermissionSet('edu_ke_toan')
   .grant(phatSachPage)
   .grant(phatSach.reference().grant({ view: { data: ALL } }))
   .grant(sachHoc.reference().grant({ view: { data: ALL } }))
+  // Groups of level inside a class (GĐ 3): `202611180003_edu_lop_nhom_grant`.
+  .grant(lopNhom.reference().grant({ view: { data: ALL } }))
   .build();
 
 export const eduApiDoc = definePermissionSet('edu_api_doc')

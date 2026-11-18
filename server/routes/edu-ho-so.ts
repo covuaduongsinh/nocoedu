@@ -138,6 +138,19 @@ export default [
       const lopId = student.lopId == null ? null : Number(student.lopId);
       const coSoId = student.coSoId == null ? null : Number(student.coSoId);
 
+      const nhomId = student.nhomId == null ? null : Number(student.nhomId);
+      const groupPolicy = await optionalPolicy(
+        c,
+        'edu.lopNhom',
+        'view',
+        'eduLopNhom',
+      );
+      const groups = await readRowsByIds(
+        database,
+        'eduLopNhom',
+        groupPolicy,
+        nhomId ? [nhomId] : [],
+      );
       const [classes, branches] = await Promise.all([
         readRowsByIds(database, 'eduLop', classPolicy, lopId ? [lopId] : []),
         readRowsByIds(
@@ -441,6 +454,12 @@ export default [
           lopTen: lopId
             ? classes.get(lopId)
               ? asText(classes.get(lopId)?.ten)
+              : null
+            : null,
+          nhomId,
+          nhomTen: nhomId
+            ? groups.get(nhomId)
+              ? asText(groups.get(nhomId)?.ten)
               : null
             : null,
           coSoId,

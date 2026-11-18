@@ -10,6 +10,8 @@ export interface Profile {
     readonly trangThai: string;
     readonly lopId: number | null;
     readonly lopTen: string | null;
+    readonly nhomId: number | null;
+    readonly nhomTen: string | null;
     readonly coSoId: number | null;
     readonly coSoTen: string | null;
   };

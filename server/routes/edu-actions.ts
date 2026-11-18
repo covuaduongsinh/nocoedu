@@ -293,13 +293,29 @@ export default [
               );
             }
           }
+          const sameClass =
+            (student.lopId == null ? null : Number(student.lopId)) === lopId;
           // The policy of the manage action does not let the class column change through the repository; the
           // checks above are what make this write safe.
           await connection.query
             .updateTable('eduHocVien')
-            .set({ lopId })
+            .set(sameClass ? { lopId } : { lopId, nhomId: null })
             .where('id', '=', id)
             .execute();
+          // A group belongs to one class, so the student leaves theirs; the move is kept in the history.
+          if (student.nhomId != null && !sameClass) {
+            await connection.query
+              .insertInto('eduHocVienChuyenNhom')
+              .values({
+                hocVienId: id,
+                tuNhomId: Number(student.nhomId),
+                denNhomId: null,
+                ngay: todayVn(),
+                nguoiThucHienId: currentUserId(c),
+                ghiChu: 'chuyen_lop',
+              })
+              .execute();
+          }
         });
         return c.json({ data: { id } });
       },
