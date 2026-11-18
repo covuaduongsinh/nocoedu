@@ -28,7 +28,8 @@ const api = vi.fn(({ method, path }: ApiCall) => {
     return { data: permissions };
   if (path === 'trangChu/tomTat')
     return { data: { homNay: [], chuaDiemDanh: [] } };
-  if (path === 'soDu/canhBao') return { data: [] };
+  if (path === 'soDu/canhBao')
+    return { data: { nguong: 2, tong: 0, hocVien: [] } };
   if (path === 'hocVien/count' || path === 'lop/count') return { data: 3 };
   if (path === 'lienHe/findMany')
     return {
@@ -111,5 +112,12 @@ describe('home page', () => {
     expect(
       api.mock.calls.some(([request]) => request.path === 'lienHe/findMany'),
     ).toBe(false);
+  });
+
+  it('links the coach profiles shortcut to the page that exists', async () => {
+    await render(<EduHome />, '/', '/');
+    const link = await screen.findByRole('link', { name: /Hồ sơ giáo viên/u });
+    // The coach profiles page lives at /giao-vien (client/routes.ts); /ho-so-gv leads nowhere.
+    expect(link).toHaveAttribute('href', '/giao-vien');
   });
 });

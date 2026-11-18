@@ -1,16 +1,24 @@
 import { useApiClient } from '@nocobase/app-client';
+import { useTranslation } from '@nocobase/i18n/client';
 import { useState, type ReactElement } from 'react';
 
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
 import { Button } from '#components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '#components/ui/card';
 import { Input } from '#components/ui/input';
 
+import { saveText } from './download.js';
 import { todayVn } from './kit.js';
 
 interface BackupData {
-  phienBan: string;
+  phienBan?: string;
   thoiGianTao: string;
   ngayVn: string;
   tongSoBang: number;
@@ -19,13 +27,21 @@ interface BackupData {
 }
 
 export default function SaoLuuPage(): ReactElement {
+  const { t } = useTranslation();
   const api = useApiClient();
+  // What a restore would do with the chosen file, asked of the server before anything is written.
+  const [check, setCheck] = useState<{ moi: number; trung: number } | null>(
+    null,
+  );
+  const [checking, setChecking] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<BackupData | null>(null);
   const [confirmText, setConfirmText] = useState('');
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   // Tạo và tải về file sao lưu JSON
   const handleExportBackup = async (): Promise<void> => {
@@ -38,13 +54,11 @@ export default function SaoLuuPage(): ReactElement {
         json: {},
       });
       const dataStr = JSON.stringify(res.data, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `nocoedu-backup-${todayVn()}-${Date.now().toString().slice(-4)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      saveText(
+        dataStr,
+        `nocoedu-backup-${todayVn()}-${Date.now().toString().slice(-4)}.json`,
+        'application/json',
+      );
       setStatusMessage({
         type: 'success',
         text: `Đã tạo và tải bản sao lưu thành công (${res.data.soBanGhi} bản ghi trên ${res.data.tongSoBang} bảng dữ liệu).`,
@@ -64,18 +78,46 @@ export default function SaoLuuPage(): ReactElement {
     setStatusMessage(null);
     const file = e.target.files?.[0];
     if (!file) return;
-    setSelectedFile(file);
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string) as BackupData;
         if (parsed.duLieu && typeof parsed.duLieu === 'object') {
           setPreview(parsed);
+          setCheck(null);
+          setChecking(true);
+          api
+            .request<{ data: { moi: number; trung: number } }>({
+              path: '/heThong/backup/importJson',
+              method: 'POST',
+              json: {
+                data: parsed.duLieu,
+                xacNhan: 'XAC_NHAN_KHOI_PHUC',
+                chiKiemTra: true,
+                ...(parsed.phienBan ? { phienBan: parsed.phienBan } : {}),
+              },
+            })
+            .then((res) => setCheck(res.data))
+            .catch((err: unknown) =>
+              setStatusMessage({
+                type: 'error',
+                text: t('edu.saoLuu.checkFailed', {
+                  message: err instanceof Error ? err.message : String(err),
+                }),
+              }),
+            )
+            .finally(() => setChecking(false));
         } else {
-          setStatusMessage({ type: 'error', text: 'File không đúng định dạng sao lưu của NocoEdu.' });
+          setStatusMessage({
+            type: 'error',
+            text: 'File không đúng định dạng sao lưu của NocoEdu.',
+          });
         }
       } catch {
-        setStatusMessage({ type: 'error', text: 'Không thể đọc nội dung file JSON.' });
+        setStatusMessage({
+          type: 'error',
+          text: 'Không thể đọc nội dung file JSON.',
+        });
       }
     };
     reader.readAsText(file);
@@ -87,20 +129,30 @@ export default function SaoLuuPage(): ReactElement {
     setImporting(true);
     setStatusMessage(null);
     try {
-      const res = await api.request<{ data: { tongKhoiPhuc: number; thongBao: string } }>({
+      const res = await api.request<{
+        data: {
+          tongKhoiPhuc: number;
+          thongBao: string;
+          dayTuTangDaDat?: boolean;
+        };
+      }>({
         path: '/heThong/backup/importJson',
         method: 'POST',
         json: {
           data: preview.duLieu,
           xacNhan: 'XAC_NHAN_KHOI_PHUC',
+          ...(preview.phienBan ? { phienBan: preview.phienBan } : {}),
         },
       });
       setStatusMessage({
-        type: 'success',
-        text: res.data.thongBao,
+        type: res.data.dayTuTangDaDat === false ? 'error' : 'success',
+        text:
+          res.data.dayTuTangDaDat === false
+            ? `${res.data.thongBao} ${t('edu.saoLuu.sequenceWarning')}`
+            : res.data.thongBao,
       });
-      setSelectedFile(null);
       setPreview(null);
+      setCheck(null);
       setConfirmText('');
     } catch (err) {
       setStatusMessage({
@@ -139,12 +191,15 @@ export default function SaoLuuPage(): ReactElement {
               📦 Sao Lưu Cơ Sở Dữ Liệu (Backup)
             </CardTitle>
             <CardDescription className='text-xs'>
-              Tạo bản chụp an toàn toàn bộ các bảng: Học viên, Phụ huynh, Lớp học, Điểm danh, Kỳ học phí, Sách, Tuyển sinh...
+              Tạo bản chụp an toàn toàn bộ các bảng: Học viên, Phụ huynh, Lớp
+              học, Điểm danh, Kỳ học phí, Sách, Tuyển sinh...
             </CardDescription>
           </CardHeader>
           <CardContent className='flex flex-col gap-4 text-sm'>
             <div className='rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1.5'>
-              <p className='font-semibold text-foreground'>🛡️ Lợi ích khi sao lưu định kỳ:</p>
+              <p className='font-semibold text-foreground'>
+                🛡️ Lợi ích khi sao lưu định kỳ:
+              </p>
               <ul className='list-disc pl-4 space-y-0.5'>
                 <li>Bảo vệ số liệu điểm danh và đối soát học phí.</li>
                 <li>Lưu trữ offline an toàn trên máy tính cá nhân.</li>
@@ -152,12 +207,18 @@ export default function SaoLuuPage(): ReactElement {
               </ul>
             </div>
 
+            <p className='text-xs text-muted-foreground'>
+              {t('edu.saoLuu.childData')}
+            </p>
+
             <Button
               onClick={() => void handleExportBackup()}
               disabled={exporting}
               className='gap-2 bg-primary hover:bg-primary/90 font-medium'
             >
-              {exporting ? '⏳ Đang tạo bản sao lưu...' : '⬇️ Tải Về Bản Sao Lưu (.json)'}
+              {exporting
+                ? '⏳ Đang tạo bản sao lưu...'
+                : '⬇️ Tải Về Bản Sao Lưu (.json)'}
             </Button>
           </CardContent>
         </Card>
@@ -187,14 +248,36 @@ export default function SaoLuuPage(): ReactElement {
 
             {preview ? (
               <div className='rounded-lg border bg-muted/40 p-3 text-xs space-y-1.5'>
-                <p className='font-bold text-foreground'>📋 Thông tin file sao lưu:</p>
-                <p>• Ngày tạo: {preview.ngayVn || preview.thoiGianTao?.slice(0, 10)}</p>
-                <p>• Số lượng bản ghi: <span className='font-semibold text-primary'>{preview.soBanGhi}</span> bản ghi</p>
+                <p className='font-bold text-foreground'>
+                  📋 Thông tin file sao lưu:
+                </p>
+                <p>
+                  • Ngày tạo:{' '}
+                  {preview.ngayVn || preview.thoiGianTao?.slice(0, 10)}
+                </p>
+                <p>
+                  • Số lượng bản ghi:{' '}
+                  <span className='font-semibold text-primary'>
+                    {preview.soBanGhi}
+                  </span>{' '}
+                  bản ghi
+                </p>
                 <p>• Số bảng dữ liệu: {preview.tongSoBang} bảng</p>
+                <p className='font-medium text-foreground'>
+                  {checking
+                    ? t('edu.saoLuu.checking')
+                    : check
+                      ? t('edu.saoLuu.checkResult', check)
+                      : null}
+                </p>
 
                 <div className='pt-2 border-t mt-2'>
                   <label className='mb-1 block font-semibold text-destructive'>
-                    Nhập chữ <code className='rounded bg-muted px-1 py-0.5 text-xs text-destructive'>XAC_NHAN_KHOI_PHUC</code> để tiếp tục:
+                    Nhập chữ{' '}
+                    <code className='rounded bg-muted px-1 py-0.5 text-xs text-destructive'>
+                      XAC_NHAN_KHOI_PHUC
+                    </code>{' '}
+                    để tiếp tục:
                   </label>
                   <Input
                     placeholder='XAC_NHAN_KHOI_PHUC'
@@ -207,11 +290,18 @@ export default function SaoLuuPage(): ReactElement {
                 <Button
                   variant='destructive'
                   size='sm'
-                  disabled={confirmText !== 'XAC_NHAN_KHOI_PHUC' || importing}
+                  disabled={
+                    confirmText !== 'XAC_NHAN_KHOI_PHUC' ||
+                    importing ||
+                    checking ||
+                    !check
+                  }
                   onClick={() => void handleRestore()}
                   className='w-full mt-2 font-medium'
                 >
-                  {importing ? '⏳ Đang khôi phục dữ liệu...' : '⚠️ Thực Hiện Khôi Phục'}
+                  {importing
+                    ? '⏳ Đang khôi phục dữ liệu...'
+                    : '⚠️ Thực Hiện Khôi Phục'}
                 </Button>
               </div>
             ) : null}

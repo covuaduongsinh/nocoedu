@@ -17,6 +17,7 @@ import {
 } from '#components/ui/table';
 
 import { SelectField, TextField } from './form-parts.js';
+import { saveCsvStream } from './download.js';
 import { text, useRequest, useRows } from './kit.js';
 
 interface Report {
@@ -54,9 +55,7 @@ function BarChart(props: {
   return (
     <figure className='mb-4 rounded-lg border p-4'>
       <div className='mb-3 flex items-center justify-between'>
-        <figcaption className='text-sm font-medium'>
-          {props.title}
-        </figcaption>
+        <figcaption className='text-sm font-medium'>{props.title}</figcaption>
         {props.selected ? (
           <button
             type='button'
@@ -233,8 +232,8 @@ export default function BaoCaoPage(): ReactElement {
 
   const hasFilters = Boolean(
     coSoId ||
-      lopId ||
-      (kind === 'doanhThu' ? tuThang || denThang : tuNgay || denNgay),
+    lopId ||
+    (kind === 'doanhThu' ? tuThang || denThang : tuNgay || denNgay),
   );
 
   const requestParams = {
@@ -262,14 +261,7 @@ export default function BaoCaoPage(): ReactElement {
         method: 'POST',
         json: requestParams,
       });
-      const blob = await new Response(stream).blob();
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(
-        new Blob([blob], { type: 'text/csv;charset=utf-8' }),
-      );
-      link.download = `bao-cao-${kind}.csv`;
-      link.click();
-      URL.revokeObjectURL(link.href);
+      await saveCsvStream(stream, `bao-cao-${kind}.csv`);
     } catch {
       setFailed(true);
     }

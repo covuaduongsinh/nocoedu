@@ -16,10 +16,12 @@ import {
   dongY,
   ext,
   goiHoc,
+  heThong,
   hocVien,
   lienKet,
   lop,
   lopLich,
+  lopNhom,
   nhanXet,
   phatSach,
   phuHuynh,
@@ -62,6 +64,7 @@ export default class EduAuthorizationProvider extends ServiceProvider<AppPluginA
     authz.ui.place(authz.compositeResources.define(coSoQuanLy), section);
     authz.ui.place(authz.compositeResources.define(lop), section);
     authz.ui.place(authz.compositeResources.define(lopLich), section);
+    authz.ui.place(authz.compositeResources.define(lopNhom), section);
     authz.ui.place(authz.compositeResources.define(hocVien), section);
     authz.ui.place(authz.compositeResources.define(phuHuynh), section);
     authz.ui.place(authz.compositeResources.define(lienKet), section);
@@ -78,6 +81,7 @@ export default class EduAuthorizationProvider extends ServiceProvider<AppPluginA
     authz.ui.place(authz.compositeResources.define(tuyenSinh), section);
     authz.ui.place(authz.compositeResources.define(hoSoGv), section);
     authz.ui.place(authz.compositeResources.define(sachHoc), section);
+    authz.ui.place(authz.compositeResources.define(heThong), section);
     authz.ui.place(authz.compositeResources.define(ext), section);
     return Promise.resolve();
   }

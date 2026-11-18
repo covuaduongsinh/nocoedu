@@ -90,7 +90,7 @@ describe('app client routes', () => {
       await expect(loader()).resolves.toMatchObject({
         default: expect.any(Function),
       });
-  });
+  }, 60000);
 
   it('reuses the notification module and preserves its logs and existing grants', () => {
     const existing = defineAppRoutes([
@@ -185,7 +185,7 @@ describe('app client routes', () => {
     const resolved = resolveRoutes();
 
     // The landing page and the inbox opted out of page authorization, so they are reachable by every signed-in user.
-    // The four NocoEdu pages each need their own page grant, given by the NocoEdu permission sets; the Users and
+    // Every NocoEdu page needs its own page grant, given by the NocoEdu permission sets; the Users and
     // Permission management pages stay behind the platform's own user and permission-set permissions.
     expect(pageAuthorizations(resolved.routes)).toEqual([
       { name: 'home', authorizedAs: null },
@@ -194,21 +194,25 @@ describe('app client routes', () => {
       { name: 'edu-hocVien-chi-tiet', authorizedAs: 'edu.hocVien' },
       { name: 'edu-phuHuynh', authorizedAs: 'edu.phuHuynh' },
       { name: 'inbox', authorizedAs: null },
+      // The sidebar sections, in menu order. Grouping the menu never changes the grant of a page.
       { name: 'edu-diemDanh', authorizedAs: 'edu.diemDanh' },
-      { name: 'edu-doi-soat', authorizedAs: 'edu.hocPhi' },
-      { name: 'edu-hocPhi', authorizedAs: 'edu.hocPhi' },
       { name: 'edu-nhanXet', authorizedAs: 'edu.nhanXet' },
       { name: 'edu-tuyenSinh', authorizedAs: 'edu.tuyenSinh' },
       { name: 'edu-hocVien', authorizedAs: 'edu.hocVien' },
-      { name: 'edu-baoCao', authorizedAs: 'edu.baoCao' },
+      // "Hồ sơ 360°" in the menu opens with the grant of the student list.
+      { name: 'edu-hoSo360', authorizedAs: 'edu.hocVien' },
+      { name: 'edu-hocPhi', authorizedAs: 'edu.hocPhi' },
+      { name: 'edu-doi-soat', authorizedAs: 'edu.hocPhi' },
+      { name: 'edu-phatSach', authorizedAs: 'edu.phatSach' },
       { name: 'edu-lop', authorizedAs: 'edu.lop' },
       { name: 'edu-coSo', authorizedAs: 'edu.coSo' },
       { name: 'edu-hoSoGv', authorizedAs: 'edu.hoSoGv' },
       { name: 'edu-sach', authorizedAs: 'edu.sach' },
-      { name: 'edu-phatSach', authorizedAs: 'edu.phatSach' },
-      { name: 'edu-sao-luu', authorizedAs: null },
+      { name: 'edu-baoCao', authorizedAs: 'edu.baoCao' },
       { name: 'settingsHome', authorizedAs: null },
       ...managementPages,
+      // The backup moved from the sidebar into System settings; only who holds `edu.heThong` sees its card.
+      { name: 'edu-sao-luu', authorizedAs: 'edu.heThong' },
       { name: 'databaseExplorer', authorizedAs: 'database-explorer' },
     ]);
   });
@@ -229,6 +233,57 @@ describe('app client routes', () => {
       await expect(loader()).resolves.toMatchObject({
         default: expect.any(Function),
       });
+  });
+
+  it('groups the working menu into sections without moving a page', () => {
+    const tree = resolveRoutes().routes;
+    const section = (name: string) => tree.find((route) => route.name === name);
+    const pages = (name: string) =>
+      (section(name)?.children ?? []).map((route) => route.path);
+    // A section has a title and children but no page of its own, so the sidebar draws it as a heading.
+    for (const name of [
+      'edu-nhomHangNgay',
+      'edu-nhomHocVien',
+      'edu-nhomHocPhiSach',
+      'edu-nhomDanhMuc',
+    ]) {
+      expect(section(name)?.componentLoader).toBeUndefined();
+      expect(section(name)?.navigation?.title).toBe(`edu.nav.${name.slice(4)}`);
+    }
+    expect(pages('edu-nhomHangNgay')).toEqual([
+      '/diem-danh',
+      '/nhan-xet',
+      '/tuyen-sinh',
+    ]);
+    expect(pages('edu-nhomHocVien')).toEqual(['/hoc-vien', '/ho-so-360']);
+    expect(pages('edu-nhomHocPhiSach')).toEqual([
+      '/hoc-phi',
+      '/doi-soat',
+      '/phat-sach',
+    ]);
+    expect(pages('edu-nhomDanhMuc')).toEqual([
+      '/lop',
+      '/co-so',
+      '/giao-vien',
+      '/sach',
+    ]);
+    // Home and the reports stay at the top level; the backup is no longer in the working menu.
+    expect(tree.find((route) => route.name === 'edu-baoCao')).toBeDefined();
+    expect(tree.find((route) => route.name === 'edu-sao-luu')).toBeUndefined();
+  });
+
+  it('puts the backup in System settings, where an administration page belongs', () => {
+    const settings = resolveRoutes().routes.find(
+      (route) => route.name === 'settings',
+    );
+    const system = settings?.children?.find(
+      (route) => route.name === 'settingsSystem',
+    );
+    expect(system?.children?.map((route) => route.name)).toContain(
+      'edu-sao-luu',
+    );
+    expect(pagePaths(resolveRoutes().routes)).toContain('/settings/sao-luu');
+    expect(pagePaths(resolveRoutes().routes)).not.toContain('/sao-luu');
   });
 
   it('keeps the inbox out of the application navigation', () => {

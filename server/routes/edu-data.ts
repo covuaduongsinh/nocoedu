@@ -25,6 +25,7 @@ import {
   lienKet,
   lop,
   lopLich,
+  lopNhom,
   nhanXet,
   phatSach,
   phuHuynh,
@@ -35,6 +36,7 @@ import {
   tuyenSinh,
   thanhToan,
 } from '../edu/permissions.js';
+import { cleanGroupName, GROUP_STATUSES } from '../edu/nhom.js';
 import { checkUpdate } from '../edu/sua-ban-ghi.js';
 import { eduError, policiesOf, type EduEnv } from './edu-support.js';
 
@@ -84,6 +86,14 @@ const EXPOSURES: readonly Exposure[] = [
     create: true,
     update: FIELDS.lopLich.write,
     remove: true,
+  },
+  // Groups of level inside a class: added, renamed and hidden here, never deleted; the class of a group never changes.
+  {
+    name: 'lopNhom',
+    key: 'lopNhom',
+    resource: lopNhom,
+    create: true,
+    update: FIELDS.lopNhom.edit,
   },
   {
     name: 'hocVien',
@@ -150,6 +160,7 @@ const EXPOSURES: readonly Exposure[] = [
 const PARENT_OF_CREATE = {
   lop: { field: 'coSoId', resource: 'edu.coSo', collection: 'eduCoSo' },
   lopLich: { field: 'lopId', resource: 'edu.lop', collection: 'eduLop' },
+  lopNhom: { field: 'lopId', resource: 'edu.lop', collection: 'eduLop' },
   lienHe: { field: 'coSoId', resource: 'edu.coSo', collection: 'eduCoSo' },
 } as const;
 
@@ -278,6 +289,121 @@ export default [
             'The value is not valid.',
             problem.field,
           );
+        }
+        await next();
+      });
+    }
+    // What a group holds: a name that is not empty and unique inside its class, a known status, an order. A group that
+    // still has active students is not hidden: they must be moved first.
+    for (const method of ['createOne', 'updateOne']) {
+      router.use(`/lopNhom/${method}`, authz.middleware(), async (c, next) => {
+        const body = (await c.req.raw
+          .clone()
+          .json()
+          .catch(() => null)) as {
+          values?: Record<string, unknown>;
+          filter?: { id?: unknown };
+        } | null;
+        const values = body?.values ?? {};
+        const bad = (field: string, reason: string) =>
+          eduError(
+            'INVALID_ARGUMENT',
+            reason,
+            'The value is not valid.',
+            field,
+          );
+        if (
+          values.ten !== undefined &&
+          cleanGroupName(values.ten) === undefined
+        )
+          throw bad('ten', 'EDU_INVALID_VALUE');
+        if (
+          values.trangThai !== undefined &&
+          !GROUP_STATUSES.includes(values.trangThai as never)
+        )
+          throw bad('trangThai', 'EDU_INVALID_STATUS');
+        if (
+          values.thuTu !== undefined &&
+          !(
+            Number.isInteger(values.thuTu) &&
+            (values.thuTu as number) >= 0 &&
+            (values.thuTu as number) <= 999
+          )
+        )
+          throw bad('thuTu', 'EDU_INVALID_VALUE');
+        if (
+          typeof values.ten === 'string' &&
+          values.ten !== cleanGroupName(values.ten)
+        )
+          throw bad('ten', 'EDU_INVALID_VALUE');
+        // The name is unique inside the class: answered here, not left to the database error.
+        if (typeof values.ten === 'string') {
+          let lopId: number | undefined;
+          let ownId = 0;
+          if (method === 'createOne') {
+            lopId = Number(values.lopId);
+          } else {
+            ownId = Number(body?.filter?.id);
+            const policy = (await policiesOf(c, 'edu.lopNhom', 'view'))
+              .eduLopNhom;
+            const own =
+              policy && Number.isInteger(ownId) && ownId > 0
+                ? await database
+                    .repository('eduLopNhom')
+                    .withPolicy(policy)
+                    .findOne({ filter: { id: ownId } })
+                : null;
+            lopId = own ? Number(own.lopId) : undefined;
+          }
+          const taken =
+            lopId && Number.isInteger(lopId)
+              ? await database
+                  .connection()
+                  .query.selectFrom('eduLopNhom')
+                  .select('id')
+                  .where('lopId', '=', lopId)
+                  .where('ten', '=', values.ten)
+                  .where('id', '!=', ownId)
+                  .executeTakeFirst()
+              : undefined;
+          if (taken) {
+            throw eduError(
+              'ALREADY_EXISTS',
+              'EDU_GROUP_NAME_TAKEN',
+              'A group of this class already has this name.',
+              'ten',
+            );
+          }
+        }
+        if (method === 'updateOne' && values.trangThai === 'an') {
+          const groupId = Number(body?.filter?.id);
+          const policy = (await policiesOf(c, 'edu.lopNhom', 'view'))
+            .eduLopNhom;
+          // Only a group the caller sees is looked into: no probing of another class's groups.
+          const group =
+            policy && Number.isInteger(groupId) && groupId > 0
+              ? await database
+                  .repository('eduLopNhom')
+                  .withPolicy(policy)
+                  .findOne({ filter: { id: groupId } })
+              : null;
+          if (group) {
+            const member = await database
+              .connection()
+              .query.selectFrom('eduHocVien')
+              .select('id')
+              .where('nhomId', '=', groupId)
+              .where('trangThai', '=', 'dang_hoc')
+              .executeTakeFirst();
+            if (member) {
+              throw eduError(
+                'FAILED_PRECONDITION',
+                'EDU_GROUP_NOT_EMPTY',
+                'Move the students out of this group before hiding it.',
+                'trangThai',
+              );
+            }
+          }
         }
         await next();
       });

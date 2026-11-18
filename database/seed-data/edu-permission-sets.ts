@@ -10,10 +10,12 @@ import {
   dongY,
   ext,
   goiHoc,
+  heThong,
   hocVien,
   lienKet,
   lop,
   lopLich,
+  lopNhom,
   nhanXet,
   phatSach,
   phuHuynh,
@@ -49,7 +51,8 @@ const everyPage = Object.entries(PAGES)
       key !== 'sach' &&
       key !== 'phatSach' &&
       key !== 'tuyenSinh' &&
-      key !== 'hoSoGv',
+      key !== 'hoSoGv' &&
+      key !== 'heThong',
   )
   .map(([, id]) => page(id));
 const sachPage = page(PAGES.sach);
@@ -59,6 +62,8 @@ const phatSachPage = page(PAGES.phatSach);
 const tuyenSinhPage = page(PAGES.tuyenSinh);
 // The coach profile page is the last: `202611140005_edu_ho_so_gv_grant` (administrator only).
 const hoSoGvPage = page(PAGES.hoSoGv);
+// The backup page is the last: `202611170001_edu_he_thong_grant` (administrator only).
+const heThongPage = page(PAGES.heThong);
 
 export const eduQuanTri = definePermissionSet('edu_quan_tri')
   .title('NocoEdu - Quản trị')
@@ -135,6 +140,20 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
     hoSoGv.reference().grant({ view: { data: ALL }, manage: { data: ALL } }),
   )
   .grant(sachHoc.reference().grant({ view: { data: ALL } }))
+  // Backup and restore of the whole database: the administrator only (`202611170001_edu_he_thong_grant`).
+  .grant(heThongPage)
+  .grant(
+    heThong
+      .reference()
+      .grant({ backup: { data: ALL }, restore: { data: ALL } }),
+  )
+  // Groups of level inside a class (GĐ 3): `202611180003_edu_lop_nhom_grant`.
+  .grant(
+    lopNhom.reference().grant({
+      view: { data: ALL },
+      manage: { data: ALL },
+    }),
+  )
   .build();
 
 export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
@@ -233,6 +252,13 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
     }),
   )
   .grant(sachHoc.reference().grant({ view: { data: MY_BRANCHES } }))
+  // Groups of level inside a class (GĐ 3): `202611180003_edu_lop_nhom_grant`.
+  .grant(
+    lopNhom.reference().grant({
+      view: { data: MY_BRANCHES },
+      manage: { data: MY_BRANCHES },
+    }),
+  )
   .build();
 
 export const eduHlv = definePermissionSet('edu_hlv')
@@ -274,6 +300,13 @@ export const eduHlv = definePermissionSet('edu_hlv')
   .grant(sachPage)
   .grant(sach.reference().grant({ view: { data: ALL } }))
   .grant(sachHoc.reference().grant({ view: { data: MY_CLASSES } }))
+  // Groups of level inside a class (GĐ 3): `202611180003_edu_lop_nhom_grant`.
+  .grant(
+    lopNhom.reference().grant({
+      view: { data: MY_CLASSES },
+      manage: { data: MY_CLASSES },
+    }),
+  )
   .build();
 
 export const eduKeToan = definePermissionSet('edu_ke_toan')
@@ -307,6 +340,8 @@ export const eduKeToan = definePermissionSet('edu_ke_toan')
   .grant(phatSachPage)
   .grant(phatSach.reference().grant({ view: { data: ALL } }))
   .grant(sachHoc.reference().grant({ view: { data: ALL } }))
+  // Groups of level inside a class (GĐ 3): `202611180003_edu_lop_nhom_grant`.
+  .grant(lopNhom.reference().grant({ view: { data: ALL } }))
   .build();
 
 export const eduApiDoc = definePermissionSet('edu_api_doc')

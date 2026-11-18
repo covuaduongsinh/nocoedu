@@ -59,6 +59,46 @@ export function policyOf(
   return policy;
 }
 
+/**
+ * A policy the handler cannot work without: refused (403) when the caller does not hold the composite action or the
+ * action has no policy for that collection.
+ */
+export async function requiredPolicy(
+  c: Context<EduEnv>,
+  resource: string,
+  action: string,
+  collection: string,
+): Promise<RepositoryPolicy> {
+  const policy = (await policiesOf(c, resource, action))[collection];
+  if (!policy) {
+    throw new ApiError({
+      status: 'PERMISSION_DENIED',
+      reason: 'EDU_PERMISSION_DENIED',
+      domain: DOMAIN,
+      message: 'This action is not allowed.',
+    });
+  }
+  return policy;
+}
+
+/**
+ * The policy of a composite action the caller may or may not hold: `undefined` when it is not granted, so a page that
+ * only adds names (a class, a branch) or a section of a file (tuition) leaves that part out instead of failing.
+ */
+export async function optionalPolicy(
+  c: Context<EduEnv>,
+  resource: string,
+  action: string,
+  collection: string,
+): Promise<RepositoryPolicy | undefined> {
+  try {
+    return (await policiesOf(c, resource, action))[collection];
+  } catch (error) {
+    if (error instanceof AuthorizationDeniedError) return undefined;
+    throw error;
+  }
+}
+
 export function eduError(
   status:
     | 'NOT_FOUND'

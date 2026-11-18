@@ -31,3 +31,12 @@ export function asText(value: unknown): string {
     ? String(value)
     : '';
 }
+
+/**
+ * A code for a row that is written before its id is known (`HS00001` is made from the id afterwards). The `ma` columns
+ * are 32 characters long; PostgreSQL enforces that where SQLite does not, so a whole UUID (40 characters with the prefix)
+ * made every such insert fail there.
+ */
+export function tempCode(): string {
+  return `TMP-${crypto.randomUUID().replaceAll('-', '').slice(0, 24)}`;
+}

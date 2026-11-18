@@ -76,6 +76,8 @@ describe('default Foundation integration', () => {
       [
         'settingsSystem',
         [
+          // The backup of the whole database: a card here since phase 1, not a sidebar entry.
+          ['edu-sao-luu', '/settings/sao-luu'],
           ['databaseExplorer', '/settings/database-explorer'],
           ['capabilityGuide', '/settings/capabilities'],
         ],

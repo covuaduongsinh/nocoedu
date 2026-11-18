@@ -409,3 +409,120 @@ describeMigration('202611140007_create_edu_sach_hoc', {
     await expectCollection('eduSachHoc').not.toExist();
   },
 });
+
+describeMigration('202611180001_edu_diem_danh_hoc_vien_index', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduDiemDanh').toHaveIndex(['hocVienId']);
+    // The unique pair that already existed is untouched.
+    await expectCollection('eduDiemDanh').toHaveIndex(
+      ['buoiHocId', 'hocVienId'],
+      { unique: true },
+    );
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduDiemDanh').toExist();
+    await expectCollection('eduDiemDanh').not.toHaveIndex(['hocVienId']);
+    await expectCollection('eduDiemDanh').toHaveIndex(
+      ['buoiHocId', 'hocVienId'],
+      { unique: true },
+    );
+  },
+});
+
+describeMigration('202611180002_create_edu_lop_nhom', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ connection, expectCollection }) => {
+    await expectCollection('eduLopNhom').toExist();
+    await expectCollection('eduLopNhom').toHaveIndex(['lopId', 'ten'], {
+      unique: true,
+    });
+    await expectCollection('eduHocVien').toHaveField('nhomId', {
+      nullable: true,
+    });
+    await expectCollection('eduHocVien').toHaveIndex(['nhomId']);
+    await expectCollection('eduHocVienChuyenNhom').toHaveField('hocVienId', {
+      nullable: false,
+    });
+    await expectCollection('eduHocVienChuyenNhom').toHaveIndex(['hocVienId']);
+
+    // A name is unique inside a class, and a name may repeat in another class.
+    const q = connection.query;
+    await q
+      .insertInto('eduCoSo')
+      .values({ ma: 'CS-NH', ten: 'Cơ sở Mẫu' })
+      .execute();
+    const coSo = await q
+      .selectFrom('eduCoSo')
+      .select('id')
+      .where('ma', '=', 'CS-NH')
+      .executeTakeFirstOrThrow();
+    for (const ma of ['L-NH1', 'L-NH2']) {
+      await q
+        .insertInto('eduLop')
+        .values({
+          ma,
+          ten: `Lớp ${ma}`,
+          coSoId: coSo.id,
+          levelKey: 'tot',
+          levelOrder: 1,
+        })
+        .execute();
+    }
+    const lops = await q
+      .selectFrom('eduLop')
+      .select('id')
+      .where('ma', 'in', ['L-NH1', 'L-NH2'])
+      .execute();
+    const [first, second] = lops.map((lop) => Number(lop.id)) as [
+      number,
+      number,
+    ];
+    await q
+      .insertInto('eduLopNhom')
+      .values({ lopId: first, ten: 'Nhóm A' })
+      .execute();
+    await q
+      .insertInto('eduLopNhom')
+      .values({ lopId: second, ten: 'Nhóm A' })
+      .execute();
+    await expect(
+      q
+        .insertInto('eduLopNhom')
+        .values({ lopId: first, ten: 'Nhóm A' })
+        .execute(),
+    ).rejects.toThrow();
+    const group = await q
+      .selectFrom('eduLopNhom')
+      .select(['trangThai', 'thuTu'])
+      .where('lopId', '=', first)
+      .executeTakeFirstOrThrow();
+    expect(group).toMatchObject({ trangThai: 'hoat_dong', thuTu: 0 });
+    // The check runs again after the migration is rolled back and applied once more: leave nothing behind.
+    await q.deleteFrom('eduLopNhom').allowAllRows().execute();
+    await q.deleteFrom('eduLop').where('coSoId', '=', coSo.id).execute();
+    await q.deleteFrom('eduCoSo').where('id', '=', coSo.id).execute();
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduLopNhom').not.toExist();
+    await expectCollection('eduHocVienChuyenNhom').not.toExist();
+    await expectCollection('eduHocVien').toExist();
+    await expectCollection('eduHocVien').not.toHaveField('nhomId');
+  },
+});

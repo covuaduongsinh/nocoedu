@@ -8,6 +8,7 @@ import { Button } from '#components/ui/button';
 
 import { FormDialog, SelectField, TextField } from './form-parts.js';
 import { GenericImportDialog } from './generic-import-dialog.js';
+import { formatMoney } from './format.js';
 import {
   createOne,
   text,
@@ -34,8 +35,7 @@ const EMPTY: Form = {
   trangThai: 'dang_ban',
 };
 
-const money = (value: unknown): string =>
-  Number(value ?? 0).toLocaleString('vi-VN');
+const money = formatMoney;
 const dong = (value: string): number => {
   const n = Number(value.replace(/\D/gu, ''));
   return Number.isFinite(n) ? n : 0;
@@ -81,7 +81,9 @@ export default function SachPage(): ReactElement {
               onSuccess={reload}
             />
             {canManage ? (
-              <Button onClick={() => setForm(EMPTY)}>{t('edu.sach.new')}</Button>
+              <Button onClick={() => setForm(EMPTY)}>
+                {t('edu.sach.new')}
+              </Button>
             ) : null}
           </div>
         }
