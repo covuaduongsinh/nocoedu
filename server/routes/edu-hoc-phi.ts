@@ -803,7 +803,7 @@ export default [
           const fifo = fifoByGoi.get(packId);
           return {
             id: packId,
-            tenKy: `Gói ${pack.soBuoi} buổi (${asText(pack.ngayMua)})`,
+            tenKy: `Gói ${asText(pack.soBuoi)} buổi (${asText(pack.ngayMua)})`,
             ngayMua: asText(pack.ngayMua),
             soBuoi: Number(pack.soBuoi),
             donGia: Number(pack.donGia),

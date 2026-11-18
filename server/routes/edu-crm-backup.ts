@@ -478,7 +478,7 @@ export default [
               )) {
                 await connection.query
                   .insertInto(table)
-                  .values(part as never)
+                  .values(part)
                   .execute();
               }
             }

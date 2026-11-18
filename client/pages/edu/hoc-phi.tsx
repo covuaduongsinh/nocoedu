@@ -1,12 +1,8 @@
 import { useApiClient } from '@nocobase/app-client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
-import { useTranslation } from '@nocobase/i18n/client';
 import {
-  AlertCircle,
   ArrowRight,
   BadgeAlert,
-  Calendar,
-  CheckCircle2,
   CreditCard,
   DollarSign,
   Download,
@@ -23,7 +19,6 @@ import { useNavigate } from 'react-router';
 import { PageContainer } from '#components/page-container';
 import { PageHeader } from '#components/page-header';
 import { RecordLink } from '#components/record-link';
-import { StatusBadge } from '#components/status-badge';
 import { Button } from '#components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '#components/ui/card';
 import {
@@ -63,7 +58,6 @@ interface Qr {
 }
 
 export default function HocPhiPage(): ReactElement {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const api = useApiClient();
   const message = useErrorMessage();
@@ -129,9 +123,11 @@ export default function HocPhiPage(): ReactElement {
   // State cho Tab 2: Sổ quỹ dòng tiền
   const [payments, setPayments] = useState<Row[]>([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
-  const [filterMonth, setFilterMonth] = useState<string>('all');
 
-  const studentRows = students.loaded.state === 'ready' ? students.loaded.rows : [];
+  const studentRows = useMemo(
+    () => (students.loaded.state === 'ready' ? students.loaded.rows : []),
+    [students.loaded],
+  );
   const classRows = classes.state === 'ready' ? classes.rows : [];
 
   const classNameOf = (lopId: unknown): string =>
@@ -159,13 +155,15 @@ export default function HocPhiPage(): ReactElement {
       .sort((a, b) => Number(a.soBuoiConLai) - Number(b.soBuoiConLai));
   }, [studentRows]);
 
-  // Tải các gói học của học sinh đang chọn
+  // Tải các gói học của học sinh đang chọn. (Trang này được viết lại ở Giai đoạn 1 của kế hoạch tái cấu trúc.)
   useEffect(() => {
     if (!selectedStudentId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect, @eslint-react/set-state-in-effect -- clears the list when nobody is selected
       setStudentPacks([]);
       return;
     }
     let live = true;
+    // eslint-disable-next-line @eslint-react/set-state-in-effect -- starts the request below
     setLoadingPacks(true);
     api
       .request<{ data: Row[] }>({
@@ -209,8 +207,10 @@ export default function HocPhiPage(): ReactElement {
 
   useEffect(() => {
     if (activeTab === 'ledger') {
-      loadPayments();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- loads the ledger when its tab opens
+      void loadPayments();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps -- reload only when the tab changes
   }, [activeTab]);
 
   // Sinh QR VietQR
@@ -246,7 +246,7 @@ export default function HocPhiPage(): ReactElement {
         });
         setStudentPacks(res.data);
       }
-    } catch (err: any) {
+    } catch (err) {
       alert(message(err));
     }
   };
@@ -271,7 +271,7 @@ export default function HocPhiPage(): ReactElement {
         noiDungCk: '',
       });
       students.reload();
-      if (activeTab === 'ledger') loadPayments();
+      if (activeTab === 'ledger') void loadPayments();
       if (selectedStudentId) {
         const res = await api.request<{ data: Row[] }>({
           path: '/goiHoc/findMany',
@@ -280,7 +280,7 @@ export default function HocPhiPage(): ReactElement {
         });
         setStudentPacks(res.data);
       }
-    } catch (err: any) {
+    } catch (err) {
       alert(message(err));
     }
   };
@@ -326,7 +326,7 @@ export default function HocPhiPage(): ReactElement {
               variant='outline'
               onSuccess={() => {
                 students.reload();
-                if (activeTab === 'ledger') loadPayments();
+                if (activeTab === 'ledger') void loadPayments();
               }}
             />
             {canExport ? (
@@ -472,7 +472,7 @@ export default function HocPhiPage(): ReactElement {
                   <Button
                     variant='outline'
                     size='sm'
-                    onClick={() => navigate(`/doi-soat?hocVienId=${selectedStudent.id}`)}
+                    onClick={() => void navigate(`/doi-soat?hocVienId=${selectedStudent.id}`)}
                     className='text-xs gap-1.5'
                   >
                     <ExternalLink className='h-3.5 w-3.5' /> Xem phiếu đối soát A4
@@ -554,7 +554,7 @@ export default function HocPhiPage(): ReactElement {
                                 <Button
                                   size='sm'
                                   variant='outline'
-                                  onClick={() => handleOpenQr(String(pack.id))}
+                                  onClick={() => void handleOpenQr(String(pack.id))}
                                   className='h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10'
                                 >
                                   <QrCode className='h-3 w-3' /> Mã QR
@@ -567,7 +567,7 @@ export default function HocPhiPage(): ReactElement {
                                         open: true,
                                         student: selectedStudent,
                                         goiHocId: String(pack.id),
-                                        soTien: String(pack.thanhTien || ''),
+                                        soTien: text(pack.thanhTien),
                                         hinhThuc: 'chuyen_khoan',
                                         noiDungCk: `HP ${text(selectedStudent.ma)} ${text(pack.soBuoi)}B`,
                                       })
@@ -654,7 +654,7 @@ export default function HocPhiPage(): ReactElement {
                 <History className='h-4 w-4 text-primary' />
                 Lịch sử các khoản tiền đã thu ({payments.length} bản ghi)
               </h3>
-              <Button variant='outline' size='sm' onClick={loadPayments} className='text-xs'>
+              <Button variant='outline' size='sm' onClick={() => void loadPayments()} className='text-xs'>
                 Làm mới
               </Button>
             </div>
@@ -785,7 +785,7 @@ export default function HocPhiPage(): ReactElement {
                               <Button
                                 size='sm'
                                 variant='outline'
-                                onClick={() => navigate(`/doi-soat?hocVienId=${s.id}`)}
+                                onClick={() => void navigate(`/doi-soat?hocVienId=${s.id}`)}
                                 className='h-7 text-xs gap-1'
                               >
                                 <ExternalLink className='h-3 w-3' /> Đối soát
@@ -859,7 +859,7 @@ export default function HocPhiPage(): ReactElement {
             id='pay-hinh-thuc'
             label='Hình thức thanh toán'
             value={payModal.hinhThuc}
-            onChange={(hinhThuc) => setPayModal((prev) => ({ ...prev, hinhThuc: hinhThuc as any }))}
+            onChange={(hinhThuc) => setPayModal((prev) => ({ ...prev, hinhThuc: hinhThuc as 'chuyen_khoan' | 'tien_mat' }))}
             options={[
               { value: 'chuyen_khoan', label: 'Chuyển khoản (VietQR / Ngân hàng)' },
               { value: 'tien_mat', label: 'Tiền mặt' },
@@ -874,7 +874,7 @@ export default function HocPhiPage(): ReactElement {
           <Button
             type='button'
             variant='outline'
-            onClick={() => handleOpenQr(payModal.goiHocId)}
+            onClick={() => void handleOpenQr(payModal.goiHocId)}
             className='gap-2 text-xs font-semibold'
           >
             <QrCode className='h-4 w-4' /> Hiển thị mã QR thanh toán

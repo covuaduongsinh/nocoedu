@@ -1,17 +1,11 @@
 import { useApiClient } from '@nocobase/app-client';
-import { useTranslation } from '@nocobase/i18n/client';
 import { useEffect, useState, useMemo, type ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 import {
   ArrowLeft,
   CalendarCheck,
-  CheckCircle2,
-  ChevronRight,
   Download,
-  Filter,
   Layers,
-  Maximize2,
-  Minimize2,
   Printer,
   RefreshCw,
   Search,
@@ -161,7 +155,6 @@ interface StudentAuditDetail {
 }
 
 export default function DoiSoatPage(): ReactElement {
-  const { t } = useTranslation();
   const api = useApiClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -170,7 +163,10 @@ export default function DoiSoatPage(): ReactElement {
   // Lấy dữ liệu cơ sở và lớp học
   const classes = useRows('lop').loaded;
   const branches = useRows('coSo').loaded;
-  const classRows = classes.state === 'ready' ? classes.rows : [];
+  const classRows = useMemo(
+    () => (classes.state === 'ready' ? classes.rows : []),
+    [classes],
+  );
   const branchRows = branches.state === 'ready' ? branches.rows : [];
 
   // State chế độ 1 (Tổng quan)
@@ -257,6 +253,7 @@ export default function DoiSoatPage(): ReactElement {
       void loadOverview();
     }, 350);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps -- debounce on the search text only
   }, [searchTerm]);
 
   const handleFilterStatus = (status: string) => {
@@ -301,12 +298,17 @@ export default function DoiSoatPage(): ReactElement {
     }
   };
 
+  // Loads the page's data when the student in the address changes. (This page is reduced to the overview table in
+  // Giai đoạn 1 of the restructuring plan.)
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- the loaders set their own loading flags */
     if (selectedStudentId) {
-      loadStudentDetail(Number(selectedStudentId));
+      void loadStudentDetail(Number(selectedStudentId));
     } else {
-      loadOverview();
+      void loadOverview();
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps -- reload only when the student changes
   }, [selectedStudentId]);
 
   // Lưu chỉnh sửa nhanh buổi học

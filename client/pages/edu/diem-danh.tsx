@@ -5,7 +5,6 @@ import {
   AlertCircle,
   Calendar,
   CheckCircle2,
-  ChevronDown,
   Clock,
   Download,
   Filter,
@@ -13,7 +12,7 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { PageContainer } from '#components/page-container';
@@ -125,7 +124,10 @@ export default function DiemDanhPage(): ReactElement {
   const [showSessionSelector, setShowSessionSelector] = useState<boolean>(!selectedId);
 
   const todayStr = todayVn();
-  const classRows = classes.state === 'ready' ? classes.rows : [];
+  const classRows = useMemo(
+    () => (classes.state === 'ready' ? classes.rows : []),
+    [classes],
+  );
   const loadedSessions = sessions.loaded;
 
   const ordered = useMemo(
@@ -139,8 +141,10 @@ export default function DiemDanhPage(): ReactElement {
     [loadedSessions],
   );
 
-  const className = (id: unknown): string =>
-    text(classRows.find((row) => row.id === id)?.ten);
+  const className = useCallback(
+    (id: unknown): string => text(classRows.find((row) => row.id === id)?.ten),
+    [classRows],
+  );
 
   // Danh sách các ca học hôm nay (Today's Spotlight)
   const todaySessions = useMemo(() => {
@@ -180,7 +184,7 @@ export default function DiemDanhPage(): ReactElement {
       }
       return true;
     });
-  }, [ordered, timeFilter, todayStr, filterLop, filterStatus, searchQuery, classRows]);
+  }, [ordered, timeFilter, todayStr, filterLop, filterStatus, searchQuery, className]);
 
   const session = ordered.find((row) => row.id === selectedId);
   const roster: Row[] =
@@ -190,11 +194,12 @@ export default function DiemDanhPage(): ReactElement {
         )
       : [];
 
-  useEffect(() => {
-    if (selectedId) {
-      setShowSessionSelector(false);
-    }
-  }, [selectedId]);
+  // Choosing a session closes the selector: adjusted while rendering, when the chosen session changes.
+  const [seenSessionId, setSeenSessionId] = useState(selectedId);
+  if (seenSessionId !== selectedId) {
+    setSeenSessionId(selectedId);
+    if (selectedId) setShowSessionSelector(false);
+  }
 
   // Tải dữ liệu điểm danh đã lưu
   useEffect(() => {
@@ -608,7 +613,7 @@ export default function DiemDanhPage(): ReactElement {
                   <label className='mb-1 block text-xs font-medium text-muted-foreground'>Trạng thái điểm danh</label>
                   <select
                     value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value as any)}
+                    onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
                     className='h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm'
                   >
                     <option value='all'>Tất cả trạng thái</option>

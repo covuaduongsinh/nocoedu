@@ -8,7 +8,6 @@ import {
   Building2,
   CalendarCheck,
   ClipboardCheck,
-  Contact,
   Database,
   GraduationCap,
   Home,
