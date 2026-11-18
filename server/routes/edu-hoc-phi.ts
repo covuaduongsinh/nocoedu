@@ -19,6 +19,7 @@ import {
   moveBalance,
   saveAttendanceRow,
 } from '../edu/balance.js';
+import { refreshTaughtKnowledge } from '../edu/kien-thuc-doc.js';
 import { asText } from '../edu/names.js';
 import { readNeedCollection } from '../edu/can-thu.js';
 import { loadAllocation } from '../edu/phan-bo-doc.js';
@@ -327,6 +328,9 @@ export default [
             .set({ trangThai: 'da_diem_danh' })
             .where('id', '=', input.buoiHocId)
             .execute();
+          // The students marked present learn the skills taught in this session; one corrected to absent loses them
+          // (GĐ 4). Written here, in the register's transaction, after the students were checked against the scope.
+          await refreshTaughtKnowledge(connection.query, input.buoiHocId);
           return { buoiHocId: input.buoiHocId, danhSach: rows };
         });
         return c.json({ data: result });

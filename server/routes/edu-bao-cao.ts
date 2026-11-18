@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { toCsv } from '../edu/csv.js';
 import { asText } from '../edu/names.js';
 import { needsCollection } from '../edu/can-thu.js';
+import { activeSkills, readCatalog, readGaps } from '../edu/kien-thuc-doc.js';
 import { addDays, todayVn } from '../edu/so-du.js';
 import {
   currentUserId,
@@ -42,6 +43,8 @@ const REPORTS = [
   'thieuDongY',
   'nghiDai',
   'doanhThu',
+  // The skills taught while a student was absent, and the ones graded "not solid yet" (GĐ 4).
+  'loHongKienThuc',
 ] as const;
 type ReportKind = (typeof REPORTS)[number];
 
@@ -73,6 +76,7 @@ const GATE: Record<ReportKind, string> = {
   thieuDongY: 'edu.hocVien',
   nghiDai: 'edu.diemDanh',
   doanhThu: 'edu.thanhToan',
+  loHongKienThuc: 'edu.kienThuc',
 };
 
 const PAGE = 100;
@@ -329,6 +333,89 @@ export default [
               { key: 'lop', label: 'Lớp' },
               { key: 'soBuoiConLai', label: 'Số buổi còn lại' },
               { key: 'buoiNo', label: 'Số buổi nợ' },
+            ],
+            rows,
+          };
+        }
+        case 'loHongKienThuc': {
+          // The gaps of the students who are studying (GĐ 4): worked out on every read from the register and the
+          // skills taught, never stored. Gated by `edu.kienThuc` `view`; the register, the sessions and the curriculum
+          // are read through the caller's own policies of `edu.diemDanh`, `edu.buoiHoc` and `edu.chuongTrinh`.
+          const diemDanh = (await policiesOf(c, 'edu.diemDanh', 'view'))
+            .eduDiemDanh;
+          const buoiHoc = (await policiesOf(c, 'edu.buoiHoc', 'view'))
+            .eduBuoiHoc;
+          const topics = (await policiesOf(c, 'edu.chuongTrinh', 'view'))
+            .eduChuDe;
+          const skills = (await policiesOf(c, 'edu.chuongTrinh', 'view'))
+            .eduKyNang;
+          const data = gate.eduHocVienKyNang;
+          const taught = gate.eduBuoiHocKyNang;
+          if (!diemDanh || !buoiHoc || !topics || !skills || !data || !taught)
+            throw denied();
+          const catalog = await readCatalog(database, {
+            chuDe: topics,
+            kyNang: skills,
+          });
+          const usable = activeSkills(catalog);
+          const skillOf = new Map(
+            usable.map((skill) => [num(skill.id), skill]),
+          );
+          const topicOf = new Map(catalog.topics.map((t) => [num(t.id), t]));
+          const studying = students.filter((s) => s.trangThai === 'dang_hoc');
+          const gaps = await readGaps(
+            q(),
+            studying.map((s) => ({
+              id: num(s.id),
+              lopId: s.lopId == null ? null : num(s.lopId),
+              nhomId: s.nhomId == null ? null : num(s.nhomId),
+            })),
+            new Set(skillOf.keys()),
+          );
+          if (gaps.length > MAX_ROWS) {
+            throw eduError(
+              'FAILED_PRECONDITION',
+              'EDU_REPORT_TOO_LARGE',
+              'The report covers too many records. Narrow it to one branch or class.',
+            );
+          }
+          const byId = new Map(studying.map((s) => [num(s.id), s]));
+          const rows = gaps
+            .map((gap) => {
+              const student = byId.get(gap.hocVienId);
+              const skill = skillOf.get(gap.kyNangId);
+              const topic = skill ? topicOf.get(num(skill.chuDeId)) : undefined;
+              return {
+                ma: asText(student?.ma),
+                hoTen: asText(student?.hoTen),
+                lop:
+                  student?.lopId == null
+                    ? ''
+                    : (lops.get(num(student.lopId)) ?? ''),
+                cap: asText(topic?.levelKey),
+                chuDe: asText(topic?.ten),
+                kyNang: asText(skill?.ten),
+                lyDo: gap.lyDo === 'chua_vung' ? 'Chưa vững' : 'Vắng buổi dạy',
+                ngayVang: gap.ngay ?? '',
+              };
+            })
+            .sort(
+              (a, b) =>
+                a.lop.localeCompare(b.lop, 'vi') ||
+                a.hoTen.localeCompare(b.hoTen, 'vi') ||
+                a.chuDe.localeCompare(b.chuDe, 'vi') ||
+                a.kyNang.localeCompare(b.kyNang, 'vi'),
+            );
+          return {
+            columns: [
+              { key: 'ma', label: 'Mã' },
+              { key: 'hoTen', label: 'Họ tên' },
+              { key: 'lop', label: 'Lớp' },
+              { key: 'cap', label: 'Cấp' },
+              { key: 'chuDe', label: 'Chủ đề' },
+              { key: 'kyNang', label: 'Kỹ năng cần bù' },
+              { key: 'lyDo', label: 'Lý do' },
+              { key: 'ngayVang', label: 'Ngày vắng buổi dạy' },
             ],
             rows,
           };

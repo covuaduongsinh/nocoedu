@@ -24,6 +24,8 @@ const SCOPED_COLLECTIONS = [
   'eduLopNhom',
   'eduHocVien',
   'eduHocVienChuyenNhom',
+  'eduHocVienKyNang',
+  'eduBuoiHocKyNang',
   'eduHocVienLenCap',
   'eduPhuHuynh',
   'eduHocVienPhuHuynh',
@@ -144,6 +146,7 @@ export function registerEduRecordAccess(
             : false;
       case 'eduLopLich':
       case 'eduLopNhom':
+      case 'eduBuoiHocKyNang':
       case 'eduBuoiHoc':
       case 'eduNhanXetThang':
         return scope.lopIds.length ? anyOf('lopId', scope.lopIds) : false;
@@ -168,6 +171,7 @@ export function registerEduRecordAccess(
       case 'eduDongY':
       case 'eduHocVienLenCap':
       case 'eduHocVienChuyenNhom':
+      case 'eduHocVienKyNang':
       case 'eduHocVienPhuHuynh':
         return scope.hocVienIds.length
           ? anyOf('hocVienId', scope.hocVienIds)

@@ -204,6 +204,9 @@ describe('app client routes', () => {
       { name: 'edu-hocPhi', authorizedAs: 'edu.hocPhi' },
       { name: 'edu-doi-soat', authorizedAs: 'edu.hocPhi' },
       { name: 'edu-phatSach', authorizedAs: 'edu.phatSach' },
+      // The knowledge system (GĐ 4): the curriculum and the matrix of what each class has learned.
+      { name: 'edu-chuongTrinh', authorizedAs: 'edu.chuongTrinh' },
+      { name: 'edu-kienThuc', authorizedAs: 'edu.kienThuc' },
       { name: 'edu-lop', authorizedAs: 'edu.lop' },
       { name: 'edu-coSo', authorizedAs: 'edu.coSo' },
       { name: 'edu-hoSoGv', authorizedAs: 'edu.hoSoGv' },
@@ -245,6 +248,7 @@ describe('app client routes', () => {
       'edu-nhomHangNgay',
       'edu-nhomHocVien',
       'edu-nhomHocPhiSach',
+      'edu-nhomChuyenMon',
       'edu-nhomDanhMuc',
     ]) {
       expect(section(name)?.componentLoader).toBeUndefined();
@@ -261,6 +265,7 @@ describe('app client routes', () => {
       '/doi-soat',
       '/phat-sach',
     ]);
+    expect(pages('edu-nhomChuyenMon')).toEqual(['/chuong-trinh', '/kien-thuc']);
     expect(pages('edu-nhomDanhMuc')).toEqual([
       '/lop',
       '/co-so',

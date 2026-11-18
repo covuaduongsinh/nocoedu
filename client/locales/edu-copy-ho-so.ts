@@ -259,13 +259,6 @@ export const EDU_HO_SO_ROWS: readonly Row[] = [
     'Books being learned or finished',
     '在学与已学完的书籍',
   ],
-  ['hoSo.knowledge.title', 'Hệ thống kiến thức', 'Knowledge map', '知识体系'],
-  [
-    'hoSo.knowledge.soon',
-    'Sẽ có ở giai đoạn 4: cây Cấp → Chủ đề → Kỹ năng và những kiến thức cần bù cho từng em.',
-    'Coming in phase 4: the Level → Topic → Skill tree and what each student still has to make up.',
-    '将在第 4 阶段推出：级别 → 主题 → 技能树，以及每位学员需要补的内容。',
-  ],
   [
     'hoSo.comments.empty',
     'Chưa có nhận xét tháng',

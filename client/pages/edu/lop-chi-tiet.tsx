@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
 
 import { text, usePagedRows, useRequest, useRows, type Row } from './kit.js';
 import { RowsTable } from './list-page.js';
+import { KnowledgePanel } from './kien-thuc/panel.js';
 import { GroupTab } from './lop-nhom.js';
 import { useGroupNames } from './nhom.js';
 import { RowManage } from './sua-xoa.js';
@@ -102,12 +103,23 @@ function ClassFile({
     resource: { type: 'composite', id: 'edu.lopNhom' },
     action: 'view',
   });
+  // The knowledge tab (GĐ 4) is offered to whoever may view what students have learned.
+  const { can: canKnowledge } = useCan({
+    resource: { type: 'composite', id: 'edu.kienThuc' },
+    action: 'view',
+  });
   const tab =
-    values.tab === 'groups' && !canGroups
+    (values.tab === 'groups' && !canGroups) ||
+    (values.tab === 'knowledge' && !canKnowledge)
       ? 'info'
-      : ['info', 'schedule', 'students', 'groups', 'sessions'].includes(
-            values.tab,
-          )
+      : [
+            'info',
+            'schedule',
+            'students',
+            'groups',
+            'knowledge',
+            'sessions',
+          ].includes(values.tab)
         ? values.tab
         : 'info';
   return (
@@ -128,6 +140,11 @@ function ClassFile({
           </TabsTrigger>
           {canGroups ? (
             <TabsTrigger value='groups'>{t('edu.lop.tab.groups')}</TabsTrigger>
+          ) : null}
+          {canKnowledge ? (
+            <TabsTrigger value='knowledge'>
+              {t('edu.lop.tab.knowledge')}
+            </TabsTrigger>
           ) : null}
           <TabsTrigger value='sessions'>
             {t('edu.lop.tab.sessions')}
@@ -161,6 +178,11 @@ function ClassFile({
         {canGroups ? (
           <TabsContent value='groups' className='pt-4'>
             <GroupTab lop={lop} />
+          </TabsContent>
+        ) : null}
+        {canKnowledge ? (
+          <TabsContent value='knowledge' className='pt-4'>
+            <KnowledgePanel lopId={lop.id} />
           </TabsContent>
         ) : null}
         <TabsContent value='sessions' className='pt-4'>

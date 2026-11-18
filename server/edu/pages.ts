@@ -18,4 +18,7 @@ export const PAGES = {
   hoSoGv: 'edu.hoSoGv',
   // Granted by `202611170001_edu_he_thong_grant` (administrator only: backup and restore of the whole database).
   heThong: 'edu.heThong',
+  // Granted by `202611180005_edu_kien_thuc_grant` (GĐ 4): the curriculum and the knowledge matrix.
+  chuongTrinh: 'edu.chuongTrinh',
+  kienThuc: 'edu.kienThuc',
 } as const;

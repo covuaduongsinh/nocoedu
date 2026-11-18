@@ -17,6 +17,7 @@ import { z } from 'zod';
 
 import { balanceBand, needsCollection } from '../edu/can-thu.js';
 import { toCsv } from '../edu/csv.js';
+import { readStudentSummary } from '../edu/kien-thuc-doc.js';
 import { asText } from '../edu/names.js';
 import { loadAllocation } from '../edu/phan-bo-doc.js';
 import {
@@ -429,6 +430,35 @@ export default [
         };
       }
 
+      // What the student has learned (GĐ 4): the share of the level and the gaps still open. `null` when the caller does
+      // not hold what it takes to read them (`edu.kienThuc`, the curriculum, and the register and sessions that gaps
+      // are worked out from).
+      const [dataPolicy, taughtPolicy, topicPolicy, skillPolicy] =
+        await Promise.all([
+          optionalPolicy(c, 'edu.kienThuc', 'view', 'eduHocVienKyNang'),
+          optionalPolicy(c, 'edu.kienThuc', 'view', 'eduBuoiHocKyNang'),
+          optionalPolicy(c, 'edu.chuongTrinh', 'view', 'eduChuDe'),
+          optionalPolicy(c, 'edu.chuongTrinh', 'view', 'eduKyNang'),
+        ]);
+      const kienThuc =
+        dataPolicy &&
+        taughtPolicy &&
+        topicPolicy &&
+        skillPolicy &&
+        attendancePolicy &&
+        sessionPolicy
+          ? await readStudentSummary(
+              database,
+              { chuDe: topicPolicy, kyNang: skillPolicy },
+              {
+                id: hocVienId,
+                lopId,
+                nhomId,
+                levelKey: asText(student.levelKey),
+              },
+            )
+          : null;
+
       const soBuoiConLai = Number(student.soBuoiConLai || 0);
       const money = hocPhi as {
         tongSoBuoiDaMua: number;
@@ -488,6 +518,7 @@ export default [
         hocPhi,
         buoiHoc,
         sach,
+        kienThuc,
       };
     }
 

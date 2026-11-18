@@ -43,6 +43,7 @@ import { Field, FormDialog, SelectField, TextField } from '../form-parts.js';
 import { GenericImportDialog } from '../generic-import-dialog.js';
 import { formatTime } from '../format.js';
 import { Pager } from '../list-page.js';
+import { SessionSkills } from '../kien-thuc/session-skills.js';
 import { groupBlocks, useClassGroups } from '../nhom.js';
 import {
   post,
@@ -1161,6 +1162,19 @@ export function DiemDanhTab({
                   </Field>
                 ))}
               </div>
+              <SessionSkills
+                buoiHocId={Number(session.id)}
+                levelKey={text(
+                  classRows.find((row) => row.id === session.lopId)?.levelKey,
+                )}
+                groups={
+                  classGroups.loaded.state === 'ready'
+                    ? classGroups.loaded.rows.filter(
+                        (group) => group.trangThai === 'hoat_dong',
+                      )
+                    : []
+                }
+              />
               {canRecord ? (
                 <div className='flex items-center gap-3 pt-2'>
                   <Button

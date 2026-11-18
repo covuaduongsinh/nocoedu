@@ -185,6 +185,10 @@ export default function BaoCaoPage(): ReactElement {
     resource: { type: 'composite', id: 'edu.baoCao' },
     action: 'export',
   });
+  const { can: canKnowledge } = useCan({
+    resource: { type: 'composite', id: 'edu.kienThuc' },
+    action: 'view',
+  });
   const kinds = [
     'siSo',
     'sapHetBuoi',
@@ -192,6 +196,8 @@ export default function BaoCaoPage(): ReactElement {
     'thieuDongY',
     ...(canAttendance ? ['chuyenCan', 'nghiDai'] : []),
     ...(canRevenue ? ['doanhThu'] : []),
+    // The gaps to make up (GĐ 4): offered to whoever may view the knowledge of students.
+    ...(canKnowledge && canAttendance ? ['loHongKienThuc'] : []),
   ];
   const [kind, setKind] = useState('siSo');
   const [coSoId, setCoSoId] = useState('');
