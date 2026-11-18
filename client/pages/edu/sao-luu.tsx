@@ -1,4 +1,5 @@
 import { useApiClient } from '@nocobase/app-client';
+import { useTranslation } from '@nocobase/i18n/client';
 import { useState, type ReactElement } from 'react';
 
 import { PageContainer } from '#components/page-container';
@@ -10,7 +11,7 @@ import { Input } from '#components/ui/input';
 import { todayVn } from './kit.js';
 
 interface BackupData {
-  phienBan: string;
+  phienBan?: string;
   thoiGianTao: string;
   ngayVn: string;
   tongSoBang: number;
@@ -19,10 +20,13 @@ interface BackupData {
 }
 
 export default function SaoLuuPage(): ReactElement {
+  const { t } = useTranslation();
   const api = useApiClient();
+  // What a restore would do with the chosen file, asked of the server before anything is written.
+  const [check, setCheck] = useState<{ moi: number; trung: number } | null>(null);
+  const [checking, setChecking] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<BackupData | null>(null);
   const [confirmText, setConfirmText] = useState('');
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -64,13 +68,35 @@ export default function SaoLuuPage(): ReactElement {
     setStatusMessage(null);
     const file = e.target.files?.[0];
     if (!file) return;
-    setSelectedFile(file);
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string) as BackupData;
         if (parsed.duLieu && typeof parsed.duLieu === 'object') {
           setPreview(parsed);
+          setCheck(null);
+          setChecking(true);
+          api
+            .request<{ data: { moi: number; trung: number } }>({
+              path: '/heThong/backup/importJson',
+              method: 'POST',
+              json: {
+                data: parsed.duLieu,
+                xacNhan: 'XAC_NHAN_KHOI_PHUC',
+                chiKiemTra: true,
+                ...(parsed.phienBan ? { phienBan: parsed.phienBan } : {}),
+              },
+            })
+            .then((res) => setCheck(res.data))
+            .catch((err: unknown) =>
+              setStatusMessage({
+                type: 'error',
+                text: t('edu.saoLuu.checkFailed', {
+                  message: err instanceof Error ? err.message : String(err),
+                }),
+              }),
+            )
+            .finally(() => setChecking(false));
         } else {
           setStatusMessage({ type: 'error', text: 'File không đúng định dạng sao lưu của NocoEdu.' });
         }
@@ -87,20 +113,24 @@ export default function SaoLuuPage(): ReactElement {
     setImporting(true);
     setStatusMessage(null);
     try {
-      const res = await api.request<{ data: { tongKhoiPhuc: number; thongBao: string } }>({
+      const res = await api.request<{ data: { tongKhoiPhuc: number; thongBao: string; dayTuTangDaDat?: boolean } }>({
         path: '/heThong/backup/importJson',
         method: 'POST',
         json: {
           data: preview.duLieu,
           xacNhan: 'XAC_NHAN_KHOI_PHUC',
+          ...(preview.phienBan ? { phienBan: preview.phienBan } : {}),
         },
       });
       setStatusMessage({
-        type: 'success',
-        text: res.data.thongBao,
+        type: res.data.dayTuTangDaDat === false ? 'error' : 'success',
+        text:
+          res.data.dayTuTangDaDat === false
+            ? `${res.data.thongBao} ${t('edu.saoLuu.sequenceWarning')}`
+            : res.data.thongBao,
       });
-      setSelectedFile(null);
       setPreview(null);
+      setCheck(null);
       setConfirmText('');
     } catch (err) {
       setStatusMessage({
@@ -152,6 +182,10 @@ export default function SaoLuuPage(): ReactElement {
               </ul>
             </div>
 
+            <p className='text-xs text-muted-foreground'>
+              {t('edu.saoLuu.childData')}
+            </p>
+
             <Button
               onClick={() => void handleExportBackup()}
               disabled={exporting}
@@ -191,6 +225,13 @@ export default function SaoLuuPage(): ReactElement {
                 <p>• Ngày tạo: {preview.ngayVn || preview.thoiGianTao?.slice(0, 10)}</p>
                 <p>• Số lượng bản ghi: <span className='font-semibold text-primary'>{preview.soBanGhi}</span> bản ghi</p>
                 <p>• Số bảng dữ liệu: {preview.tongSoBang} bảng</p>
+                <p className='font-medium text-foreground'>
+                  {checking
+                    ? t('edu.saoLuu.checking')
+                    : check
+                      ? t('edu.saoLuu.checkResult', check)
+                      : null}
+                </p>
 
                 <div className='pt-2 border-t mt-2'>
                   <label className='mb-1 block font-semibold text-destructive'>
@@ -207,7 +248,7 @@ export default function SaoLuuPage(): ReactElement {
                 <Button
                   variant='destructive'
                   size='sm'
-                  disabled={confirmText !== 'XAC_NHAN_KHOI_PHUC' || importing}
+                  disabled={confirmText !== 'XAC_NHAN_KHOI_PHUC' || importing || checking || !check}
                   onClick={() => void handleRestore()}
                   className='w-full mt-2 font-medium'
                 >
