@@ -18,10 +18,9 @@ import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
 import { toCsv } from '../edu/csv.js';
-import { anyOf } from '../edu/filters.js';
 import { asText } from '../edu/names.js';
-import { chunksOf, PAGE, readAllRows, type Row } from '../edu/read-all.js';
-import { todayVn } from '../edu/so-du.js';
+import { chunksOf, readAllRows, type Row } from '../edu/read-all.js';
+import { asBoolean, todayVn } from '../edu/so-du.js';
 import {
   currentUserId,
   eduError,
@@ -45,7 +44,7 @@ import {
  */
 
 /** A snapshot or an export of more rows than this is refused: narrow it instead of building a file in memory. */
-export const MAX_CSV_ROWS = 20_000;
+export const MAX_CSV_ROWS = 100_000;
 /** Rows read from one table per query while taking a snapshot. */
 const SNAPSHOT_PAGE = 5000;
 /** A snapshot holds at most this many rows in all (it is built in memory and sent as one JSON document). */
@@ -576,56 +575,51 @@ export default [
         );
         const sessionById = new Map(sessions.map((s) => [Number(s.id), s]));
 
+        // The register of the sessions the policy returned, and the students the caller may see (read once through
+        // their policy). Reading the register page by page through its own policy costs a scope lookup per page,
+        // which for a branch manager took half a minute a month; the caller's `edu.diemDanh` `view` was checked above.
+        const students = new Map<number, Row>();
+        for (const student of await readAllRows(
+          database,
+          'eduHocVien',
+          studentPolicy,
+          undefined,
+          MAX_CSV_ROWS,
+        )) {
+          students.set(Number(student.id), student);
+        }
+        const q = database.connection().query;
         const marks: Row[] = [];
-        for (const part of chunksOf([...sessionById.keys()], PAGE)) {
-          marks.push(
-            ...(await readAllRows(
-              database,
-              'eduDiemDanh',
-              attendancePolicy,
-              anyOf('buoiHocId', part),
-              MAX_CSV_ROWS,
-            )),
-          );
+        const scores = new Map<number, number>();
+        for (const part of chunksOf([...sessionById.keys()], 500)) {
+          const found: Row[] = await q
+            .selectFrom('eduDiemDanh')
+            .select([
+              'id',
+              'buoiHocId',
+              'hocVienId',
+              'trangThai',
+              'daLamBtvn',
+              'nhanXet',
+              'soBuoiDaTru',
+              'yThucDiem',
+            ])
+            .where('buoiHocId', 'in', part)
+            .execute();
+          for (const row of found) {
+            // A row of a student the caller does not see is left out, so no name leaves the scope.
+            if (!students.has(Number(row.hocVienId))) continue;
+            marks.push(row);
+            if (row.yThucDiem != null) {
+              scores.set(Number(row.id), Number(row.yThucDiem));
+            }
+          }
           if (marks.length > MAX_CSV_ROWS) {
             throw eduError(
               'FAILED_PRECONDITION',
               'EDU_EXPORT_TOO_LARGE',
               `More than ${MAX_CSV_ROWS} records: narrow the export to one class or month.`,
             );
-          }
-        }
-
-        // Students the caller may see; a row of any other student is left out, so no name leaves the scope.
-        const students = new Map<number, Row>();
-        const studentIds = [...new Set(marks.map((m) => Number(m.hocVienId)))];
-        for (const part of chunksOf(studentIds, PAGE)) {
-          for (const student of await readAllRows(
-            database,
-            'eduHocVien',
-            studentPolicy,
-            anyOf('id', part),
-            PAGE,
-          )) {
-            students.set(Number(student.id), student);
-          }
-        }
-
-        // The awareness score is not a permission field: it is read only for the rows the policy already returned.
-        const scores = new Map<number, number>();
-        const q = database.connection().query;
-        for (const part of chunksOf(
-          marks.map((m) => Number(m.id)),
-          200,
-        )) {
-          for (const row of await q
-            .selectFrom('eduDiemDanh')
-            .select(['id', 'yThucDiem'])
-            .where('id', 'in', part)
-            .execute()) {
-            if (row.yThucDiem != null) {
-              scores.set(Number(row.id), Number(row.yThucDiem));
-            }
           }
         }
 
@@ -654,7 +648,7 @@ export default [
           asText(student.ma),
           asText(student.hoTen),
           STATUS_LABEL[asText(mark.trangThai)] ?? asText(mark.trangThai),
-          mark.daLamBtvn ? 'Đã làm' : 'Chưa làm',
+          asBoolean(mark.daLamBtvn) ? 'Đã làm' : 'Chưa làm',
           asText(mark.nhanXet),
           scores.get(Number(mark.id)) ?? '',
           Number(mark.soBuoiDaTru),
@@ -749,17 +743,25 @@ export default [
           MAX_CSV_ROWS,
         );
         const studentById = new Map(students.map((s) => [Number(s.id), s]));
+        // The packages of exactly those students (the caller's `edu.goiHoc` `view` was checked above); one policy page
+        // per hundred packages would cost a scope lookup each time.
         const packages: Row[] = [];
-        for (const part of chunksOf([...studentById.keys()], PAGE)) {
-          packages.push(
-            ...(await readAllRows(
-              database,
-              'eduGoiHoc',
-              packagePolicy,
-              anyOf('hocVienId', part),
-              MAX_CSV_ROWS,
-            )),
-          );
+        const q = database.connection().query;
+        for (const part of chunksOf([...studentById.keys()], 500)) {
+          const found: Row[] = await q
+            .selectFrom('eduGoiHoc')
+            .select([
+              'id',
+              'hocVienId',
+              'soBuoi',
+              'donGia',
+              'thanhTien',
+              'ngayMua',
+              'trangThai',
+            ])
+            .where('hocVienId', 'in', part)
+            .execute();
+          packages.push(...found);
           if (packages.length > MAX_CSV_ROWS) {
             throw eduError(
               'FAILED_PRECONDITION',
