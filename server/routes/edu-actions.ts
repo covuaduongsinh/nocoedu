@@ -14,7 +14,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 
 import { LEVEL_KEYS, levelOrder } from '../edu/levels.js';
-import { asText, codeFromId, normalizePhone } from '../edu/names.js';
+import { asText, codeFromId, normalizePhone, tempCode } from '../edu/names.js';
 import { todayVn } from '../edu/so-du.js';
 import {
   currentUserId,
@@ -155,7 +155,7 @@ export default [
           const result = await repository.createOne({
             values: {
               // Placeholder until the row id is known; replaced below inside the same transaction.
-              ma: `TMP-${crypto.randomUUID()}`,
+              ma: tempCode(),
               hoTen: input.hoTen,
               namSinh: input.namSinh,
               levelKey: input.levelKey,
@@ -430,7 +430,7 @@ export default [
               .repository('eduPhuHuynh')
               .createOne({
                 values: {
-                  ma: `TMP-${crypto.randomUUID()}`,
+                  ma: tempCode(),
                   hoTen: input.hoTen,
                   soDienThoai: phone,
                   zalo: input.zalo ?? null,

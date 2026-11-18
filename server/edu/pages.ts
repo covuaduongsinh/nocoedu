@@ -16,4 +16,6 @@ export const PAGES = {
   tuyenSinh: 'edu.tuyenSinh',
   // Granted by `202611140005_edu_ho_so_gv_grant`.
   hoSoGv: 'edu.hoSoGv',
+  // Granted by `202611170001_edu_he_thong_grant` (administrator only: backup and restore of the whole database).
+  heThong: 'edu.heThong',
 } as const;

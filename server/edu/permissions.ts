@@ -676,3 +676,23 @@ export const baoCao = defineCompositeResource('edu.baoCao', (r) =>
         .grant('data', perm('xuatDuLieu', FIELDS.xuatDuLieu)),
     ),
 );
+
+/**
+ * Whole-database backup and restore (`/heThong/backup/*`). Only the administrator holds it, over every record: a
+ * snapshot is not a report of what one branch or class may see. The grant is over the export log because every use
+ * writes one row there (who, which action, how many rows); the routes read and restore the tables themselves.
+ */
+export const heThong = defineCompositeResource('edu.heThong', (r) =>
+  r
+    .title('Hệ thống')
+    .action('backup', (a) =>
+      a
+        .title('Sao lưu toàn bộ dữ liệu')
+        .grant('data', perm('xuatDuLieu', FIELDS.xuatDuLieu)),
+    )
+    .action('restore', (a) =>
+      a
+        .title('Khôi phục dữ liệu từ bản sao lưu')
+        .grant('data', perm('xuatDuLieu', FIELDS.xuatDuLieu)),
+    ),
+);

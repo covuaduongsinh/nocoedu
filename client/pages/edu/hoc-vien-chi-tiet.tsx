@@ -155,7 +155,9 @@ function StudentFile({
                     {text(student.ma)}
                   </Badge>
                   <StatusBadge
-                    tone={student.trangThai === 'dang_hoc' ? 'success' : 'neutral'}
+                    tone={
+                      student.trangThai === 'dang_hoc' ? 'success' : 'neutral'
+                    }
                   >
                     {t(`edu.status.${text(student.trangThai)}`)}
                   </StatusBadge>
@@ -180,13 +182,24 @@ function StudentFile({
                   {t('edu.diemDanh.balance')}
                 </span>
                 <span className='text-xl font-bold text-foreground'>
-                  <SessionBalanceBadge balance={student.soBuoiConLai != null ? Number(student.soBuoiConLai) : null} />
+                  <SessionBalanceBadge
+                    balance={
+                      student.soBuoiConLai != null
+                        ? Number(student.soBuoiConLai)
+                        : null
+                    }
+                  />
                 </span>
               </div>
               <div className='flex items-center gap-2'>
                 <Link
                   to={`/doi-soat?hocVienId=${student.id}`}
-                  className={buttonVariants({ variant: 'outline', size: 'sm', className: 'h-8 gap-1.5 font-medium text-primary hover:text-primary' })}
+                  className={buttonVariants({
+                    variant: 'outline',
+                    size: 'sm',
+                    className:
+                      'h-8 gap-1.5 font-medium text-primary hover:text-primary',
+                  })}
                 >
                   <CalendarCheck className='size-3.5' />
                   Đối soát buổi học

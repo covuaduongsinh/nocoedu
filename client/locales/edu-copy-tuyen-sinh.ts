@@ -62,4 +62,10 @@ export const EDU_TUYEN_SINH_ROWS: readonly (readonly [
     'Transfer parent info to create a new student.',
     '转入新增学员流程。',
   ],
+  [
+    'tuyenSinh.crmTokenHint',
+    'Mã bí mật do quản trị viên đặt trong biến môi trường EDU_CRM_WEBHOOK_TOKEN của máy chủ (không hiển thị ở đây). NocoCRM gửi mã này trong header X-CRM-Token; chưa đặt biến thì máy chủ từ chối mọi lời gọi.',
+    'The secret is set by the administrator in the server environment variable EDU_CRM_WEBHOOK_TOKEN (it is never shown here). NocoCRM sends it in the X-CRM-Token header; while the variable is not set the server refuses every call.',
+    '密钥由管理员在服务器环境变量 EDU_CRM_WEBHOOK_TOKEN 中设置（此处不显示）。NocoCRM 在 X-CRM-Token 请求头中发送；未设置该变量时，服务器拒绝所有调用。',
+  ],
 ];

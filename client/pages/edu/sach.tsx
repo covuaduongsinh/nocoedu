@@ -81,7 +81,9 @@ export default function SachPage(): ReactElement {
               onSuccess={reload}
             />
             {canManage ? (
-              <Button onClick={() => setForm(EMPTY)}>{t('edu.sach.new')}</Button>
+              <Button onClick={() => setForm(EMPTY)}>
+                {t('edu.sach.new')}
+              </Button>
             ) : null}
           </div>
         }

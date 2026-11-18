@@ -219,7 +219,8 @@ export default function EduHome(): ReactElement {
               ) : null}
 
               {/* Unmarked Sessions Requiring Attention */}
-              {summary.result.state === 'ready' && unmarkedSessions.length > 0 ? (
+              {summary.result.state === 'ready' &&
+              unmarkedSessions.length > 0 ? (
                 <Card className='border-amber-500/20 shadow-xs'>
                   <CardHeader className='pb-3'>
                     <div className='flex items-center justify-between'>
@@ -361,7 +362,7 @@ export default function EduHome(): ReactElement {
                     <span className='text-muted-foreground'>→</span>
                   </Link>
                   <Link
-                    to='/ho-so-gv'
+                    to='/giao-vien'
                     className='flex items-center justify-between rounded-lg border p-2.5 text-sm font-medium transition-colors hover:bg-muted'
                   >
                     <span>👨‍🏫 Hồ sơ giáo viên</span>
@@ -531,7 +532,11 @@ function SessionList(props: {
             ) : (
               <Link
                 to={`/diem-danh?buoi=${session.id}`}
-                className={buttonVariants({ size: 'sm', variant: 'default', className: 'h-8 text-xs' })}
+                className={buttonVariants({
+                  size: 'sm',
+                  variant: 'default',
+                  className: 'h-8 text-xs',
+                })}
               >
                 {t('edu.home.markNow')}
               </Link>

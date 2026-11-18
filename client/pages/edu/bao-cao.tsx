@@ -54,9 +54,7 @@ function BarChart(props: {
   return (
     <figure className='mb-4 rounded-lg border p-4'>
       <div className='mb-3 flex items-center justify-between'>
-        <figcaption className='text-sm font-medium'>
-          {props.title}
-        </figcaption>
+        <figcaption className='text-sm font-medium'>{props.title}</figcaption>
         {props.selected ? (
           <button
             type='button'
@@ -233,8 +231,8 @@ export default function BaoCaoPage(): ReactElement {
 
   const hasFilters = Boolean(
     coSoId ||
-      lopId ||
-      (kind === 'doanhThu' ? tuThang || denThang : tuNgay || denNgay),
+    lopId ||
+    (kind === 'doanhThu' ? tuThang || denThang : tuNgay || denNgay),
   );
 
   const requestParams = {

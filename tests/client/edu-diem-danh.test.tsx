@@ -110,7 +110,7 @@ describe('attendance and report pages', () => {
     await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
     expect(await screen.findByText('Học viên Mẫu 01')).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Lưu điểm danh' }),
+      screen.queryByRole('button', { name: 'Lưu Điểm Danh' }),
     ).not.toBeInTheDocument();
   });
 
@@ -135,7 +135,7 @@ describe('attendance and report pages', () => {
     };
     await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Lưu điểm danh' }),
+      await screen.findByRole('button', { name: 'Lưu Điểm Danh' }),
     );
     await waitFor(() =>
       expect(api).toHaveBeenCalledWith(
@@ -156,7 +156,10 @@ describe('attendance and report pages', () => {
         }),
       ),
     );
-    expect(await screen.findByText('Sắp hết: còn 2 buổi')).toBeInTheDocument();
+    // The balance that came back from the server (3 → 2) is what the warning shows.
+    expect(
+      await screen.findByText(/Sắp hết buổi \(2 buổi\)/u),
+    ).toBeInTheDocument();
   });
 
   it('shows a report with Vietnamese column names', async () => {
@@ -182,6 +185,30 @@ describe('attendance and report pages', () => {
     await render(<BaoCaoPage />, '/bao-cao', '/bao-cao');
     expect(
       await screen.findByRole('button', { name: 'Tải CSV' }),
+    ).toBeInTheDocument();
+  });
+
+  it('offers the attendance CSV only to a person who holds the export action of the reports', async () => {
+    await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
+    await screen.findByText('Học viên Mẫu 01');
+    expect(
+      screen.queryByRole('button', { name: /Xuất CSV/u }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the attendance CSV button when the person may export', async () => {
+    permissions = {
+      unrestricted: false,
+      permissions: [
+        {
+          resource: { type: 'composite', id: 'edu.baoCao' },
+          actions: ['export'],
+        },
+      ],
+    };
+    await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
+    expect(
+      await screen.findByRole('button', { name: /Xuất CSV/u }),
     ).toBeInTheDocument();
   });
 });
