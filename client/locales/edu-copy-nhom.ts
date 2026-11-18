@@ -1,0 +1,161 @@
+/**
+ * NocoEdu wording for the groups inside a class (phase 3): the "Nhóm" tab of the class page, the register split into
+ * blocks by group, the "Nhóm" filter of the attendance register and the group shown on a student. Same shape as
+ * `./edu-copy.ts`: `[key, Tiếng Việt, English, 中文]`.
+ */
+export const EDU_NHOM_ROWS: readonly (readonly [
+  string,
+  string,
+  string,
+  string,
+])[] = [
+  ['lop.tab.nhom', 'Nhóm', 'Groups', '分组'],
+  ['nhom.col', 'Nhóm', 'Group', '分组'],
+  ['nhom.none', 'Chưa xếp nhóm', 'No group yet', '未分组'],
+  [
+    'nhom.title',
+    'Nhóm trình độ trong lớp',
+    'Skill groups in this class',
+    '班内水平分组',
+  ],
+  [
+    'nhom.hint',
+    'Mỗi lớp có 3 nhóm chuẩn: Nhập môn, Cơ bản, Nâng cao. Có thể đổi tên, thêm nhóm hoặc ẩn nhóm không còn học viên.',
+    'Every class has three standard groups: Beginner, Basic, Advanced. You can rename them, add groups, or hide a group that has no students.',
+    '每个班有三个标准分组：入门、基础、提高。可以重命名、新增，或隐藏没有学员的分组。',
+  ],
+  ['nhom.add', 'Thêm nhóm', 'Add a group', '新增分组'],
+  ['nhom.rename', 'Đổi tên', 'Rename', '重命名'],
+  ['nhom.hide', 'Ẩn', 'Hide', '隐藏'],
+  ['nhom.unhide', 'Hiện lại', 'Show again', '重新显示'],
+  ['nhom.name', 'Tên nhóm', 'Group name', '分组名称'],
+  ['nhom.order', 'Thứ tự', 'Order', '顺序'],
+  [
+    'nhom.orderHint',
+    'Số nhỏ hiện trước (0–999).',
+    'Smaller numbers come first (0–999).',
+    '数字小的排在前面（0–999）。',
+  ],
+  [
+    'nhom.addTitle',
+    'Thêm nhóm vào lớp',
+    'Add a group to the class',
+    '为班级新增分组',
+  ],
+  ['nhom.renameTitle', 'Đổi tên nhóm', 'Rename the group', '重命名分组'],
+  ['nhom.students', 'Học viên', 'Students', '学员'],
+  ['nhom.status.hoat_dong', 'Đang dùng', 'In use', '使用中'],
+  ['nhom.status.an', 'Đã ẩn', 'Hidden', '已隐藏'],
+  [
+    'nhom.empty.title',
+    'Lớp này chưa có nhóm',
+    'This class has no groups yet',
+    '该班级还没有分组',
+  ],
+  [
+    'nhom.empty.hint',
+    'Tạo 3 nhóm chuẩn (Nhập môn, Cơ bản, Nâng cao) để bắt đầu xếp học viên.',
+    'Create the three standard groups (Beginner, Basic, Advanced) to start placing students.',
+    '创建三个标准分组（入门、基础、提高），即可开始为学员分组。',
+  ],
+  [
+    'nhom.createDefault',
+    'Tạo 3 nhóm mặc định',
+    'Create the 3 standard groups',
+    '创建 3 个默认分组',
+  ],
+  [
+    'nhom.studentsTitle',
+    'Xếp học viên vào nhóm',
+    'Place students in groups',
+    '为学员分组',
+  ],
+  [
+    'nhom.studentsHint',
+    'Chọn nhóm ở cột "Nhóm" để chuyển học viên; mỗi lần chuyển được ghi lại.',
+    'Choose a group in the "Group" column to move a student; every move is recorded.',
+    '在“分组”列选择分组即可转移学员；每次转移都会被记录。',
+  ],
+  ['nhom.filter.label', 'Nhóm', 'Group', '分组'],
+  ['nhom.filter.all', 'Tất cả nhóm', 'All groups', '全部分组'],
+  [
+    'nhom.filter.pickClass',
+    'Chọn lớp để lọc theo nhóm',
+    'Choose a class to filter by group',
+    '请选择班级以按分组筛选',
+  ],
+  [
+    'nhom.section',
+    '{{name}} · {{count}} học viên',
+    '{{name}} · {{count}} students',
+    '{{name}} · {{count}} 名学员',
+  ],
+  ['nhom.moved', 'Đã chuyển nhóm.', 'The student was moved.', '已转移分组。'],
+  [
+    'nhom.sessionsOnlyGroup',
+    'Chỉ tính học viên của nhóm này hiện nay, trong các buổi của lớp.',
+    'Only the students who are in this group now, in the sessions of the class, are counted.',
+    '仅统计目前属于该分组的学员，以及该班级的课次。',
+  ],
+
+  [
+    'errors.EDU_INVALID_GROUP_NAME',
+    'Tên nhóm không hợp lệ (1–100 ký tự, không thừa khoảng trắng).',
+    'The group name is not valid (1–100 characters, no extra spaces).',
+    '分组名称无效（1–100 个字符，不含多余空格）。',
+  ],
+  [
+    'errors.EDU_GROUP_NAME_TAKEN',
+    'Lớp đã có nhóm tên này.',
+    'The class already has a group with this name.',
+    '该班级已有同名分组。',
+  ],
+  [
+    'errors.EDU_TOO_MANY_GROUPS',
+    'Mỗi lớp có tối đa 12 nhóm.',
+    'A class may have at most 12 groups.',
+    '每个班级最多 12 个分组。',
+  ],
+  [
+    'errors.EDU_GROUP_HAS_STUDENTS',
+    'Nhóm còn học viên. Hãy chuyển các em sang nhóm khác trước khi ẩn.',
+    'The group still has students. Move them to another group before hiding it.',
+    '该分组仍有学员，请先将他们转到其他分组再隐藏。',
+  ],
+  [
+    'errors.EDU_GROUP_NOT_FOUND',
+    'Không tìm thấy nhóm.',
+    'Group not found.',
+    '找不到该分组。',
+  ],
+  [
+    'errors.EDU_GROUP_NOT_IN_CLASS',
+    'Nhóm không thuộc lớp hiện tại của học viên.',
+    "The group is not in the student's current class.",
+    '该分组不属于学员当前所在班级。',
+  ],
+  [
+    'errors.EDU_GROUP_HIDDEN',
+    'Nhóm đã ẩn, không thể chuyển học viên vào.',
+    'The group is hidden; students cannot be moved into it.',
+    '该分组已隐藏，无法转入学员。',
+  ],
+  [
+    'errors.EDU_GROUP_CHANGED',
+    'Nhóm của học viên vừa thay đổi. Hãy tải lại rồi thử lại.',
+    'The group of the student has just changed. Reload and try again.',
+    '学员的分组刚刚发生变化，请刷新后重试。',
+  ],
+  [
+    'errors.EDU_STUDENT_HAS_NO_CLASS',
+    'Học viên chưa thuộc lớp nào nên chưa xếp nhóm được.',
+    'The student is not in a class, so cannot be placed in a group.',
+    '学员尚未分班，无法分组。',
+  ],
+  [
+    'errors.EDU_CLASS_NOT_FOUND',
+    'Không tìm thấy lớp.',
+    'Class not found.',
+    '找不到该班级。',
+  ],
+];

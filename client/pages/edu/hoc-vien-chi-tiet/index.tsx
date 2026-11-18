@@ -19,7 +19,13 @@ import {
   SessionBalanceBadge,
 } from '../edu-ui-parts.js';
 import { saveCsvStream } from '../download.js';
-import { text, useErrorMessage, useRequest, type Row } from '../kit.js';
+import {
+  text,
+  useErrorMessage,
+  useRequest,
+  useRowsByIds,
+  type Row,
+} from '../kit.js';
 import { NoteButton, RowManage } from '../sua-xoa.js';
 import { useUrlState } from '../url-state.js';
 import { Sessions } from './buoi-hoc.js';
@@ -99,6 +105,15 @@ function StudentFile({
   const api = useApiClient();
   const message = useErrorMessage();
   const url = useUrlState({ tab: 'tong-quan', ky: '', trangThai: '' });
+  // The student's group (a name only; a person who may not see groups simply gets no name).
+  const groupRows = useRowsByIds(
+    'lopNhom',
+    student.nhomId == null ? [] : [Number(student.nhomId)],
+  );
+  const groupName =
+    student.nhomId == null
+      ? ''
+      : text(groupRows.get(Number(student.nhomId))?.ten);
   const profileRequest = useRequest<Profile>('/hocVien/hoSo360', {
     hocVienId: student.id,
   });
@@ -192,6 +207,14 @@ function StudentFile({
                       ? t('edu.hocVien.noClass')
                       : (profile?.hocVien.lopTen ?? t('edu.lop.detail'))}
                   </span>
+                  {student.lopId != null && groupName ? (
+                    <>
+                      <span>·</span>
+                      <span>
+                        {t('edu.nhom.col')}: {groupName}
+                      </span>
+                    </>
+                  ) : null}
                   {profile?.hocVien.coSoTen ? (
                     <>
                       <span>·</span>

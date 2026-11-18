@@ -33,6 +33,7 @@ import { ATTENDANCE_STATUSES } from '../edu/so-du.js';
 import {
   eduError,
   needs,
+  optionalPolicy,
   policiesOf,
   policyOf,
   type EduEnv,
@@ -45,7 +46,9 @@ import {
  * Every read goes through the policy of its own composite action, so a coach sees only their classes and a branch
  * manager only their branches: attendance rows through `edu.diemDanh` `view`, sessions through `edu.buoiHoc` `view`,
  * classes through `edu.lop` `view`, student names through `edu.hocVien` `view`. A branch, class or student outside the
- * caller's scope is not an error: it simply matches nothing (no probing). Filtering by date, class or teacher happens on
+ * caller's scope is not an error: it simply matches nothing (no probing). The group filter (`nhomId`, phase 3) is read through
+ * `edu.lopNhom` `view`: it keeps the students who sit in that group now, in the sessions of the group's own class.
+ * Filtering by date, class or teacher happens on
  * the sessions; the attendance rows are then counted per chunk of those sessions (`groupBy`, counts only travel).
  */
 type Row = Record<string, unknown>;
@@ -65,6 +68,7 @@ const Input = z
     lopId: Id.optional(),
     hlvId: z.string().trim().min(1).max(64).optional(),
     hocVienId: Id.optional(),
+    nhomId: Id.optional(),
     trangThai: z.enum(ATTENDANCE_STATUSES).optional(),
     cheDo: z.enum(REGISTER_MODES),
     limit: z.coerce.number().int().min(1).max(100).default(25),
@@ -83,6 +87,8 @@ const SESSION_CHUNK = 2000;
 const SESSION_PAGE = 1000;
 /** The most sessions one lookup covers; a bigger period must be narrowed to a class or a branch. */
 const MAX_SESSIONS = 20_000;
+/** The most students of one group the group filter reads (a group is a handful of children; a class has far fewer). */
+const MAX_GROUP_STUDENTS = 5_000;
 /** The most classes read for the filters (a club has far fewer). */
 const MAX_CLASSES = 5_000;
 
@@ -224,9 +230,9 @@ export default [
         const input = c.req.valid('json');
         const attendance = reader('eduDiemDanh', policyOf(c, 'eduDiemDanh'));
         const sessionsPolicy = await policyFor(c, 'edu.buoiHoc', 'eduBuoiHoc');
-        const hasAttendanceFilter = Boolean(input.hocVienId || input.trangThai);
-
-        const classes = await visibleClasses(c, input);
+        const hasAttendanceFilter = Boolean(
+          input.hocVienId || input.trangThai || input.nhomId,
+        );
         const empty = {
           data: [] as unknown[],
           meta: {
@@ -237,8 +243,50 @@ export default [
             tongHop: summary(0, emptyCounts()),
           },
         };
+
+        // The group filter: the group must be one the caller sees; its students are the ones read through the student
+        // policy, and the class is the group's own class (a different class filter matches nothing).
+        let groupStudents: number[] | undefined;
+        let lopFilter = input.lopId;
+        if (input.nhomId) {
+          const groupPolicy = await optionalPolicy(
+            c,
+            'edu.lopNhom',
+            'view',
+            'eduLopNhom',
+          );
+          const group = groupPolicy
+            ? (
+                await reader('eduLopNhom', groupPolicy).findMany({
+                  filter: buildFilter((f) => f.number('id').eq(input.nhomId!)),
+                  limit: 1,
+                })
+              )[0]
+            : undefined;
+          if (!group) return c.json(empty);
+          if (input.lopId && input.lopId !== num(group.lopId))
+            return c.json(empty);
+          lopFilter = num(group.lopId);
+          const members = await readAll(
+            reader(
+              'eduHocVien',
+              await policyFor(c, 'edu.hocVien', 'eduHocVien'),
+            ),
+            buildFilter((f) => f.number('nhomId').eq(input.nhomId!)),
+            MAX_GROUP_STUDENTS,
+          );
+          groupStudents = members.map((row) => num(row.id));
+          if (input.hocVienId && !groupStudents.includes(input.hocVienId))
+            return c.json(empty);
+          if (groupStudents.length === 0) return c.json(empty);
+        }
+
+        const classes = await visibleClasses(c, {
+          coSoId: input.coSoId,
+          lopId: lopFilter,
+        });
         // A branch or class that is not visible matches nothing; with neither filter the session policy alone decides.
-        if ((input.coSoId || input.lopId) && classes.length === 0)
+        if ((input.coSoId || lopFilter) && classes.length === 0)
           return c.json(empty);
 
         const classIds = classes.map((row) => num(row.id));
@@ -248,7 +296,7 @@ export default [
             buildFilter((f) =>
               f.and([
                 anyOfText(f, 'ngay', daysOf(input.tuNgay, input.denNgay)),
-                ...(input.coSoId || input.lopId
+                ...(input.coSoId || lopFilter
                   ? [anyOfNode(f, 'lopId', classIds)]
                   : []),
                 ...(input.hlvId ? [f.string('hlvId').eq(input.hlvId)] : []),
@@ -283,6 +331,9 @@ export default [
               ),
               ...(input.hocVienId
                 ? [f.number('hocVienId').eq(input.hocVienId)]
+                : []),
+              ...(groupStudents
+                ? [anyOfNode(f, 'hocVienId', groupStudents)]
                 : []),
               ...(input.trangThai
                 ? [f.string('trangThai').eq(input.trangThai)]
@@ -417,6 +468,8 @@ export default [
             hoTen: asText(named.get(id)?.hoTen),
             lopId:
               named.get(id)?.lopId == null ? null : num(named.get(id)?.lopId),
+            nhomId:
+              named.get(id)?.nhomId == null ? null : num(named.get(id)?.nhomId),
             ...counts,
             tong: totalOf(counts),
             tyLe: rateOf(counts),

@@ -294,12 +294,32 @@ export default [
             }
           }
           // The policy of the manage action does not let the class column change through the repository; the
-          // checks above are what make this write safe.
+          // checks above are what make this write safe. A group belongs to one class, so a real move to another class
+          // also leaves the group (`nhomId` back to null); the move is kept in the group history as `chuyen_lop`.
+          const classChanged =
+            (student.lopId == null ? null : Number(student.lopId)) !== lopId;
+          const group =
+            classChanged && student.nhomId != null
+              ? Number(student.nhomId)
+              : null;
           await connection.query
             .updateTable('eduHocVien')
-            .set({ lopId })
+            .set(classChanged ? { lopId, nhomId: null } : { lopId })
             .where('id', '=', id)
             .execute();
+          if (group !== null) {
+            await connection.query
+              .insertInto('eduHocVienChuyenNhom')
+              .values({
+                hocVienId: id,
+                tuNhomId: group,
+                denNhomId: null,
+                ngay: today(),
+                nguoiThucHienId: currentUserId(c),
+                ghiChu: 'chuyen_lop',
+              })
+              .execute();
+          }
         });
         return c.json({ data: { id } });
       },

@@ -1,6 +1,7 @@
 import type { DatabaseManager } from '@nocobase/db';
 
 import { levelOrder } from '../levels.js';
+import { ensureDefaultGroups } from '../lop-nhom.js';
 import { asText, codeFromId } from '../names.js';
 import type {
   ExistingState,
@@ -360,6 +361,11 @@ export async function ghiTrongGiaoDich(
         .set({ ma: codeFromId('L', classIds.get(row.externalId) ?? 0) })
         .where('externalId', '=', row.externalId)
         .execute();
+    // A new class gets the standard groups (phase 3), like a class created on the screen.
+    for (const row of newClasses) {
+      const lopId = classIds.get(row.externalId);
+      if (lopId !== undefined) await ensureDefaultGroups(q, lopId);
+    }
     const newLich = plan.lopLich.filter((row) => row.action === 'tao');
     await insertAll(
       q,

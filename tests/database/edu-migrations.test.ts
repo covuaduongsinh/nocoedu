@@ -437,3 +437,93 @@ describeMigration('202611180001_edu_diem_danh_hoc_vien_index', {
     );
   },
 });
+
+describeMigration('202611180002_edu_lop_nhom', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  // Two classes exist before the migration: both must come out with the three standard groups.
+  before: async ({ connection }) => {
+    await connection.query
+      .insertInto('eduCoSo')
+      .values({ ma: 'CS-NHOM', ten: 'Cơ sở Mẫu' })
+      .execute();
+    const branch = await connection.query
+      .selectFrom('eduCoSo')
+      .select('id')
+      .where('ma', '=', 'CS-NHOM')
+      .executeTakeFirstOrThrow();
+    for (const ma of ['L-NHOM-1', 'L-NHOM-2']) {
+      await connection.query
+        .insertInto('eduLop')
+        .values({
+          ma,
+          ten: `Lớp Mẫu ${ma}`,
+          coSoId: Number(branch.id),
+          levelKey: 'tot',
+          levelOrder: 1,
+        })
+        .execute();
+    }
+  },
+  up: async ({ connection, expectCollection }) => {
+    await expectCollection('eduLopNhom').toHaveField('ten', {
+      nullable: false,
+    });
+    await expectCollection('eduLopNhom').toHaveIndex(['lopId', 'ten'], {
+      unique: true,
+    });
+    await expectCollection('eduLopNhom').toHaveForeignKey(['lopId'], 'eduLop');
+    await expectCollection('eduHocVien').toHaveField('nhomId', {
+      nullable: true,
+    });
+    await expectCollection('eduHocVien').toHaveForeignKey(
+      ['nhomId'],
+      'eduLopNhom',
+    );
+    await expectCollection('eduHocVienChuyenNhom').toHaveField('denNhomId', {
+      nullable: true,
+    });
+    await expectCollection('eduHocVienChuyenNhom').toHaveIndex(['hocVienId']);
+
+    const groups = await connection.query
+      .selectFrom('eduLopNhom')
+      .select(['lopId', 'ten', 'thuTu', 'trangThai'])
+      .orderBy('lopId')
+      .orderBy('thuTu')
+      .execute();
+    expect(groups).toHaveLength(6);
+    const perClass = new Map<number, string[]>();
+    for (const group of groups) {
+      expect(group.trangThai).toBe('hoat_dong');
+      perClass.set(Number(group.lopId), [
+        ...(perClass.get(Number(group.lopId)) ?? []),
+        String(group.ten),
+      ]);
+    }
+    expect(perClass.size).toBe(2);
+    for (const names of perClass.values()) {
+      expect(names).toEqual(['Nhập môn', 'Cơ bản', 'Nâng cao']);
+    }
+    // A name is unique inside a class.
+    const first = groups[0];
+    await expect(
+      connection.query
+        .insertInto('eduLopNhom')
+        .values({ lopId: Number(first.lopId), ten: String(first.ten) })
+        .execute(),
+    ).rejects.toThrow();
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduLopNhom').not.toExist();
+    await expectCollection('eduHocVienChuyenNhom').not.toExist();
+    await expectCollection('eduHocVien').toExist();
+    await expectCollection('eduHocVien').not.toHaveField('nhomId');
+  },
+});

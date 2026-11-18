@@ -36,7 +36,9 @@ async function reset(connection: any): Promise<void> {
     'eduHocVienPhuHuynh',
     'eduPhuHuynh',
     'eduHocVienLenCap',
+    'eduHocVienChuyenNhom',
     'eduHocVien',
+    'eduLopNhom',
     'eduLopLich',
     'eduLop',
     'eduCoSoQuanLy',
@@ -245,6 +247,9 @@ test('--commit writes the plan once, with the ledger and the log; a second run a
     .select(['ma', 'ten', 'levelKey'])
     .execute();
   expect(classes.every((c: any) => /^L\d{5}$/u.test(c.ma))).toBe(true);
+  // Every class the import made has the three standard groups (phase 3).
+  const groupRows = await q.selectFrom('eduLopNhom').select('lopId').execute();
+  expect(groupRows).toHaveLength(classes.length * 3);
 
   // The log: counts and codes, no name, phone, email or date of birth.
   const logRows = await q

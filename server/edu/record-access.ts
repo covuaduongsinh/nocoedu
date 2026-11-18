@@ -37,6 +37,8 @@ const SCOPED_COLLECTIONS = [
   'eduNhanXetThang',
   'eduCoSoQuanLy',
   'eduXuatDuLieuNhatKy',
+  'eduLopNhom',
+  'eduHocVienChuyenNhom',
 ] as const;
 
 type Query = ReturnType<DatabaseManager['connection']>['query'];
@@ -141,6 +143,7 @@ export function registerEduRecordAccess(
             ? anyOf('id', scope.lopIds)
             : false;
       case 'eduLopLich':
+      case 'eduLopNhom':
       case 'eduBuoiHoc':
       case 'eduNhanXetThang':
         return scope.lopIds.length ? anyOf('lopId', scope.lopIds) : false;
@@ -164,6 +167,7 @@ export function registerEduRecordAccess(
       case 'eduDiemDanh':
       case 'eduDongY':
       case 'eduHocVienLenCap':
+      case 'eduHocVienChuyenNhom':
       case 'eduHocVienPhuHuynh':
         return scope.hocVienIds.length
           ? anyOf('hocVienId', scope.hocVienIds)

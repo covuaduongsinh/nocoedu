@@ -570,7 +570,7 @@ type Snapshot = {
   };
 };
 
-/** A row in every one of the 21 tables of a snapshot (made-up data), on top of what `seedSchool` made. */
+/** A row in every one of the 23 tables of a snapshot (made-up data), on top of what `seedSchool` made. */
 async function everyTable(
   connection: Parameters<typeof seedSchool>[0],
   ids: Awaited<ReturnType<typeof seedSchool>>,
@@ -594,6 +594,23 @@ async function everyTable(
       thu: 2,
       gioBatDau: '17:30',
       gioKetThuc: '19:00',
+    })
+    .execute();
+  // The groups of the two classes come from `seedSchool`; put a student in one and keep the move.
+  const groupId = await one('eduLopNhom', ['lopId', ids.lopA]);
+  await q
+    .updateTable('eduHocVien')
+    .set({ nhomId: groupId })
+    .where('id', '=', ids.hocVienA)
+    .execute();
+  await q
+    .insertInto('eduHocVienChuyenNhom')
+    .values({
+      hocVienId: ids.hocVienA,
+      tuNhomId: null,
+      denNhomId: groupId,
+      ngay: '2026-11-01',
+      nguoiThucHienId: hlvId,
     })
     .execute();
   await q
@@ -765,7 +782,7 @@ async function everyTable(
     .execute();
 }
 
-test('a snapshot holds all 21 tables and restoring it brings every one of them back', async ({
+test('a snapshot holds all 23 tables and restoring it brings every one of them back', async ({
   testApp,
   connection,
 }) => {
@@ -774,7 +791,7 @@ test('a snapshot holds all 21 tables and restoring it brings every one of them b
 
   const before = (await (await post(admin, BACKUP, {})).json()) as Snapshot;
   expect(before.data.phienBan).toBe('2.0');
-  expect(before.data.tongSoBang).toBe(21);
+  expect(before.data.tongSoBang).toBe(23);
   for (const table of Object.keys(before.data.duLieu)) {
     expect(
       before.data.duLieu[table]?.length,

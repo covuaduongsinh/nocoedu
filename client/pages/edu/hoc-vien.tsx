@@ -20,6 +20,7 @@ import {
   useListState,
   usePagedRows,
   useRows,
+  useRowsByIds,
   type Row,
 } from './kit.js';
 import { ListPage } from './list-page.js';
@@ -114,6 +115,11 @@ export default function HocVienPage(): ReactElement {
       : text(classRows.find((row) => row.id === id)?.ten);
 
   const rawRows = loaded.state === 'ready' ? loaded.rows : [];
+  // The group of each student on this page (a name only: the group is edited on the class page).
+  const groupNames = useRowsByIds(
+    'lopNhom',
+    rawRows.flatMap((row) => (row.nhomId == null ? [] : [Number(row.nhomId)])),
+  );
   const activeStudents = rawRows.filter((r) => r.trangThai === 'dang_hoc');
   const waitingStudents = rawRows.filter(
     (r) => r.trangThai === 'cho_xep_lop' || r.lopId == null,
@@ -347,6 +353,14 @@ export default function HocVienPage(): ReactElement {
               ) : (
                 className(row.lopId)
               ),
+          },
+          {
+            key: 'nhomId',
+            label: t('edu.nhom.col'),
+            render: (row) =>
+              row.nhomId == null
+                ? t('edu.nhom.none')
+                : text(groupNames.get(Number(row.nhomId))?.ten),
           },
           {
             key: 'trangThai',

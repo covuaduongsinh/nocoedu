@@ -12,7 +12,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
 
 import { text, usePagedRows, useRequest, useRows, type Row } from './kit.js';
 import { RowsTable } from './list-page.js';
+import { GroupsTab } from './lop-nhom-tab.js';
 import { RowManage } from './sua-xoa.js';
+import { useUrlState } from './url-state.js';
+
+const CLASS_TABS = [
+  'info',
+  'schedule',
+  'students',
+  'nhom',
+  'sessions',
+] as const;
+type ClassTab = (typeof CLASS_TABS)[number];
 
 function Detail(props: {
   readonly label: string;
@@ -92,6 +103,11 @@ function ClassFile({
     page: 1,
     where: { lopId: lop.id },
   });
+  // The active tab lives in the address (`?tab=`); an unknown or missing value opens the details.
+  const url = useUrlState({ tab: 'info' });
+  const tab = CLASS_TABS.includes(url.values.tab as ClassTab)
+    ? url.values.tab
+    : 'info';
   return (
     <PageContainer className='mx-auto max-w-6xl'>
       <PageHeader
@@ -99,7 +115,10 @@ function ClassFile({
         description={`${text(lop.ma)} · ${t(`edu.level.${text(lop.levelKey)}`)}`}
         actions={<RowManage kind='lop' row={lop} onChanged={onChanged} />}
       />
-      <Tabs defaultValue='info'>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => url.set({ tab: String(value) })}
+      >
         <TabsList>
           <TabsTrigger value='info'>{t('edu.lop.tab.info')}</TabsTrigger>
           <TabsTrigger value='schedule'>
@@ -108,6 +127,7 @@ function ClassFile({
           <TabsTrigger value='students'>
             {t('edu.lop.tab.students')}
           </TabsTrigger>
+          <TabsTrigger value='nhom'>{t('edu.lop.tab.nhom')}</TabsTrigger>
           <TabsTrigger value='sessions'>
             {t('edu.lop.tab.sessions')}
           </TabsTrigger>
@@ -136,6 +156,9 @@ function ClassFile({
         </TabsContent>
         <TabsContent value='students' className='pt-4'>
           <Students classId={lop.id} />
+        </TabsContent>
+        <TabsContent value='nhom' className='pt-4'>
+          <GroupsTab classId={lop.id} />
         </TabsContent>
         <TabsContent value='sessions' className='pt-4'>
           <Sessions classId={lop.id} />

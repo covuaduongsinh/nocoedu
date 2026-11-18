@@ -2,6 +2,7 @@ import type { DatabaseManager } from '@nocobase/db';
 
 import { codeFromId, tempCode } from './names.js';
 import { levelOrder } from './levels.js';
+import { ensureDefaultGroups } from './lop-nhom.js';
 import { addDays, todayVn } from './so-du.js';
 
 /**
@@ -78,6 +79,7 @@ export async function seedSampleData(
         .where('ma', '=', lop.ma)
         .executeTakeFirstOrThrow();
       classIds.push(Number(row.id));
+      await ensureDefaultGroups(q, Number(row.id));
       for (const thu of lop.thu) {
         await q
           .insertInto('eduLopLich')
