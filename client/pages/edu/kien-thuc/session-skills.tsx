@@ -35,8 +35,11 @@ export function SessionSkills(props: {
     resource: { type: 'composite', id: 'edu.kienThuc' },
     action: 'view',
   });
-  // Nothing is asked of the server before the person is known to hold the permission.
-  return canView ? <SessionSkillsBody {...props} /> : null;
+  // Nothing is asked of the server before the person is known to hold the permission and the class level is known
+  // (the classes load after the session: an empty level would be a bad request).
+  return canView && props.levelKey !== '' ? (
+    <SessionSkillsBody {...props} />
+  ) : null;
 }
 
 function SessionSkillsBody(props: {

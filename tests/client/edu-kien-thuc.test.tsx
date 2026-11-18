@@ -778,8 +778,13 @@ describe('the skills taught in a session', () => {
       await screen.findByText('T01-01 · Nhận biết ô cờ'),
     ).toBeInTheDocument();
     expect(callsTo('buoiHoc/kyNang/xem')[0]?.json).toEqual({ buoiHocId: 5 });
-    // The choices are those of the level of the class of the session.
+    // The choices are those of the level of the class of the session, and nothing is asked before the level is known.
     expect(callsTo('chuongTrinh/cay')[0]?.json).toEqual({ levelKey: 'tot' });
+    expect(
+      callsTo('chuongTrinh/cay').every(
+        (call) => (call.json as { levelKey: string }).levelKey !== '',
+      ),
+    ).toBe(true);
   });
 
   it('is not in the register of a person without the knowledge permission', async () => {

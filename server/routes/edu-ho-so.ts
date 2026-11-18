@@ -449,14 +449,7 @@ export default [
         sessionPolicy
           ? await readStudentSummary(
               database,
-              {
-                data: dataPolicy,
-                taught: taughtPolicy,
-                chuDe: topicPolicy,
-                kyNang: skillPolicy,
-                diemDanh: attendancePolicy,
-                buoiHoc: sessionPolicy,
-              },
+              { chuDe: topicPolicy, kyNang: skillPolicy },
               {
                 id: hocVienId,
                 lopId,

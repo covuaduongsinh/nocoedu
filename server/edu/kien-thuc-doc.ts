@@ -1,7 +1,5 @@
 import type { DatabaseManager, RepositoryPolicy } from '@nocobase/db';
-import { buildFilter } from '@nocobase/repository-input';
 
-import { anyOfNode, anyOfText } from './filters.js';
 import {
   ABSENT_STATUSES,
   PRESENT_STATUSES,
@@ -11,13 +9,14 @@ import {
   type GapStudent,
   type Progress,
 } from './kien-thuc.js';
-import { chunksOf, readAllRows, readRowsByIds, type Row } from './read-all.js';
+import { chunksOf, readAllRows, type Row } from './read-all.js';
 
 /**
  * What the knowledge system reads and writes from the database (rules without a database are in `kien-thuc.ts`).
  *
- * Every read goes through the policy of the composite action the caller holds (`readAllRows`, `readRowsByIds`), so a
- * coach reaches the students of their classes and a branch manager their branches and nothing else. The one write
+ * The curriculum is read through the policy of `edu.chuongTrinh`. What students have learned is read by the ids of
+ * students the caller's own `edu.hocVien` policy returned, so a coach reaches the students of their classes and a branch
+ * manager their branches and nothing else. The one write
  * that does not go through a policy is `refreshTaughtKnowledge`: the register (`/diemDanh/luu`) and the choice of the
  * skills taught (`/buoiHoc/kyNang/luu`) call it in their own transaction, after they have checked the session and the
  * students against the caller's scope, exactly as the register writes the balance ledger.
@@ -75,33 +74,47 @@ export function activeSkills(catalog: { topics: Row[]; skills: Row[] }): Row[] {
 }
 
 export interface KnownState {
+  readonly id: number;
   readonly mucDo: string;
   readonly nguon: string;
   readonly buoiHocId: number | null;
   readonly capNhatLuc: unknown;
 }
 
-/** The states of some students: student id → skill id → state. Students with none are absent from the map. */
+/**
+ * The states of some students: student id → skill id → state. Students with none are absent from the map.
+ *
+ * Read by student id, not through the scope of `edu.kienThuc`: the caller has already got these students through the
+ * policy of `edu.hocVien` and holds `edu.kienThuc` `view`, whose scope is the same set of students. Reading the table
+ * through a policy that lists a thousand student ids once per page took 16 s for a coach with ten classes; by id it
+ * takes a few milliseconds (the same choice as `rowsForStudents` on the audit page).
+ */
 export async function readKnown(
-  database: Reader,
-  policy: RepositoryPolicy,
+  query: Query,
   studentIds: readonly number[],
   onlySkills?: ReadonlySet<number>,
 ): Promise<Map<number, Map<number, KnownState>>> {
   const out = new Map<number, Map<number, KnownState>>();
-  for (const part of chunksOf([...new Set(studentIds)], 20)) {
-    const rows = await readAllRows(
-      database,
-      'eduHocVienKyNang',
-      policy,
-      buildFilter((f) => anyOfNode(f, 'hocVienId', part)),
-      20000,
-    );
+  for (const part of chunksOf([...new Set(studentIds)], 500)) {
+    const rows = await query
+      .selectFrom('eduHocVienKyNang')
+      .select([
+        'id',
+        'hocVienId',
+        'kyNangId',
+        'mucDo',
+        'nguon',
+        'buoiHocId',
+        'capNhatLuc',
+      ])
+      .where('hocVienId', 'in', part)
+      .execute();
     for (const row of rows) {
       const skillId = n(row.kyNangId);
       if (onlySkills && !onlySkills.has(skillId)) continue;
       const states = out.get(n(row.hocVienId)) ?? new Map<number, KnownState>();
       states.set(skillId, {
+        id: n(row.id),
         mucDo: String(row.mucDo),
         nguon: String(row.nguon),
         buoiHocId: row.buoiHocId == null ? null : n(row.buoiHocId),
@@ -113,25 +126,15 @@ export async function readKnown(
   return out;
 }
 
-export interface GapPolicies {
-  /** `edu.diemDanh` `view`: the absences. */
-  readonly diemDanh: RepositoryPolicy;
-  /** `edu.buoiHoc` `view`: the sessions (class and date). */
-  readonly buoiHoc: RepositoryPolicy;
-  /** `edu.kienThuc` `view`: the skills taught. */
-  readonly taught: RepositoryPolicy;
-  /** `edu.kienThuc` `view`: the states of the students. */
-  readonly data: RepositoryPolicy;
-}
-
 /**
- * The gaps of students the caller already sees (`students` come from the policy of `edu.hocVien`). Starts from the
- * absences, so the work follows the number of absences and not the number of sessions: the sessions of those absences,
- * the skills they taught, and the states the students already have. See `deriveGaps` for the rule.
+ * The gaps of students the caller already sees (`students` come from the policy of `edu.hocVien`; the caller must hold
+ * `edu.diemDanh`, `edu.buoiHoc` and `edu.kienThuc` `view`, which the routes check first). Starts from the absences, so
+ * the work follows the number of absences and not the number of sessions: the sessions of those absences, the skills
+ * they taught, and the states the students already have, all read by id (see `readKnown` for why). See `deriveGaps`
+ * for the rule.
  */
 export async function readGaps(
-  database: Reader,
-  policies: GapPolicies,
+  query: Query,
   students: readonly GapStudent[],
   skillIds?: ReadonlySet<number>,
 ): Promise<Gap[]> {
@@ -139,37 +142,36 @@ export async function readGaps(
   const absences: { buoiHocId: number; hocVienId: number }[] = [];
   for (const part of chunksOf(
     students.map((s) => s.id),
-    100,
+    500,
   )) {
-    const rows = await readAllRows(
-      database,
-      'eduDiemDanh',
-      policies.diemDanh,
-      buildFilter((f) =>
-        f.and([
-          anyOfNode(f, 'hocVienId', part),
-          anyOfText(f, 'trangThai', ABSENT_STATUSES),
-        ]),
-      ),
-      20000,
-    );
+    const rows = await query
+      .selectFrom('eduDiemDanh')
+      .select(['buoiHocId', 'hocVienId'])
+      .where('hocVienId', 'in', part)
+      .where('trangThai', 'in', [...ABSENT_STATUSES])
+      .execute();
     for (const row of rows)
       absences.push({
         buoiHocId: n(row.buoiHocId),
         hocVienId: n(row.hocVienId),
       });
   }
-  const sessionRows = await readRowsByIds(
-    database,
-    'eduBuoiHoc',
-    policies.buoiHoc,
-    absences.map((a) => a.buoiHocId),
-  );
-  const sessions = [...sessionRows.values()].map((row) => ({
-    id: n(row.id),
-    lopId: n(row.lopId),
-    ngay: String(row.ngay),
-  }));
+  const sessions: { id: number; lopId: number; ngay: string }[] = [];
+  for (const part of chunksOf(
+    [...new Set(absences.map((a) => a.buoiHocId))],
+    500,
+  )) {
+    for (const row of await query
+      .selectFrom('eduBuoiHoc')
+      .select(['id', 'lopId', 'ngay'])
+      .where('id', 'in', part)
+      .execute())
+      sessions.push({
+        id: n(row.id),
+        lopId: n(row.lopId),
+        ngay: String(row.ngay),
+      });
+  }
   const taught: {
     buoiHocId: number;
     kyNangId: number;
@@ -177,16 +179,13 @@ export async function readGaps(
   }[] = [];
   for (const part of chunksOf(
     sessions.map((s) => s.id),
-    100,
+    500,
   )) {
-    const rows = await readAllRows(
-      database,
-      'eduBuoiHocKyNang',
-      policies.taught,
-      buildFilter((f) => anyOfNode(f, 'buoiHocId', part)),
-      20000,
-    );
-    for (const row of rows)
+    for (const row of await query
+      .selectFrom('eduBuoiHocKyNang')
+      .select(['buoiHocId', 'kyNangId', 'nhomId'])
+      .where('buoiHocId', 'in', part)
+      .execute())
       taught.push({
         buoiHocId: n(row.buoiHocId),
         kyNangId: n(row.kyNangId),
@@ -194,8 +193,7 @@ export async function readGaps(
       });
   }
   const known = await readKnown(
-    database,
-    policies.data,
+    query,
     students.map((s) => s.id),
   );
   return deriveGaps({
@@ -349,11 +347,11 @@ export interface StudentSummary extends Progress {
 
 /**
  * The two figures of the student file: how much of the student's level has been learned, and how many gaps are open.
- * `policies` are those of the caller; the student must already be one the caller sees.
+ * The student must already be one the caller sees, and the caller must hold the actions the gaps are read from.
  */
 export async function readStudentSummary(
-  database: Reader,
-  policies: GapPolicies & { chuDe: RepositoryPolicy; kyNang: RepositoryPolicy },
+  database: Reader & { connection(): { query: Query } },
+  policies: { chuDe: RepositoryPolicy; kyNang: RepositoryPolicy },
   student: GapStudent & { levelKey: string },
 ): Promise<StudentSummary> {
   const catalog = await readCatalog(database, policies);
@@ -364,17 +362,15 @@ export async function readStudentSummary(
   const ofLevel = skills
     .filter((skill) => topicLevel.get(n(skill.chuDeId)) === student.levelKey)
     .map((skill) => n(skill.id));
-  const known = (await readKnown(database, policies.data, [student.id])).get(
-    student.id,
-  );
+  const query = database.connection().query;
+  const known = (await readKnown(query, [student.id])).get(student.id);
   const states = new Map(
     [...(known ?? new Map<number, KnownState>()).entries()].map(
       ([id, state]) => [id, state.mucDo],
     ),
   );
   const gaps = await readGaps(
-    database,
-    policies,
+    query,
     [student],
     new Set(skills.map((skill) => n(skill.id))),
   );

@@ -364,8 +364,7 @@ export default [
           const topicOf = new Map(catalog.topics.map((t) => [num(t.id), t]));
           const studying = students.filter((s) => s.trangThai === 'dang_hoc');
           const gaps = await readGaps(
-            database,
-            { diemDanh, buoiHoc, taught, data },
+            q(),
             studying.map((s) => ({
               id: num(s.id),
               lopId: s.lopId == null ? null : num(s.lopId),

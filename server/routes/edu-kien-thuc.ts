@@ -1028,8 +1028,7 @@ export default [
         const page = everyone.slice(offset, offset + input.limit);
         const policies = await gapPolicies(c);
         const known = await readKnown(
-          database,
-          policies.data,
+          database.connection().query,
           page.map((s) => num(s.id)),
           levelSkillIds,
         );
@@ -1066,8 +1065,7 @@ export default [
           ),
         ];
         const gaps = await readGaps(
-          database,
-          policies,
+          database.connection().query,
           page.map(gapStudent),
           levelSkillIds,
         );
@@ -1168,32 +1166,18 @@ export default [
           const repository = connection
             .repository('eduHocVienKyNang')
             .withPolicy(dataPolicy);
+          // By the ids of students the caller's own policy returned (see `readKnown`).
           const current = await readKnown(
-            connection,
-            dataPolicy,
+            connection.query,
             studentIds,
             new Set(o.map((cell) => cell.kyNangId)),
           );
-          const rows = new Map<string, number>();
-          for (const part of chunksOf(studentIds, 20)) {
-            for (const row of await readAllRows(
-              connection,
-              'eduHocVienKyNang',
-              dataPolicy,
-              buildFilter((f) => anyOfNode(f, 'hocVienId', part)),
-              20000,
-            ))
-              rows.set(
-                `${num(row.hocVienId)}|${num(row.kyNangId)}`,
-                num(row.id),
-              );
-          }
           let changed = 0;
           let cleared = 0;
           const now = new Date();
           for (const cell of o) {
             const before = current.get(cell.hocVienId)?.get(cell.kyNangId);
-            const rowId = rows.get(`${cell.hocVienId}|${cell.kyNangId}`);
+            const rowId = before?.id;
             if (cell.mucDo === null) {
               if (rowId !== undefined) {
                 await repository.deleteOne({ filter: { id: rowId } });
@@ -1292,9 +1276,9 @@ export default [
           students = [await visibleStudent(c, input.hocVienId as number)];
           mode = 'hocVien';
         }
+        await gapPolicies(c);
         const gaps = await readGaps(
-          database,
-          await gapPolicies(c),
+          database.connection().query,
           students.map(gapStudent),
           wanted,
         );
@@ -1375,15 +1359,14 @@ export default [
         const { hocVienId } = c.req.valid('json');
         const student = await visibleStudent(c, hocVienId);
         const catalog = await catalogOf(c);
-        const policies = await gapPolicies(c);
+        await gapPolicies(c);
         const usable = activeSkills(catalog);
+        const query = database.connection().query;
         const known =
-          (await readKnown(database, policies.data, [hocVienId])).get(
-            hocVienId,
-          ) ?? new Map<number, KnownState>();
+          (await readKnown(query, [hocVienId])).get(hocVienId) ??
+          new Map<number, KnownState>();
         const gaps = await readGaps(
-          database,
-          policies,
+          query,
           [gapStudent(student)],
           new Set(usable.map((s) => num(s.id))),
         );
