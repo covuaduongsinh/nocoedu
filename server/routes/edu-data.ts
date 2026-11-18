@@ -8,6 +8,7 @@ import {
   defineApiRoutes,
   defineRepositoryApiRoutes,
 } from '@nocobase/app-server/router';
+import { concurrencyServiceToken } from '@nocobase/app-plugin-concurrency/server';
 import { databaseManagerToken } from '@nocobase/db';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -36,7 +37,7 @@ import {
   tuyenSinh,
   thanhToan,
 } from '../edu/permissions.js';
-import { cleanGroupName, GROUP_STATUSES } from '../edu/nhom.js';
+import { cleanGroupName, GROUP_LOCK, GROUP_STATUSES } from '../edu/nhom.js';
 import { checkUpdate } from '../edu/sua-ban-ghi.js';
 import { eduError, policiesOf, type EduEnv } from './edu-support.js';
 
@@ -51,6 +52,8 @@ interface Exposure {
   readonly name: string;
   readonly key: keyof typeof FIELDS;
   readonly resource: { reference(): unknown };
+  /** The composite action that reads this exposure; `view` unless the resource has a separate one. */
+  readonly readAction?: string;
   readonly create?: boolean;
   readonly update?: readonly string[];
   readonly remove?: boolean;
@@ -94,6 +97,13 @@ const EXPOSURES: readonly Exposure[] = [
     resource: lopNhom,
     create: true,
     update: FIELDS.lopNhom.edit,
+  },
+  // The moves of a student between groups: read only (written by `/hocVien/chuyenNhom` and `/hocVien/chuyenLop`).
+  {
+    name: 'chuyenNhom',
+    key: 'chuyenNhom',
+    resource: lopNhom,
+    readAction: 'history',
   },
   {
     name: 'hocVien',
@@ -194,6 +204,7 @@ export default [
     const auth = app.container.resolve(authenticationToken);
     const authz = app.container.resolve(authorizationToken);
     const database = app.container.resolve(databaseManagerToken);
+    const concurrency = app.container.resolve(concurrencyServiceToken);
     const router = new Hono<AuthorizationEnv & EduEnv>();
 
     for (const e of EXPOSURES) {
@@ -212,9 +223,9 @@ export default [
         repository: e.name,
         resource: e.resource.reference(),
         actions: {
-          findMany: 'view',
-          findOne: 'view',
-          count: 'view',
+          findMany: e.readAction ?? 'view',
+          findOne: e.readAction ?? 'view',
+          count: e.readAction ?? 'view',
           ...(e.create ? { createOne: 'manage' } : {}),
           ...(e.update ? { updateOne: 'manage' } : {}),
           ...(e.remove ? { deleteOne: 'manage' } : {}),
@@ -388,21 +399,30 @@ export default [
                   .findOne({ filter: { id: groupId } })
               : null;
           if (group) {
-            const member = await database
-              .connection()
-              .query.selectFrom('eduHocVien')
-              .select('id')
-              .where('nhomId', '=', groupId)
-              .where('trangThai', '=', 'dang_hoc')
-              .executeTakeFirst();
-            if (member) {
-              throw eduError(
-                'FAILED_PRECONDITION',
-                'EDU_GROUP_NOT_EMPTY',
-                'Move the students out of this group before hiding it.',
-                'trangThai',
-              );
-            }
+            // The check and the update are one step under the lock that `/hocVien/chuyenNhom` also takes.
+            await (
+              await (
+                await concurrency.getManager()
+              ).createSynchronous(GROUP_LOCK)
+            ).run(async () => {
+              const member = await database
+                .connection()
+                .query.selectFrom('eduHocVien')
+                .select('id')
+                .where('nhomId', '=', groupId)
+                .where('trangThai', '=', 'dang_hoc')
+                .executeTakeFirst();
+              if (member) {
+                throw eduError(
+                  'FAILED_PRECONDITION',
+                  'EDU_GROUP_NOT_EMPTY',
+                  'Move the students out of this group before hiding it.',
+                  'trangThai',
+                );
+              }
+              await next();
+            });
+            return;
           }
         }
         await next();

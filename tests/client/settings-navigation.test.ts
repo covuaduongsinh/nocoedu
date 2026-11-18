@@ -231,6 +231,7 @@ describe('System settings navigation', () => {
           ['notificationManagement', '/settings/notifications/templates'],
           // The backup of the whole database is an administration page: a card here, not a sidebar entry.
           ['edu-sao-luu', '/settings/sao-luu'],
+          ['databaseExplorer', '/settings/database-explorer'],
         ],
       ],
     ]);
@@ -251,4 +252,47 @@ describe('System settings navigation', () => {
       ['settingsHome', []],
     ]);
   });
+});
+
+it('places database browsing in System and hides its card when access is denied', () => {
+  const routes = resolveAppClientContributions([
+    {
+      packageName: app,
+      source: 'application',
+      routes: createApplicationRoutes({}),
+    },
+  ]).routes;
+  const page = find(routes, 'databaseExplorer');
+  expect(page.path).toBe('/settings/database-explorer');
+  expect(page.auth).toBe('required');
+  expect(page.authz).toEqual({
+    resource: { type: 'page', id: 'database-explorer' },
+    action: 'access',
+  });
+  expect(catalog(routes)).toEqual([
+    [
+      'settingsAccount',
+      [
+        ['settingsUsers', '/settings/users'],
+        ['permissionManagement', '/settings/roles'],
+      ],
+    ],
+    [
+      'settingsSystem',
+      [
+        ['edu-sao-luu', '/settings/sao-luu'],
+        ['databaseExplorer', '/settings/database-explorer'],
+      ],
+    ],
+  ]);
+  expect(catalog(routes, new Set([routeKey(page)]))).toEqual([
+    [
+      'settingsAccount',
+      [
+        ['settingsUsers', '/settings/users'],
+        ['permissionManagement', '/settings/roles'],
+      ],
+    ],
+    ['settingsSystem', [['edu-sao-luu', '/settings/sao-luu']]],
+  ]);
 });

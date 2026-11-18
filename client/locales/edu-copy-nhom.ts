@@ -108,4 +108,33 @@ export const EDU_NHOM_ROWS: readonly (readonly [
     'Class not found.',
     '未找到班级。',
   ],
+
+  [
+    'nhom.history.title',
+    'Lịch sử chuyển nhóm',
+    'Group history',
+    '分组变更记录',
+  ],
+  [
+    'nhom.history.empty',
+    'Chưa chuyển nhóm lần nào',
+    'No group moves yet',
+    '尚无分组变更',
+  ],
+  [
+    'nhom.history.emptyHint',
+    'Mỗi lần xếp hoặc chuyển nhóm sẽ được ghi lại ở đây.',
+    'Every placement or move between groups is recorded here.',
+    '每次分组或转组都会记录在这里。',
+  ],
+  ['nhom.history.from', 'Từ nhóm', 'From group', '原分组'],
+  ['nhom.history.to', 'Sang nhóm', 'To group', '新分组'],
+  ['nhom.history.note', 'Ghi chú', 'Note', '备注'],
+  ['nhom.history.classChanged', 'Đổi lớp', 'Class changed', '换班'],
+  [
+    'errors.EDU_GROUP_CHANGED',
+    'Nhóm của học viên vừa thay đổi. Hãy tải lại rồi thử lại.',
+    'The group of the student has just changed. Reload and try again.',
+    '学员的分组刚刚发生变化，请刷新后重试。',
+  ],
 ];

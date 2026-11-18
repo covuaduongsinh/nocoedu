@@ -5,5 +5,7 @@ import type { PagePermissionTitles } from './page-permissions.js';
  * Do not add navigation/breadcrumbs or change authorization ids just to name a permission.
  */
 export const pagePermissionTitles: PagePermissionTitles = {
+  // The template detail drawer shares the list page grant.
+  notificationTemplate: 'settings.notificationTemplates',
   'edu-phuHuynh': 'edu.nav.phuHuynh',
 };

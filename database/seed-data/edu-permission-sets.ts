@@ -159,6 +159,8 @@ export const eduQuanTri = definePermissionSet('edu_quan_tri')
     lopNhom.reference().grant({
       view: { data: ALL },
       manage: { data: ALL },
+      // The move history of a student: `202611180004_edu_lop_nhom_history_grant`.
+      history: { data: ALL },
     }),
   )
   // The curriculum and the knowledge matrix (GĐ 4): `202611180005_edu_kien_thuc_grant`.
@@ -278,6 +280,8 @@ export const eduQuanLyCoSo = definePermissionSet('edu_quan_ly_co_so')
     lopNhom.reference().grant({
       view: { data: MY_BRANCHES },
       manage: { data: MY_BRANCHES },
+      // The move history of a student: `202611180004_edu_lop_nhom_history_grant`.
+      history: { data: MY_BRANCHES },
     }),
   )
   // The curriculum is read-only for a branch manager; the knowledge matrix is theirs over their branches.
@@ -335,6 +339,8 @@ export const eduHlv = definePermissionSet('edu_hlv')
     lopNhom.reference().grant({
       view: { data: MY_CLASSES },
       manage: { data: MY_CLASSES },
+      // The move history of a student: `202611180004_edu_lop_nhom_history_grant`.
+      history: { data: MY_CLASSES },
     }),
   )
   .grant(chuongTrinhPage, kienThucPage)

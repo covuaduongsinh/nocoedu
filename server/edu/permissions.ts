@@ -488,8 +488,9 @@ export const coSo = simple('edu.coSo', 'Cơ sở', 'coSo', {
 // only; read by whoever sees the student (the record scope is by `hocVienId`).
 // Groups of level inside a class (GĐ 3): view, and manage (rename, add, hide a group). One collection and one scope
 // (`data`, by class), so the record API of the groups can use it. Moving a student is `/hocVien/chuyenNhom`, which
-// writes the history (`eduHocVienChuyenNhom`) itself; no action reads that table yet.
+// writes the history (`eduHocVienChuyenNhom`) itself; `history` reads that table (record API `chuyenNhom`).
 const lopNhomRead = perm('lopNhom', FIELDS.lopNhom);
+const chuyenNhomRead = perm('chuyenNhom', FIELDS.chuyenNhom);
 export const lopNhom = defineCompositeResource('edu.lopNhom', (r) =>
   r
     .title('Nhóm trong lớp')
@@ -503,6 +504,9 @@ export const lopNhom = defineCompositeResource('edu.lopNhom', (r) =>
             .create([...FIELDS.lopNhom.write])
             .update([...FIELDS.lopNhom.edit]),
         ),
+    )
+    .action('history', (a) =>
+      a.title('Xem lịch sử chuyển nhóm').grant('data', chuyenNhomRead),
     ),
 );
 

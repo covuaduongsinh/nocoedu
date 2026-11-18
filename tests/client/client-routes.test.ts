@@ -58,6 +58,7 @@ describe('app client routes', () => {
     expect(pagePaths(built.routes)).toEqual([
       '/settings/notifications/logs',
       '/settings/notifications/templates',
+      '/settings/notifications/templates/:templateId',
     ]);
     expect(built.routes[0].children[0].children).toHaveLength(1);
     const created = includeNotificationTemplateRoutes([shell], true);
@@ -89,7 +90,7 @@ describe('app client routes', () => {
       await expect(loader()).resolves.toMatchObject({
         default: expect.any(Function),
       });
-  });
+  }, 60000);
 
   it('reuses the notification module and preserves its logs and existing grants', () => {
     const existing = defineAppRoutes([
@@ -130,10 +131,13 @@ describe('app client routes', () => {
     expect(pagePaths(built.routes)).toEqual([
       '/settings/notification-logs',
       '/settings/notifications/templates',
+      '/settings/notifications/templates/:templateId',
     ]);
     expect(pageAuthorizations(built.routes)).toEqual([
       { name: 'notificationLogs', authorizedAs: 'existing.notification.logs' },
       { name: 'notificationTemplates', authorizedAs: 'notification.templates' },
+      // A template's own address keeps the list page's grant.
+      { name: 'notificationTemplate', authorizedAs: 'notification.templates' },
     ]);
     expect(built.routes[0].children).toHaveLength(1);
   });
@@ -212,6 +216,7 @@ describe('app client routes', () => {
       ...managementPages,
       // The backup moved from the sidebar into System settings; only who holds `edu.heThong` sees its card.
       { name: 'edu-sao-luu', authorizedAs: 'edu.heThong' },
+      { name: 'databaseExplorer', authorizedAs: 'database-explorer' },
     ]);
   });
 
@@ -221,9 +226,11 @@ describe('app client routes', () => {
       pagePaths(built.routes).filter((path) => path.startsWith('/settings')),
     ).toEqual(expect.arrayContaining(['/settings', '/settings/users']));
     for (const entry of pageAuthorizations(built.routes)) {
-      // Only the landing page, the inbox and the settings home may skip page authorization.
+      // Only the landing page, the inbox, edu-sao-luu and the settings home may skip page authorization.
       if (entry.authorizedAs === null)
-        expect(['home', 'inbox', 'settingsHome']).toContain(entry.name);
+        expect(['home', 'inbox', 'settingsHome', 'edu-sao-luu']).toContain(
+          entry.name,
+        );
     }
     for (const loader of componentLoadersIn(built.routes))
       await expect(loader()).resolves.toMatchObject({

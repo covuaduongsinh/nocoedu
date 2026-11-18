@@ -26,6 +26,7 @@ import { Sessions } from './buoi-hoc.js';
 import { Tuition } from './hoc-phi.js';
 import { PrintSheet } from './in-phieu.js';
 import { Knowledge } from './kien-thuc.js';
+import { GroupHistory } from './nhom-lich-su.js';
 import { Comments } from './nhan-xet.js';
 import { Parents } from './phu-huynh.js';
 import { BooksAndFund } from './sach-quy.js';
@@ -289,6 +290,9 @@ function StudentFile({
           <Section request={profileRequest} profile={profile}>
             {(loaded) => <Overview profile={loaded} />}
           </Section>
+          <div className='pt-6'>
+            <GroupHistory studentId={student.id} />
+          </div>
         </TabsContent>
         {visible['buoi-hoc'] ? (
           <TabsContent value='buoi-hoc' className='pt-4'>

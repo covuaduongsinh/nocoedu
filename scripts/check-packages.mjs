@@ -4,13 +4,16 @@ import path from 'node:path';
 
 // Ask pnpm for exactly the packages the following check selects, respecting workspace exclusions.
 const root = path.resolve(import.meta.dirname, '..');
-const filter = './packages/**';
+// Both calls below run through a shell, which would expand an unquoted `./packages/**` into the directories that exist
+// (two packages became two arguments and pnpm failed): the double quotes keep the pattern for pnpm, on sh and on cmd.
+const filter = '"./packages/**"';
 const listed = spawnSync(
   'pnpm',
   ['--filter', filter, 'list', '--depth', '-1', '--json'],
   {
     cwd: root,
     encoding: 'utf8',
+    shell: true,
   },
 );
 if (listed.error) throw listed.error;
@@ -33,13 +36,14 @@ if (missing.length > 0) {
     'Every internal package must provide a non-empty check script:',
   );
   for (const entry of missing)
-    console.error(`  ${path.relative(root, entry.path)}`);
+    console.error(`  ${path.relative(root, entry.path).replace(/\\/g, '/')}`);
   process.exit(1);
 }
 if (packages.length > 0) {
   const result = spawnSync('pnpm', ['--filter', filter, 'check'], {
     cwd: root,
     stdio: 'inherit',
+    shell: true,
   });
   if (result.error) throw result.error;
   process.exitCode = result.status ?? 1;
