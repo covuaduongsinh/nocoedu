@@ -11,6 +11,13 @@ export type GroupStatus = (typeof GROUP_STATUSES)[number];
 
 export const GROUP_NAME_MAX = 60;
 
+/**
+ * The lock that hiding a group and moving a student into a group both take (one process at a time; a Redis adapter of
+ * the concurrency service shares it across instances). Without it a student could be moved into a group while it is
+ * being hidden: both checks pass, both writes land.
+ */
+export const GROUP_LOCK = 'edu:lop-nhom';
+
 interface GroupQuery {
   selectFrom(table: 'eduLopNhom'): {
     select(column: 'id'): {

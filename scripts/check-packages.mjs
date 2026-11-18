@@ -4,7 +4,9 @@ import path from 'node:path';
 
 // Ask pnpm for exactly the packages the following check selects, respecting workspace exclusions.
 const root = path.resolve(import.meta.dirname, '..');
-const filter = './packages/**';
+// Both calls below run through a shell, which would expand an unquoted `./packages/**` into the directories that exist
+// (two packages became two arguments and pnpm failed): the double quotes keep the pattern for pnpm, on sh and on cmd.
+const filter = '"./packages/**"';
 const listed = spawnSync(
   'pnpm',
   ['--filter', filter, 'list', '--depth', '-1', '--json'],
