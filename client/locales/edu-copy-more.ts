@@ -207,6 +207,12 @@ export const EDU_MORE_ROWS: readonly (readonly [
     '点名更正',
   ],
   ['hocPhi.reason.dieu_chinh', 'Điều chỉnh', 'Adjustment', '调整'],
+  [
+    'hocPhi.reason.huy_goi_mo_dau',
+    'Huỷ gói số dư mở đầu',
+    'Opening balance cancelled',
+    '取消期初余额',
+  ],
   ['hocPhi.reason.mua_goi', 'Mua gói buổi', 'Package bought', '购买课时包'],
 
   ['nhanXet.title', 'Nhận xét tháng', 'Monthly comments', '月度评语'],

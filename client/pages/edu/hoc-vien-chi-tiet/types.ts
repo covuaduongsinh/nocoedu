@@ -36,7 +36,11 @@ export interface Profile {
     readonly quySach: number | null;
     readonly congNoSach: number | null;
   };
-  readonly hocPhi: { readonly cacKy: readonly Term[] } | null;
+  readonly hocPhi: {
+    readonly cacKy: readonly Term[];
+    /** Every payment of the student, newest first; absent from an older server. */
+    readonly cacLanNop?: readonly Payment[];
+  } | null;
   readonly buoiHoc: readonly SessionRow[] | null;
   /** The share of the student's level learned and the gaps open; `null` without `edu.kienThuc` and what it reads. */
   readonly kienThuc: {
@@ -69,6 +73,8 @@ export interface Term {
   readonly thanhTien: number;
   readonly daThanhToan: number;
   readonly conNo: number;
+  /** A term loaded from Lark whose payment was not found: the price is unknown, nothing is owed. */
+  readonly chuaRoTien?: boolean;
   readonly daDung: number;
   readonly conLai: number;
   readonly tienDo: number;
@@ -114,3 +120,12 @@ export const TABS = [
   'phu-huynh',
 ] as const;
 export type TabKey = (typeof TABS)[number];
+
+/** One payment of the student and the term it pays for (`null`: not linked to a term). */
+export interface Payment {
+  readonly id: number;
+  readonly ngay: string;
+  readonly soTien: number;
+  readonly hinhThuc: string;
+  readonly kySo: number | null;
+}

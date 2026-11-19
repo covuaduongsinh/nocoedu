@@ -421,6 +421,50 @@ export interface LarkCliOptions {
   }) => Promise<{ token: string; expiresInSeconds: number }>;
   /** One line per call: method, path template and status, never a body. */
   readonly log?: (line: string) => void;
+  /**
+   * `cli` (default): run `lark-cli`. `fetch`: call the same OpenAPI paths with Node's `fetch` and the tenant token, for
+   * a container that has neither `lark-cli` nor a CA bundle for a Go binary (`app edu nap-hoc-phi` uses it).
+   */
+  readonly transport?: 'cli' | 'fetch';
+}
+
+/**
+ * One `GET` of the OpenAPI with Node's `fetch`, answered in the shape `lark-cli api` prints (`{ ok, data, error }`), so
+ * the paging, rate-limit and error handling of {@link createLarkCliSource} stay the same for both transports.
+ */
+async function fetchGet(
+  domain: string,
+  apiPath: string,
+  params: Record<string, string | number>,
+  token: string,
+  options: { timeoutMs: number; template: string },
+): Promise<string> {
+  const url = new URL(apiPath, domain);
+  for (const [name, value] of Object.entries(params))
+    url.searchParams.set(name, String(value));
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: { authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(options.timeoutMs),
+    });
+  } catch {
+    throw new LarkImportError(
+      'LARK_HET_GIO',
+      `Lark did not answer in time for GET ${options.template}.`,
+    );
+  }
+  let body: { code?: number; data?: unknown };
+  try {
+    body = (await response.json()) as typeof body;
+  } catch {
+    body = { code: response.status };
+  }
+  return JSON.stringify(
+    body.code === 0
+      ? { ok: true, data: body.data }
+      : { ok: false, error: { code: body.code ?? response.status } },
+  );
 }
 
 export interface LarkCliSource extends LarkSource {
@@ -567,61 +611,67 @@ export async function createLarkCliSource(
           Date.now() + Math.max(fresh.expiresInSeconds - 300, 60) * 1000;
       }
       let stdout: string;
-      try {
-        const child = await execFileAsync(
-          bin,
-          [
-            'api',
-            'GET',
-            apiPath,
-            '--params',
-            JSON.stringify(params),
-            '--as',
-            'bot',
-          ],
-          {
-            encoding: 'utf8',
-            maxBuffer: 256 * 1024 * 1024,
-            timeout: options.callTimeoutMs ?? LARK_CALL_TIMEOUT_MS,
-            env: {
-              ...childEnv,
-              LARKSUITE_CLI_APP_ID: credentials.appId,
-              LARKSUITE_CLI_TENANT_ACCESS_TOKEN: token,
-              LARKSUITE_CLI_BRAND: /larksuite\.com/iu.test(credentials.domain)
-                ? 'lark'
-                : 'feishu',
-              LARKSUITE_CLI_CONFIG_DIR: path.join(workDir, 'config'),
-              LARKSUITE_CLI_DATA_DIR: path.join(workDir, 'data'),
-              LARKSUITE_CLI_LOG_DIR: path.join(workDir, 'log'),
-              LARKSUITE_CLI_NO_UPDATE_NOTIFIER: '1',
-              LARKSUITE_CLI_NO_SKILLS_NOTIFIER: '1',
+      if (options.transport === 'fetch') {
+        stdout = await fetchGet(credentials.domain, apiPath, params, token, {
+          timeoutMs: options.callTimeoutMs ?? LARK_CALL_TIMEOUT_MS,
+          template,
+        });
+      } else
+        try {
+          const child = await execFileAsync(
+            bin,
+            [
+              'api',
+              'GET',
+              apiPath,
+              '--params',
+              JSON.stringify(params),
+              '--as',
+              'bot',
+            ],
+            {
+              encoding: 'utf8',
+              maxBuffer: 256 * 1024 * 1024,
+              timeout: options.callTimeoutMs ?? LARK_CALL_TIMEOUT_MS,
+              env: {
+                ...childEnv,
+                LARKSUITE_CLI_APP_ID: credentials.appId,
+                LARKSUITE_CLI_TENANT_ACCESS_TOKEN: token,
+                LARKSUITE_CLI_BRAND: /larksuite\.com/iu.test(credentials.domain)
+                  ? 'lark'
+                  : 'feishu',
+                LARKSUITE_CLI_CONFIG_DIR: path.join(workDir, 'config'),
+                LARKSUITE_CLI_DATA_DIR: path.join(workDir, 'data'),
+                LARKSUITE_CLI_LOG_DIR: path.join(workDir, 'log'),
+                LARKSUITE_CLI_NO_UPDATE_NOTIFIER: '1',
+                LARKSUITE_CLI_NO_SKILLS_NOTIFIER: '1',
+              },
             },
-          },
-        );
-        stdout = child.stdout;
-      } catch (error) {
-        // `lark-cli` exits non-zero with the JSON error on stdout when Lark refuses; anything else is a real failure.
-        const failed = error as {
-          stdout?: string;
-          stderr?: string;
-          code?: string;
-          killed?: boolean;
-        };
-        if (failed.killed === true)
-          throw new LarkImportError(
-            'LARK_HET_GIO',
-            `lark-cli did not answer in time for GET ${template}.`,
           );
-        if (failed.code === 'ENOENT')
-          throw new LarkImportError(
-            'LARK_CLI_THIEU',
-            `lark-cli was not found (looked for "${bin}"); set LARK_CLI to its path.`,
-          );
-        stdout =
-          failed.stdout && failed.stdout.trim() !== ''
-            ? failed.stdout
-            : (failed.stderr ?? '');
-      }
+          stdout = child.stdout;
+        } catch (error) {
+          // `lark-cli` exits non-zero with the JSON error on stdout when Lark refuses; anything else is a real failure.
+          const failed = error as {
+            stdout?: string;
+            stderr?: string;
+            code?: string;
+            killed?: boolean;
+          };
+          if (failed.killed === true)
+            throw new LarkImportError(
+              'LARK_HET_GIO',
+              `lark-cli did not answer in time for GET ${template}.`,
+            );
+          if (failed.code === 'ENOENT')
+            throw new LarkImportError(
+              'LARK_CLI_THIEU',
+              `lark-cli was not found (looked for "${bin}"); set LARK_CLI to its path.`,
+            );
+          stdout =
+            failed.stdout && failed.stdout.trim() !== ''
+              ? failed.stdout
+              : (failed.stderr ?? '');
+        }
       lastCall = Date.now();
       let body: {
         ok?: boolean;
