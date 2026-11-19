@@ -134,3 +134,21 @@ Hoàn tác: `pg_restore --clean` từ bản sao lưu ở bước 2 (không dùng
 
 Code + test: ~1 ngày làm việc (lệnh nạp ~60%, giao diện ~20%, test ~20%). Production: ~30 phút + thời gian Thầy
 duyệt báo cáo.
+
+## 9. Kết quả chạy thử trên production (19/11/2026, `--dry-run`, không lưu gì)
+
+Image `nocoedu-app:nap-hoc-phi` (nhánh `feat/nap-lich-su-hoc-phi`) chạy trong container tạm nối CSDL thật; web đang
+chạy không đổi. Báo cáo đầy đủ (mã HV, số dư, mã `rec…`, không tên): `/root/nap-dry-run.txt` trên VPS.
+
+- 112 học viên được sửa; 264 kỳ mới (82 kỳ chưa rõ tiền), 10 kỳ cũ được gắn giá, 11 gói mở đầu huỷ.
+- 4.395 dòng điểm danh chuyển sang tính số dư (trừ 4.394 buổi).
+- Ghép tiền ↔ kỳ: liên kết 14, cùng ngày + số buổi 170, cùng ngày 7, cùng số buổi ±30 ngày 1, không gắn kỳ 33.
+- Học phí 2025 và 2026 khớp Lark; 2024 thiếu đúng 65.264.000 đ của 45 khoản chưa gắn học viên (Q2).
+- Số dư đọc lại sau khi ghi khớp kế hoạch.
+- **Số dư sau nạp: 56/112 học viên âm** (31 đang học), tổng −702 buổi. Đã soát mẫu (HS00098, HS00064, HS00073,
+  HS00008): tính đúng theo Lark — các em có mặt nhiều buổi hơn tổng buổi các kỳ đã nộp; Lark che chỗ này vì chỉ trừ
+  buổi được gắn tay vào Deal và để âm ở dòng Deal chưa nộp. So với Lark (cột "còn tồn" đã gồm Deal chưa nộp): khớp 19,
+  lệch ≤ 2: 32, lệch 3–10: 37, lệch > 10: 24.
+
+Trước `--commit` cần: kế toán gắn 45 khoản 2024; Thầy duyệt danh sách học viên âm / lệch lớn (thiếu kỳ nộp trên Lark
+hay thật sự nợ buổi).
