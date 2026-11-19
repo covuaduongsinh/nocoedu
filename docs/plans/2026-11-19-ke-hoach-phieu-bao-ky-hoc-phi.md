@@ -215,15 +215,23 @@ dịch vụ đổi cách trả lời, dialog báo "Không tải được mã QR"
 | `tests/server/authorization-assignment-safety` (2): GĐ 2 không đổi quyền, chạy để chắc                 | qua                                                            |
 | `eslint`, `prettier` trên các tệp đã sửa; `tsc --noEmit` cho client và cho server                      | sạch                                                           |
 | Tải mã QR mẫu rồi vẽ vào phiếu trong Edge, trang chạy từ `http://127.0.0.1` (tài khoản mẫu của VietQR) | mã tải được qua CORS, ảnh cuối 1440×2570, không bị chặn canvas |
+| `tests/playwright/phieu-bao.test.ts` (10 ca) trong Edge thật, trên trang mẫu không cần máy chủ         | 10/10 qua (xem dưới)                                           |
+| `pnpm typecheck` (cả ba cấu hình), `pnpm lint` toàn dự án, `pnpm check:packages`                       | sạch                                                           |
+
+Kiểm thử trình duyệt (`tests/playwright/phieu-bao.test.ts` + trang mẫu `tests/fixtures/phieu-bao.tsx`, dữ liệu giả, không
+đăng nhập) xác nhận những gì jsdom không thấy được: ảnh PNG thật sự vào clipboard (rộng 1440 px), tệp tải về đúng tên
+`phieu-bao-<mã>-ky-<n>.png`, lời nhắn chép được, đánh dấu "đã báo" rồi chỉ đọc lại hồ sơ khi đóng, người không có quyền
+thu thì không có nút đánh dấu, dialog vừa màn hình 412 / 390 / 375 px ở cả giao diện sáng và tối, mã QR tải từ dịch vụ
+thật và ảnh có mã vẫn xuất được PNG.
 
 Kiểm thử máy chủ phải chạy bằng **Node 24** (đúng `engines`); shell mặc định của máy đang là Node 22 nên báo
 `ERR_UNKNOWN_FILE_EXTENSION`. Lệnh đã dùng: `fnm exec --using=v24.18.0 -- node node_modules/vitest/vitest.mjs run <tệp>`.
 
 ### 9.5 Chưa kiểm, và việc Thầy cần làm trước khi dùng thật
 
-- Chưa chạy trên ứng dụng có đăng nhập với dữ liệu thật: đánh dấu, lọc, mã QR bằng tài khoản thật của CLB, sao chép
-  ảnh dán vào Zalo, giao diện tối, màn hình điện thoại.
-- Chưa chạy trên PostgreSQL (các kiểm thử chạy SQLite); truy vấn mới chỉ dùng `=`, `in`, `is null`.
+- Chưa chạy trên ứng dụng có đăng nhập với **dữ liệu thật**: phiếu của một học viên thật, bộ lọc ở "Cần thu", mã QR
+  bằng tài khoản thật của CLB, dán ảnh vào Zalo.
+- PostgreSQL: do CI kiểm (job `postgres` của `ds-check`, đã thêm `tests/server/edu-phieu-bao.test.ts` vào danh sách).
 - **Triển khai:** cần `pnpm nocobase db apply` để tạo bảng `eduPhieuBao` (migration mới); nên sao lưu trước như mọi lần
   cập nhật VPS. Mã QR chỉ hiện khi máy chủ có `EDU_VIETQR_BANK_ID` và `EDU_VIETQR_ACCOUNT_NO`.
 
