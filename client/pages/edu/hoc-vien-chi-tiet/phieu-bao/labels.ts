@@ -1,3 +1,4 @@
+import { formatMoney } from '../../format.js';
 import { termLabel } from '../terms.js';
 import { formatDayVn, type Notice } from './model.js';
 import type { NoticeLabels } from './svg.js';
@@ -29,8 +30,18 @@ function conclusion(
   };
 }
 
+/** What the transfer code of the next term pays: the amount in dong and the transfer note the bank app fills in. */
+export interface NoticeTransfer {
+  readonly soTien: number;
+  readonly noiDungCk: string;
+}
+
 /** Every piece of text of the picture, in the language of the person who makes it. */
-export function noticeLabels(t: Translate, notice: Notice): NoticeLabels {
+export function noticeLabels(
+  t: Translate,
+  notice: Notice,
+  transfer?: NoticeTransfer,
+): NoticeLabels {
   const club = t('edu.hoSo.print.club');
   const { title, body } = conclusion(t, notice);
   return {
@@ -64,11 +75,27 @@ export function noticeLabels(t: Translate, notice: Notice): NoticeLabels {
       date: formatDayVn(notice.ngayLap),
       club,
     }),
+    ...(transfer
+      ? {
+          qrTitle: t('edu.phieuBao.card.qrTitle'),
+          qrAmount: t('edu.common.money', {
+            amount: formatMoney(transfer.soTien),
+          }),
+          qrContent: t('edu.phieuBao.card.qrContent', {
+            content: transfer.noiDungCk,
+          }),
+          qrHint: t('edu.phieuBao.card.qrHint'),
+        }
+      : {}),
   };
 }
 
 /** The message that goes with the picture; the person may edit it before copying. It stands on its own without it. */
-export function noticeMessage(t: Translate, notice: Notice): string {
+export function noticeMessage(
+  t: Translate,
+  notice: Notice,
+  transfer?: NoticeTransfer,
+): string {
   const { title, body } = conclusion(t, notice);
   const days = (list: readonly string[]): string =>
     list.map(formatDayVn).join(', ');
@@ -102,6 +129,14 @@ export function noticeMessage(t: Translate, notice: Notice): string {
         days: days(notice.hocThem.map((session) => session.ngay)),
       }),
     );
-  lines.push('', `${title}. ${body}`, t('edu.phieuBao.msg.thanks'));
+  lines.push('', `${title}. ${body}`);
+  if (transfer)
+    lines.push(
+      t('edu.phieuBao.msg.transfer', {
+        amount: formatMoney(transfer.soTien),
+        content: transfer.noiDungCk,
+      }),
+    );
+  lines.push(t('edu.phieuBao.msg.thanks'));
   return lines.join('\n');
 }

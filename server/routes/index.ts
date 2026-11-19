@@ -22,6 +22,7 @@ import eduNhom from './edu-nhom.js';
 import eduKienThuc from './edu-kien-thuc.js';
 import eduKiemTra from './edu-kiem-tra.js';
 import eduImportUniversal from './edu-import-universal.js';
+import eduPhieuBao from './edu-phieu-bao.js';
 
 const routes: readonly AppRouteContribution<Application>[] = [
   ...eduData,
@@ -44,6 +45,7 @@ const routes: readonly AppRouteContribution<Application>[] = [
   ...eduKienThuc,
   ...eduKiemTra,
   ...eduImportUniversal,
+  ...eduPhieuBao,
   ...eduExt,
 ];
 

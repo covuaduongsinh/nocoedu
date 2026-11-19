@@ -400,6 +400,7 @@ function StudentFile({
             url.set({ phieu: String(kySo) }, { keepPage: true })
           }
           onClose={() => url.set({ phieu: '' }, { keepPage: true })}
+          onChanged={profileRequest.reload}
         />
       ) : null}
     </PageContainer>

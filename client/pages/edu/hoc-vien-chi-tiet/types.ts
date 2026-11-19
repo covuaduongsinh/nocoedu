@@ -40,6 +40,8 @@ export interface Profile {
     readonly cacKy: readonly Term[];
     /** Every payment of the student, newest first; absent from an older server. */
     readonly cacLanNop?: readonly Payment[];
+    /** Each time the parent was told about a term, newest first; absent from an older server. */
+    readonly cacLanBao?: readonly NoticeMark[];
   } | null;
   readonly buoiHoc: readonly SessionRow[] | null;
   /** The share of the student's level learned and the gaps open; `null` without `edu.kienThuc` and what it reads. */
@@ -120,6 +122,16 @@ export const TABS = [
   'phu-huynh',
 ] as const;
 export type TabKey = (typeof TABS)[number];
+
+/** One "the parent was told" mark: the package of the term it was about (`null`: a term without a package). */
+export interface NoticeMark {
+  readonly id: number;
+  readonly goiHocId: number | null;
+  readonly ngay: string;
+  readonly soBuoiConLai: number;
+  /** The name of the staff member who marked it; empty when the account is gone. */
+  readonly nguoiBao: string;
+}
 
 /** One payment of the student and the term it pays for (`null`: not linked to a term). */
 export interface Payment {

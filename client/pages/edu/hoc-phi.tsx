@@ -44,7 +44,7 @@ import { saveCsvStream } from './download.js';
 import { SessionBalanceBadge } from './edu-ui-parts.js';
 import { FilterSelect } from './filter-select.js';
 import { FormDialog, SelectField, TextField } from './form-parts.js';
-import { formatDay, formatMoney } from './format.js';
+import { formatDay, formatDayVn, formatMoney } from './format.js';
 import { GenericImportDialog } from './generic-import-dialog.js';
 import {
   PAGE_SIZE,
@@ -69,6 +69,17 @@ interface Qr {
 const TABS = ['cashier', 'ledger', 'can-thu'] as const;
 type Tab = (typeof TABS)[number];
 
+/** The answer of `/soDu/canhBao`: `coBaoPhuHuynh` and each row's `daBao` only for who sees tuition. */
+interface NeedCollection {
+  readonly tong: number;
+  readonly hocVien: Row[];
+  readonly nguong: number;
+  readonly coBaoPhuHuynh?: boolean;
+}
+/** The "was the parent told" filter of the "Cần thu" tab (`bao` in the address); empty is everybody. */
+const TOLD_FILTERS = ['chua_bao', 'da_bao'] as const;
+type ToldFilter = (typeof TOLD_FILTERS)[number] | '';
+
 /** A month in the Vietnamese calendar, `YYYY-MM`, counted back from today. */
 function recentMonths(count: number): string[] {
   const [year, month] = todayVn().split('-').map(Number) as [number, number];
@@ -91,10 +102,16 @@ export default function HocPhiPage(): ReactElement {
     search: '',
     hocVienId: '',
     thang: month,
+    bao: '',
   });
   const tab: Tab = (TABS as readonly string[]).includes(url.values.tab)
     ? (url.values.tab as Tab)
     : 'cashier';
+  const told: ToldFilter = (TOLD_FILTERS as readonly string[]).includes(
+    url.values.bao,
+  )
+    ? (url.values.bao as ToldFilter)
+    : '';
   // Downloading is a separate action from viewing (`edu.baoCao` `export`).
   const { can: canExport } = useCan({
     resource: { type: 'composite', id: 'edu.baoCao' },
@@ -103,14 +120,12 @@ export default function HocPhiPage(): ReactElement {
   const api = useApiClient();
   const [reloadKey, setReloadKey] = useState(0);
 
-  // The number on the "Cần thu" tab is the total of the same list that tab shows.
-  const collect = useRequest<{ tong: number; hocVien: Row[]; nguong: number }>(
-    '/soDu/canhBao',
-    {
-      trang: tab === 'can-thu' ? url.page : 1,
-      limit: PAGE_SIZE,
-    },
-  );
+  // The number on the "Cần thu" tab is the total of the same list that tab shows (everybody, whatever the "told"
+  // filter says: a filtered list is asked for by the tab itself).
+  const collect = useRequest<NeedCollection>('/soDu/canhBao', {
+    trang: tab === 'can-thu' && told === '' ? url.page : 1,
+    limit: PAGE_SIZE,
+  });
   const reloadCollect = collect.reload;
   const refresh = (): void => {
     setReloadKey((value) => value + 1);
@@ -208,13 +223,26 @@ export default function HocPhiPage(): ReactElement {
           reloadKey={reloadKey}
         />
       ) : null}
-      {tab === 'can-thu' ? (
+      {tab === 'can-thu' && told === '' ? (
         <NeedToPay
           request={collect}
+          told=''
+          onTold={(bao) => url.set({ bao })}
           page={url.page}
           onPage={url.setPage}
           onServe={(hocVienId) =>
-            url.set({ tab: 'cashier', hocVienId }, { replace: false })
+            url.set({ tab: 'cashier', hocVienId, bao: '' }, { replace: false })
+          }
+        />
+      ) : null}
+      {tab === 'can-thu' && told !== '' ? (
+        <NeedToPayFiltered
+          told={told}
+          onTold={(bao) => url.set({ bao })}
+          page={url.page}
+          onPage={url.setPage}
+          onServe={(hocVienId) =>
+            url.set({ tab: 'cashier', hocVienId, bao: '' }, { replace: false })
           }
         />
       ) : null}
@@ -838,14 +866,46 @@ function MonthTotal({
 
 // --- Who has to pay next -------------------------------------------------------------------------------------------
 
+/** "Told on 19/11" or "Not told": the mark of the term the student is on, as the server worked it out. */
+function ToldBadge({ mark }: { readonly mark: unknown }): ReactElement {
+  const { t } = useTranslation();
+  const day =
+    mark && typeof mark === 'object' && 'ngay' in mark ? text(mark.ngay) : '';
+  return day ? (
+    <StatusBadge tone='success' size='sm'>
+      {t('edu.phieuBao.told.on', { date: formatDayVn(day).slice(0, 5) })}
+    </StatusBadge>
+  ) : (
+    <StatusBadge tone='neutral' size='sm'>
+      {t('edu.phieuBao.told.chua_bao')}
+    </StatusBadge>
+  );
+}
+
+/** The "Cần thu" list narrowed to the students whose parent was, or was not, told: a list of its own request. */
+function NeedToPayFiltered(props: {
+  readonly told: ToldFilter;
+  readonly onTold: (told: string) => void;
+  readonly page: number;
+  readonly onPage: (page: number) => void;
+  readonly onServe: (hocVienId: string) => void;
+}): ReactElement {
+  const request = useRequest<NeedCollection>('/soDu/canhBao', {
+    trang: props.page,
+    limit: PAGE_SIZE,
+    baoPhuHuynh: props.told,
+  });
+  return <NeedToPay {...props} request={request} />;
+}
+
 /**
  * The students who are studying and have `nguong` sessions left or fewer (or owe sessions): the list of the server
  * (`/soDu/canhBao`), the same one the home page warns about and the audit page counts.
  */
 function NeedToPay(props: {
-  readonly request: ReturnType<
-    typeof useRequest<{ tong: number; hocVien: Row[]; nguong: number }>
-  >;
+  readonly request: ReturnType<typeof useRequest<NeedCollection>>;
+  readonly told: ToldFilter;
+  readonly onTold: (told: string) => void;
   readonly page: number;
   readonly onPage: (page: number) => void;
   readonly onServe: (hocVienId: string) => void;
@@ -869,24 +929,42 @@ function NeedToPay(props: {
       </div>
     );
   const { hocVien, tong, nguong } = result.data;
+  // "Was the parent told" is shown to who sees tuition; a filtered list was asked for by such a person.
+  const showsTold = result.data.coBaoPhuHuynh === true || props.told !== '';
   const className = (id: unknown): string =>
     classes.state === 'ready'
       ? text(classes.rows.find((row) => row.id === id)?.ten) || '—'
       : '—';
   return (
     <div className='rounded-2xl border bg-card p-5 shadow-sm'>
-      <div className='mb-3 border-b pb-2.5'>
-        <h3 className='flex items-center gap-2 text-sm font-bold'>
-          <BadgeAlert className='h-4 w-4 text-primary' />
-          {t('edu.hocPhi.canThuTitle', { count: tong })}
-        </h3>
-        <p className='mt-0.5 text-xs text-muted-foreground'>
-          {t('edu.hocPhi.canThuHint', { count: nguong })}
-        </p>
+      <div className='mb-3 flex flex-wrap items-start justify-between gap-3 border-b pb-2.5'>
+        <div>
+          <h3 className='flex items-center gap-2 text-sm font-bold'>
+            <BadgeAlert className='h-4 w-4 text-primary' />
+            {t('edu.hocPhi.canThuTitle', { count: tong })}
+          </h3>
+          <p className='mt-0.5 text-xs text-muted-foreground'>
+            {t('edu.hocPhi.canThuHint', { count: nguong })}
+          </p>
+        </div>
+        {showsTold ? (
+          <FilterSelect
+            label={t('edu.phieuBao.told.column')}
+            value={props.told}
+            onChange={props.onTold}
+            allLabel={t('edu.phieuBao.told.all')}
+            options={TOLD_FILTERS.map((value) => ({
+              value,
+              label: t(`edu.phieuBao.told.${value}`),
+            }))}
+          />
+        ) : null}
       </div>
       {hocVien.length === 0 ? (
         <p className='p-8 text-center text-xs text-muted-foreground'>
-          {t('edu.hocPhi.canThuEmpty')}
+          {props.told === ''
+            ? t('edu.hocPhi.canThuEmpty')
+            : t('edu.phieuBao.told.empty')}
         </p>
       ) : (
         <div className='overflow-x-auto rounded-lg border'>
@@ -897,6 +975,9 @@ function NeedToPay(props: {
                 <TableHead>{t('edu.hocVien.hoTen')}</TableHead>
                 <TableHead>{t('edu.hocVien.lop')}</TableHead>
                 <TableHead>{t('edu.diemDanh.balance')}</TableHead>
+                {showsTold ? (
+                  <TableHead>{t('edu.phieuBao.told.column')}</TableHead>
+                ) : null}
                 <TableHead className='text-right'>
                   {t('edu.common.actions')}
                 </TableHead>
@@ -920,6 +1001,11 @@ function NeedToPay(props: {
                       size='sm'
                     />
                   </TableCell>
+                  {showsTold ? (
+                    <TableCell>
+                      <ToldBadge mark={row.daBao} />
+                    </TableCell>
+                  ) : null}
                   <TableCell className='text-right'>
                     <div className='flex items-center justify-end gap-2'>
                       <Button

@@ -30,6 +30,21 @@ export interface NoticeLabels {
   readonly conclusionTitle: string;
   readonly conclusionBody: string;
   readonly footer: string;
+  /** The transfer block; drawn only together with a `NoticeQr`. */
+  readonly qrTitle?: string;
+  readonly qrAmount?: string;
+  readonly qrContent?: string;
+  readonly qrHint?: string;
+}
+
+/**
+ * The VietQR code of the next term as a PNG the picture can hold: a `data:` address, because an SVG shown in an `<img>`
+ * loads nothing from the network. `image.ts` (`loadQrImage`) makes it.
+ */
+export interface NoticeQr {
+  readonly dataUrl: string;
+  readonly width: number;
+  readonly height: number;
 }
 
 export interface NoticeSvg {
@@ -191,7 +206,11 @@ function chessboard(): string {
   return `<g fill="${PAPER}" fill-opacity="0.1">${squares.join('')}</g>`;
 }
 
-export function noticeSvg(notice: Notice, labels: NoticeLabels): NoticeSvg {
+export function noticeSvg(
+  notice: Notice,
+  labels: NoticeLabels,
+  qr?: NoticeQr,
+): NoticeSvg {
   const out: string[] = [];
   const header = 112;
   out.push(
@@ -346,7 +365,35 @@ export function noticeSvg(notice: Notice, labels: NoticeLabels): NoticeSvg {
   body.forEach((line, index) => {
     out.push(text(PAD + 20, y + 66 + index * 22, line, { size: 15 }));
   });
-  y += boxHeight + 34;
+  y += boxHeight;
+
+  // The transfer code of the next term: the code on the left, what it pays for on the right.
+  if (qr && qr.width > 0 && qr.height > 0) {
+    y += 20;
+    const codeWidth = 200;
+    const codeHeight = Math.round((codeWidth * qr.height) / qr.width);
+    const hint = wrap(labels.qrHint ?? '', 50);
+    const side = PAD + 20 + codeWidth + 24;
+    const qrBox = Math.max(codeHeight, 110 + hint.length * 20) + 40;
+    out.push(
+      `<rect x="${PAD}" y="${y}" width="${INNER}" height="${qrBox}" rx="14" fill="${PAPER}" stroke="${LINE}"/>`,
+      `<image x="${PAD + 20}" y="${y + 20}" width="${codeWidth}" height="${codeHeight}" href="${escapeXml(qr.dataUrl)}"/>`,
+      text(side, y + 48, labels.qrTitle ?? '', {
+        size: 17,
+        weight: 700,
+        fill: BRAND,
+      }),
+      text(side, y + 86, labels.qrAmount ?? '', { size: 26, weight: 700 }),
+      text(side, y + 116, labels.qrContent ?? '', { size: 15 }),
+    );
+    hint.forEach((line, index) => {
+      out.push(
+        text(side, y + 146 + index * 20, line, { size: 13, fill: MUTED }),
+      );
+    });
+    y += qrBox;
+  }
+  y += 34;
 
   out.push(
     text(WIDTH / 2, y, labels.footer, {

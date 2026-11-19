@@ -169,6 +169,17 @@ const api = vi.fn(({ method, path, json }: ApiCall) => {
       },
     };
   if (path === 'doiSoat/capNhatBuoiHoc') return { data: { success: true } };
+  // No bank account configured: the notice has no transfer code.
+  if (path === 'phieuBao/vietQr')
+    return {
+      data: {
+        cauHinh: false,
+        soTienGoiY: null,
+        soTien: null,
+        noiDungCk: 'HP HS00007',
+        url: null,
+      },
+    };
   if (path === 'nhanXetThang/findMany')
     return {
       data: [

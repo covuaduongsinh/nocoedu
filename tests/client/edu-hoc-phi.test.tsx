@@ -23,6 +23,8 @@ import viVN from '../../client/locales/vi-VN.js';
 import packageMetadata from '../../package.json' with { type: 'json' };
 
 let permissions: AuthorizationSnapshot;
+/** Whether the server tells this person who was told (it does for who sees tuition). */
+let seesTold = true;
 const getSession = vi.fn(async () => ({ data: null }));
 const students = [
   {
@@ -70,12 +72,27 @@ const api = vi.fn(({ method, path, json }: ApiCall) => {
   if (path === 'goiHoc/findMany' || path === 'goiHoc/count')
     return { data: path.endsWith('count') ? 0 : [] };
   if (path === 'soDu/canhBao') {
-    const { trang, limit } = json as { trang: number; limit: number };
+    const { trang, limit, baoPhuHuynh } = json as {
+      trang: number;
+      limit: number;
+      baoPhuHuynh?: string;
+    };
+    // Student 02 needs collecting and their parent was told on 18/11; nobody is "not told".
+    const rows =
+      baoPhuHuynh === 'chua_bao'
+        ? []
+        : [{ ...students[1], daBao: { id: 5, ngay: '2026-11-18' } }];
     return {
       data: {
         nguong: 2,
-        tong: 1,
-        hocVien: trang === 1 && limit > 0 ? [students[1]] : [],
+        tong: rows.length,
+        coBaoPhuHuynh: seesTold,
+        hocVien:
+          trang === 1 && limit > 0
+            ? seesTold
+              ? rows
+              : rows.map(({ daBao: _, ...row }) => row)
+            : [],
       },
     };
   }
@@ -131,6 +148,37 @@ describe('tuition page', () => {
   beforeEach(() => {
     api.mockClear();
     permissions = { unrestricted: true, permissions: [] };
+    seesTold = true;
+  });
+
+  it('shows in "Cần thu" whose parent was told and filters on it, keeping the filter in the address', async () => {
+    await render(<HocPhiPage />, '/hoc-phi?tab=can-thu', '/hoc-phi');
+    expect(await screen.findByText('Đã báo 18/11')).toBeInTheDocument();
+    const filter = screen.getByLabelText('Báo phụ huynh');
+    await userEvent.selectOptions(filter, 'chua_bao');
+    // The filtered list is the server's: the page asks for it and shows what comes back.
+    expect(
+      await screen.findByText('Không có học viên nào khớp bộ lọc.'),
+    ).toBeInTheDocument();
+    expect(callsTo('soDu/canhBao').at(-1)?.json).toMatchObject({
+      trang: 1,
+      limit: 25,
+      baoPhuHuynh: 'chua_bao',
+    });
+    // The number on the tab stays the whole list.
+    expect(screen.getByRole('tab', { name: /Cần thu/u })).toHaveTextContent(
+      '1',
+    );
+    // The filter is still there to be changed back.
+    expect(screen.getByLabelText('Báo phụ huynh')).toHaveValue('chua_bao');
+  });
+
+  it('shows no "told" column to a person the server tells nothing about it', async () => {
+    seesTold = false;
+    await render(<HocPhiPage />, '/hoc-phi?tab=can-thu', '/hoc-phi');
+    expect(await screen.findByText('Học viên Mẫu 02')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Báo phụ huynh')).not.toBeInTheDocument();
+    expect(screen.queryByText('Chưa báo')).not.toBeInTheDocument();
   });
 
   const callsTo = (path: string) =>

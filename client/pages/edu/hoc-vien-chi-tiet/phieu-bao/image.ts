@@ -8,34 +8,79 @@ export function svgDataUrl(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
+function loadImage(source: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('The picture did not load.'));
+    image.src = source;
+  });
+}
+
+function canvasOf(
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('No 2D canvas.');
+  context.drawImage(image, 0, 0, width, height);
+  return canvas;
+}
+
 /** Draws the SVG on a canvas, `scale` times its size so it stays sharp on a phone, and returns the PNG. */
-export function renderPng(
+export async function renderPng(
   svg: string,
   width: number,
   height: number,
   scale = 2,
 ): Promise<Blob> {
+  const canvas = canvasOf(
+    await loadImage(svgDataUrl(svg)),
+    width * scale,
+    height * scale,
+  );
   return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = width * scale;
-      canvas.height = height * scale;
-      const context = canvas.getContext('2d');
-      if (!context) {
-        reject(new Error('No 2D canvas.'));
-        return;
-      }
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(
-        (blob) =>
-          blob ? resolve(blob) : reject(new Error('The canvas gave no PNG.')),
-        'image/png',
-      );
-    };
-    image.onerror = () => reject(new Error('The picture did not load.'));
-    image.src = svgDataUrl(svg);
+    canvas.toBlob(
+      (blob) =>
+        blob ? resolve(blob) : reject(new Error('The canvas gave no PNG.')),
+      'image/png',
+    );
   });
+}
+
+/**
+ * Fetches the VietQR code (the address the server built, on the public vietqr.io image service, which allows any
+ * origin) and returns it as a PNG `data:` address with its size, ready to be drawn inside the notice. The service
+ * answers with an SVG or a PNG depending on the bank; redrawing it on a canvas makes it a PNG either way. Nothing of
+ * the session travels with the request (no cookie, no referrer).
+ */
+export async function loadQrImage(
+  url: string,
+): Promise<{ dataUrl: string; width: number; height: number }> {
+  const response = await fetch(url, {
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer',
+  });
+  if (!response.ok)
+    throw new Error(`The QR service answered ${response.status}.`);
+  const address = URL.createObjectURL(await response.blob());
+  try {
+    const image = await loadImage(address);
+    const width = image.naturalWidth;
+    const height = image.naturalHeight;
+    if (width === 0 || height === 0) throw new Error('The QR code is empty.');
+    return {
+      dataUrl: canvasOf(image, width, height).toDataURL('image/png'),
+      width,
+      height,
+    };
+  } finally {
+    URL.revokeObjectURL(address);
+  }
 }
 
 /**

@@ -93,14 +93,17 @@ export const BACKUP_TABLES = [
   'eduBaiKiemTra',
   'eduBaiKiemTraKyNang',
   'eduKetQuaKiemTra',
+  // "The parent was told" marks of the tuition notice: they point at a student and a package.
+  'eduPhieuBao',
 ] as const;
 
 /**
  * Version written into a snapshot. 1.0 files (15 tables), 2.0 files (21 tables, before the groups of GĐ 3), 2.1
- * files (before the knowledge system of GĐ 4) and 2.2 files (before the tests of GĐ 5) are still accepted by a restore: a table the file does not hold stays as it is.
+ * files (before the knowledge system of GĐ 4), 2.2 files (before the tests of GĐ 5) and 2.3 files (before the marks of
+ * the tuition notice) are still accepted by a restore: a table the file does not hold stays as it is.
  */
-export const BACKUP_VERSION = '2.3';
-const SUPPORTED_VERSIONS = ['1.0', '2.0', '2.1', '2.2', '2.3'];
+export const BACKUP_VERSION = '2.4';
+const SUPPORTED_VERSIONS = ['1.0', '2.0', '2.1', '2.2', '2.3', '2.4'];
 /** Rows written per insert while restoring. */
 const RESTORE_BATCH = 200;
 

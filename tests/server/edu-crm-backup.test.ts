@@ -570,7 +570,7 @@ type Snapshot = {
   };
 };
 
-/** A row in every one of the 30 tables of a snapshot (made-up data), on top of what `seedSchool` made. */
+/** A row in every one of the 31 tables of a snapshot (made-up data), on top of what `seedSchool` made. */
 async function everyTable(
   connection: Parameters<typeof seedSchool>[0],
   ids: Awaited<ReturnType<typeof seedSchool>>,
@@ -855,9 +855,21 @@ async function everyTable(
       thuLaoMotBuoi: 150000,
     })
     .execute();
+  // A "the parent was told" mark of the tuition notice.
+  await q
+    .insertInto('eduPhieuBao')
+    .values({
+      hocVienId: ids.hocVienA,
+      goiHocId: null,
+      ngay: '2026-11-05',
+      soBuoiConLai: 0,
+      nguoiBaoId: hlvId,
+      createdAt: new Date('2026-11-05T10:00:00.000Z'),
+    })
+    .execute();
 }
 
-test('a snapshot holds all 30 tables and restoring it brings every one of them back', async ({
+test('a snapshot holds all 31 tables and restoring it brings every one of them back', async ({
   testApp,
   connection,
 }) => {
@@ -865,8 +877,8 @@ test('a snapshot holds all 30 tables and restoring it brings every one of them b
   await everyTable(connection, ids, hlvA.id);
 
   const before = (await (await post(admin, BACKUP, {})).json()) as Snapshot;
-  expect(before.data.phienBan).toBe('2.3');
-  expect(before.data.tongSoBang).toBe(30);
+  expect(before.data.phienBan).toBe('2.4');
+  expect(before.data.tongSoBang).toBe(31);
   for (const table of Object.keys(before.data.duLieu)) {
     expect(
       before.data.duLieu[table]?.length,

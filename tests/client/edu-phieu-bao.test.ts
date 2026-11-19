@@ -308,6 +308,30 @@ describe('notice of a tuition term: the picture and the message', () => {
     expect(picture.svg).not.toContain('<b>');
   });
 
+  it('adds the transfer code of the next term only when it is given one', () => {
+    const plain = noticeSvg(notice, noticeLabels(t, notice));
+    expect(plain.svg).not.toContain('<image');
+    const transfer = { soTien: 3000000, noiDungCk: 'HP HS00007' };
+    const withCode = noticeSvg(notice, noticeLabels(t, notice, transfer), {
+      dataUrl: 'data:image/png;base64,QUJD',
+      width: 540,
+      height: 640,
+    });
+    expect(withCode.height).toBeGreaterThan(plain.height + 200);
+    for (const text of [
+      'href="data:image/png;base64,QUJD"',
+      'Chuyển khoản học phí kỳ tiếp theo',
+      '3.000.000 đ',
+      'Nội dung: HP HS00007',
+    ])
+      expect(withCode.svg).toContain(text);
+    // The code keeps its proportions: 200 wide, 237 high for a 540 × 640 picture.
+    expect(withCode.svg).toContain('width="200" height="237"');
+    expect(noticeMessage(t, notice, transfer)).toContain(
+      'Học phí kỳ tiếp theo: 3.000.000 đ. Nội dung chuyển khoản: HP HS00007 (mã QR có trong ảnh).',
+    );
+  });
+
   it('writes a message that stands on its own', () => {
     expect(noticeMessage(t, notice)).toBe(
       [

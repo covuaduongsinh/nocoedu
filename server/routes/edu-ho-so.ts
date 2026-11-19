@@ -331,9 +331,42 @@ export default [
                 : (kyOf.get(Number(payment.goiHocId)) ?? null),
           }))
           .sort((a, b) => b.ngay.localeCompare(a.ngay) || b.id - a.id);
+        // Each time the parent was told about a term (`eduPhieuBao`), newest first. The table has no permission of its
+        // own: it is read for the student the policy returned, inside the tuition section (`server/edu/phieu-bao.ts`).
+        const marks = await query
+          .selectFrom('eduPhieuBao')
+          .select(['id', 'goiHocId', 'ngay', 'soBuoiConLai', 'nguoiBaoId'])
+          .where('hocVienId', '=', hocVienId)
+          .execute();
+        const markerIds = [
+          ...new Set(
+            marks.flatMap((mark) =>
+              mark.nguoiBaoId == null ? [] : [asText(mark.nguoiBaoId)],
+            ),
+          ),
+        ];
+        const markerNames = new Map<string, string>();
+        if (markerIds.length > 0)
+          for (const user of await query
+            .selectFrom('user')
+            .select(['id', 'name'])
+            .where('id', 'in', markerIds)
+            .execute())
+            markerNames.set(asText(user.id), asText(user.name));
+        const cacLanBao = marks
+          .map((mark) => ({
+            id: Number(mark.id),
+            goiHocId: mark.goiHocId == null ? null : Number(mark.goiHocId),
+            ngay: asText(mark.ngay),
+            soBuoiConLai: Number(mark.soBuoiConLai || 0),
+            // The staff member who marked it: a name only.
+            nguoiBao: markerNames.get(asText(mark.nguoiBaoId)) ?? '',
+          }))
+          .sort((a, b) => b.ngay.localeCompare(a.ngay) || b.id - a.id);
         hocPhi = {
           cacKy,
           cacLanNop,
+          cacLanBao,
           vuotSoDu,
           tongSoBuoiDaMua,
           tongTienHocPhi,
