@@ -1,6 +1,6 @@
 # Kế hoạch nạp chính xác lịch sử thu học phí từ Lark (2026-11-19)
 
-Trạng thái: **đã duyệt Q1, Q2, Q5 (19/11/2026); Q3, Q4 theo đề xuất — chờ triển khai code**
+Trạng thái: **đã triển khai lên production (19/11/2026)** — còn 45 khoản 2024 chờ kế toán gắn học viên (mục 10)
 
 Đã chốt ngày 19/11/2026: **Q1** tính lại số dư; **Q2** kế toán gắn `Tên HS link` cho 45 khoản trên Lark rồi mới
 nạp (dòng còn trống thì chỉ báo cáo); **Q5** đồng ý sửa một lần các bản ghi đã nhập, có sao lưu và nhật ký.
@@ -152,3 +152,19 @@ chạy không đổi. Báo cáo đầy đủ (mã HV, số dư, mã `rec…`, kh
 
 Trước `--commit` cần: kế toán gắn 45 khoản 2024; Thầy duyệt danh sách học viên âm / lệch lớn (thiếu kỳ nộp trên Lark
 hay thật sự nợ buổi).
+
+## 10. Kết quả ghi thật (19/11/2026)
+
+- Thầy duyệt danh sách số dư âm/lệch; PR #52 merge (`9950eec`), web cập nhật, healthy, không có log lỗi.
+- Sao lưu: `/root/backups/nocoedu-20261119-truoc-nap-hoc-phi/` (`nocoedu.dump` trước khi cập nhật web,
+  `nocoedu-ngay-truoc-commit.dump` ngay trước `--commit`, `storage.tgz`); image cũ `nocoedu-app:rollback-20261119-truoc-nap`.
+- `--commit --user <admin>`: số liệu trùng bản chạy thử (112 học viên, 264 kỳ mới, 185 khoản gắn lại kỳ, 11 gói mở
+  đầu huỷ, 4.395 dòng điểm danh); nhật ký `eduNhapLarkNhatKy` id 11 `thanh_cong`; báo cáo `/root/nap-commit.txt`.
+- Kiểm tra sau ghi: 311 kỳ `mua` hiệu lực (400.906.000 đ), 225 khoản tiền (445.870.000 đ, 192 gắn kỳ), số dư mọi học
+  viên khớp sổ số dư (0 lệch); chạy thử lại: 0 việc. 298 dòng điểm danh `tinhVaoSoDu = false` còn lại thuộc học viên
+  không có Deal nào (giữ nguyên theo thiết kế).
+- Web: HS00001 hiện 3 kỳ (24 buổi/2.880.000; 40 buổi/4.400.000; 15 buổi "Chưa rõ") và mục "Các lần nộp tiền".
+
+Việc còn lại: khi kế toán gắn `Tên HS link` cho 45 khoản 2024 trên Lark, chạy lại
+`node dist/cli/index.js app edu nap-hoc-phi --dry-run` rồi `--commit --user <admin>` trong container app — lệnh chỉ thêm
+các khoản mới và gắn kỳ cho chúng.
