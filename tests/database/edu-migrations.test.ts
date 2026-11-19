@@ -664,6 +664,35 @@ describeMigration('202611180004_create_edu_kien_thuc', {
   },
 });
 
+describeMigration('202611190001_create_edu_phieu_bao', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduPhieuBao').toExist();
+    // A term that is a manual adjustment has no package.
+    await expectCollection('eduPhieuBao').toHaveField('goiHocId', {
+      nullable: true,
+    });
+    await expectCollection('eduPhieuBao').toHaveField('ngay', {
+      nullable: false,
+    });
+    await expectCollection('eduPhieuBao').toHaveIndex(['hocVienId', 'ngay']);
+  },
+  down: async ({ expectCollection }) => {
+    await expectCollection('eduPhieuBao').not.toExist();
+    // The tables the marks point at are untouched.
+    await expectCollection('eduHocVien').toExist();
+    await expectCollection('eduGoiHoc').toExist();
+  },
+});
+
 describeMigration('202611180005_create_edu_kiem_tra', {
   sources: [
     {

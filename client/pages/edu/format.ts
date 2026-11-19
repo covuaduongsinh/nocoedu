@@ -30,6 +30,15 @@ export function formatDay(value: unknown): string {
     : '';
 }
 
+/**
+ * `2026-01-24` as `24/01/2026`, the way a parent reads a date (the notice of a tuition term, "told on …"); anything
+ * that does not start with a calendar day is returned as it is.
+ */
+export function formatDayVn(day: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/u.exec(day);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : day;
+}
+
 /** A start time `HH:mm:ss` or `HH:mm` as `HH:mm`. */
 export function formatTime(value: unknown): string {
   return typeof value === 'string' ? value.slice(0, 5) : '';

@@ -169,6 +169,17 @@ const api = vi.fn(({ method, path, json }: ApiCall) => {
       },
     };
   if (path === 'doiSoat/capNhatBuoiHoc') return { data: { success: true } };
+  // No bank account configured: the notice has no transfer code.
+  if (path === 'phieuBao/vietQr')
+    return {
+      data: {
+        cauHinh: false,
+        soTienGoiY: null,
+        soTien: null,
+        noiDungCk: 'HP HS00007',
+        url: null,
+      },
+    };
   if (path === 'nhanXetThang/findMany')
     return {
       data: [
@@ -497,6 +508,64 @@ describe('student file', () => {
     expect(
       screen.queryByRole('button', { name: 'Xuất CSV' }),
     ).not.toBeInTheDocument();
+    // No notice of a tuition term either: it is made of the terms.
+    expect(
+      screen.queryByRole('button', { name: 'Phiếu báo phụ huynh' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the notice of the term in use for the parent and keeps it in the address', async () => {
+    await render('/hoc-vien/7');
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Phiếu báo phụ huynh' }),
+    );
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(
+      dialog.getByRole('heading', { name: 'Phiếu báo kỳ học phí' }),
+    ).toBeInTheDocument();
+    expect(dialog.getByLabelText('Kỳ học phí')).toHaveValue('1');
+    // The picture and the message are made of the answer the page already holds: the file is not asked for again.
+    expect(
+      dialog.getByRole('img', {
+        name: 'Phiếu báo Kỳ 1 (12 buổi) của Học viên Mẫu 07',
+      }),
+    ).toBeInTheDocument();
+    const message = (
+      dialog.getByLabelText('Lời nhắn gửi kèm') as HTMLTextAreaElement
+    ).value;
+    expect(message).toContain('- Đã học 8/12 buổi, còn lại 4 buổi');
+    expect(message).toContain('- Các ngày đã học: 03/11/2026');
+    expect(message).toContain('Đang học: còn 4 buổi.');
+    expect(callsTo('hocVien/hoSo360')).toHaveLength(1);
+
+    await userEvent.click(dialog.getByRole('button', { name: 'Close' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('opens the notice an address names, and only for a person who sees the tuition', async () => {
+    const first = await render('/hoc-vien/7?tab=hoc-phi&phieu=hien-tai');
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    // The page behind an open dialog is hidden from assistive technology, so the tab is looked up as hidden.
+    expect(
+      screen.getByRole('tab', { name: 'Học phí', hidden: true }),
+    ).toHaveAttribute('aria-selected', 'true');
+    first.unmount();
+
+    permissions = {
+      unrestricted: false,
+      permissions: [
+        {
+          resource: { type: 'composite', id: 'edu.diemDanh' },
+          actions: ['view'],
+        },
+      ],
+    };
+    profileAnswer = { ...profile, hocPhi: null, sach: null };
+    await render('/hoc-vien/7?phieu=hien-tai');
+    expect(await screen.findByRole('tab', { name: 'Buổi học' })).toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('marks a Lark term of unknown price and lists every payment with its term', async () => {

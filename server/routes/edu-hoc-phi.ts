@@ -23,6 +23,7 @@ import { refreshTaughtKnowledge } from '../edu/kien-thuc-doc.js';
 import { asText } from '../edu/names.js';
 import { readNeedCollection } from '../edu/can-thu.js';
 import { loadAllocation } from '../edu/phan-bo-doc.js';
+import { readCurrentMarks, type NoticeMark } from '../edu/phieu-bao.js';
 import {
   ATTENDANCE_STATUSES,
   datesBetween,
@@ -37,6 +38,7 @@ import {
   currentUserId,
   eduError,
   needs,
+  optionalPolicy,
   policiesOf,
   policyOf,
   type EduEnv,
@@ -101,7 +103,14 @@ const QrInput = z.object({ goiHocId: Id });
 const LowBalanceInput = z.object({
   trang: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),
+  /**
+   * Only the students whose parent was (`da_bao`) or was not (`chua_bao`) told for the term they are on. Ignored for a
+   * caller who sees no tuition (a coach): they get the whole list, without the marks.
+   */
+  baoPhuHuynh: z.enum(['tat_ca', 'chua_bao', 'da_bao']).default('tat_ca'),
 });
+/** The most students the "told / not told" filter reads before it cuts a page; a club has a few hundred to chase. */
+const MAX_NEED_COLLECTION = 5000;
 const DetailInput = z.object({ goiHocId: Id });
 
 const today = (): string => todayVn();
@@ -600,23 +609,63 @@ export default [
       needs('edu.hocVien', 'view'),
       apiValidator('json', LowBalanceInput),
       async (c) => {
-        const { trang, limit } = c.req.valid('json');
+        const { trang, limit, baoPhuHuynh } = c.req.valid('json');
+        const studentPolicy = policyOf(c, 'eduHocVien');
+        const offset = (trang - 1) * limit;
+        // "Was the parent told?" is tuition business: only who sees packages and payments gets the marks (and the
+        // filter); the home warning of a coach stays the plain list.
+        const [payPolicy, packagePolicy] = await Promise.all([
+          optionalPolicy(c, 'edu.thanhToan', 'view', 'eduThanhToan'),
+          optionalPolicy(c, 'edu.goiHoc', 'view', 'eduGoiHoc'),
+        ]);
+        const seesMarks = Boolean(payPolicy && packagePolicy);
         // The same students and threshold as the counters of the audit page (`server/edu/can-thu.ts`).
-        const { rows, total } = await readNeedCollection(
-          database,
-          policyOf(c, 'eduHocVien'),
-          { limit, offset: (trang - 1) * limit },
-        );
+        let rows: Record<string, unknown>[];
+        let total: number;
+        let marks = new Map<number, NoticeMark | null>();
+        if (seesMarks && baoPhuHuynh !== 'tat_ca') {
+          // The mark is worked out per student, so the filter reads the whole list and cuts the page afterwards.
+          const all = await readNeedCollection(database, studentPolicy, {
+            limit: MAX_NEED_COLLECTION,
+            offset: 0,
+          });
+          marks = await readCurrentMarks(
+            database.connection(),
+            all.rows.map((row) => Number(row.id)),
+          );
+          const kept = all.rows.filter(
+            (row) =>
+              (marks.get(Number(row.id)) != null) ===
+              (baoPhuHuynh === 'da_bao'),
+          );
+          total = kept.length;
+          rows = kept.slice(offset, offset + limit);
+        } else {
+          ({ rows, total } = await readNeedCollection(database, studentPolicy, {
+            limit,
+            offset,
+          }));
+          if (seesMarks)
+            marks = await readCurrentMarks(
+              database.connection(),
+              rows.map((row) => Number(row.id)),
+            );
+        }
         return c.json({
           data: {
             nguong: LOW_BALANCE_THRESHOLD,
             tong: total,
+            coBaoPhuHuynh: seesMarks,
             hocVien: rows.map((row) => ({
               id: Number(row.id),
               ma: asText(row.ma),
               hoTen: asText(row.hoTen),
               lopId: row.lopId == null ? null : Number(row.lopId),
               soBuoiConLai: Number(row.soBuoiConLai),
+              // The mark of the term the student is on; absent for a caller who sees no tuition.
+              ...(seesMarks
+                ? { daBao: marks.get(Number(row.id)) ?? null }
+                : {}),
             })),
           },
         });

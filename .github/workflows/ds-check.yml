@@ -39,8 +39,9 @@ jobs:
   # The tests run on SQLite in the `check` job; production runs PostgreSQL, which enforces column lengths, orders
   # rows differently and found a migration `down` that SQLite accepted. These files cover what differs: migrations
   # (up, down, up again), record scopes and writes, the business actions, the attendance register, the groups of a
-  # class (including the race between hiding a group and moving a student), the backup round-trip and the permission
-  # seeds. Run any file on PostgreSQL the same way locally: docs/ci-postgres-job.md.
+  # class (including the race between hiding a group and moving a student), the backup round-trip, the permission
+  # seeds and the "parent was told" marks of the tuition notice (raw queries on a table without a policy of its own).
+  # Run any file on PostgreSQL the same way locally: docs/ci-postgres-job.md.
   postgres:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -85,3 +86,4 @@ jobs:
           tests/server/edu-lark-import-commit.test.ts
           tests/server/edu-permission-sets.test.ts
           tests/server/authorization-assignment-safety.test.ts
+          tests/server/edu-phieu-bao.test.ts

@@ -91,18 +91,26 @@ export function vietQrConfig(
   return bankId && accountNo ? { bankId, accountNo, accountName } : null;
 }
 
-/** The image address of a VietQR transfer code (the public vietqr.io image service). */
+/**
+ * The image address of a VietQR transfer code (the public vietqr.io image service).
+ *
+ * `png` is the address an `<img>` shows (the cashier). `svg` is the one a page may `fetch` to draw the code into a
+ * picture of its own (the tuition notice): for a browser the service redirects `.png` to `.svg`, and that redirect
+ * carries no CORS header, so a `fetch` of the `.png` address is refused while the `.svg` address answers any origin
+ * (checked 19/11/2026).
+ */
 export function vietQrUrl(
   config: VietQrConfig,
   amount: number,
   content: string,
+  format: 'png' | 'svg' = 'png',
 ): string {
   const query = new URLSearchParams({
     amount: String(amount),
     addInfo: content,
   });
   if (config.accountName) query.set('accountName', config.accountName);
-  return `https://img.vietqr.io/image/${encodeURIComponent(config.bankId)}-${encodeURIComponent(config.accountNo)}-compact2.png?${query.toString()}`;
+  return `https://img.vietqr.io/image/${encodeURIComponent(config.bankId)}-${encodeURIComponent(config.accountNo)}-compact2.${format}?${query.toString()}`;
 }
 
 /** Today in Vietnam (UTC+7) as `YYYY-MM-DD`: the club's calendar day, whatever the server's time zone. */
