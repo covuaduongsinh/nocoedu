@@ -77,6 +77,8 @@ export interface VanDe {
 
 export interface DuLieuLark {
   readonly ky: readonly KyLark[];
+  /** `Số buổi còn tồn` of the student's `Deal HP` rows that are not terms (not paid, or unusable), only to compare. */
+  readonly tonKhac?: ReadonlyMap<string, number>;
   readonly tien: readonly TienLark[];
   readonly vanDe: readonly VanDe[];
 }
@@ -88,10 +90,19 @@ export function docDuLieuLark(
 ): DuLieuLark {
   const ky: KyLark[] = [];
   const vanDe: VanDe[] = [];
+  const tonKhac = new Map<string, number>();
   for (const record of dealHp) {
     const f = record.fields;
-    if (numberOf(f['Đã nộp']) !== 1) continue;
     const student = linkIds(f['Học viên'])[0];
+    const ton = numberOf(f['Số buổi còn tồn']) ?? 0;
+    const other = () => {
+      if (student !== undefined && ton !== 0)
+        tonKhac.set(student, (tonKhac.get(student) ?? 0) + ton);
+    };
+    if (numberOf(f['Đã nộp']) !== 1) {
+      other();
+      continue;
+    }
     const ngay = dateVn(f['Ngày nộp HP']) ?? dateVn(f['Ngày bắt đầu']);
     const soBuoiNop = numberOf(f['Số buổi nộp']);
     if (student === undefined) {
@@ -100,10 +111,12 @@ export function docDuLieuLark(
     }
     if (!ngay) {
       vanDe.push({ id: record.recordId, code: 'DEAL_THIEU_NGAY' });
+      other();
       continue;
     }
     if (soBuoiNop === null || !Number.isInteger(soBuoiNop) || soBuoiNop <= 0) {
       vanDe.push({ id: record.recordId, code: 'DEAL_SO_BUOI_SAI' });
+      other();
       continue;
     }
     const chuaThongKe = DEAL_RULES.subtractUnrecorded
@@ -112,6 +125,7 @@ export function docDuLieuLark(
     const soBuoi = soBuoiNop - chuaThongKe;
     if (soBuoi <= 0) {
       vanDe.push({ id: record.recordId, code: 'DEAL_HET_SAU_TRU' });
+      other();
       continue;
     }
     ky.push({
@@ -146,7 +160,7 @@ export function docDuLieuLark(
       lienKet: linkIds(f['Link với Lần nộp HP']),
     });
   }
-  return { ky, tien, vanDe };
+  return { ky, tien, vanDe, tonKhac };
 }
 
 const DAY = 86_400_000;
@@ -458,7 +472,9 @@ export function lapKeHoachHocPhi(
       ma: student.ma,
       soDuTruoc: student.soBuoiConLai,
       soDuSau: student.soBuoiConLai + change,
-      tonLark: terms.reduce((sum, term) => sum + term.tonLark, 0),
+      tonLark:
+        terms.reduce((sum, term) => sum + term.tonLark, 0) +
+        (lark.tonKhac?.get(key) ?? 0),
       goiMoi,
       giaGoi,
       huyGoi,

@@ -124,8 +124,8 @@ export async function docHocPhiLark(
     log(`read ${table.label}: ${out[table.label].length} records`);
   }
   return {
-    dealHp: out.dealHp as readonly LarkRecord[],
-    tongDeal: out.tongDeal as readonly LarkRecord[],
+    dealHp: out.dealHp,
+    tongDeal: out.tongDeal,
   };
 }
 
