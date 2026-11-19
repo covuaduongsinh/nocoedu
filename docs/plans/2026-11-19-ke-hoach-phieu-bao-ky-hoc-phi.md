@@ -1,7 +1,8 @@
 # Kế hoạch "Phiếu báo kỳ học phí" gửi phụ huynh (2026-11-19)
 
-Trạng thái: **GĐ 1 và GĐ 2 đã viết xong và commit trên nhánh `feat/phieu-bao-ky-hoc-phi` (chưa push, chưa merge,
-chưa triển khai); chưa thử trên ứng dụng có đăng nhập** (mục 8, mục 9) — GĐ 3 để sau.
+Trạng thái: **GĐ 1 và GĐ 2 đã gộp vào `main` (PR #54) và đã chạy trên bản thật nocoedu.dsc.edu.vn từ 22:33 ngày
+19/11/2026** (mục 10). Còn hai việc cần Thầy: cấu hình tài khoản VietQR và thử gửi một phiếu qua Zalo (mục 11). GĐ 3
+để sau.
 
 Thầy chốt ngày 19/11/2026: đồng ý cả năm đề xuất ở mục 7, các điểm còn lại ủy quyền cho người triển khai chọn.
 
@@ -227,13 +228,10 @@ thật và ảnh có mã vẫn xuất được PNG.
 Kiểm thử máy chủ phải chạy bằng **Node 24** (đúng `engines`); shell mặc định của máy đang là Node 22 nên báo
 `ERR_UNKNOWN_FILE_EXTENSION`. Lệnh đã dùng: `fnm exec --using=v24.18.0 -- node node_modules/vitest/vitest.mjs run <tệp>`.
 
-### 9.5 Chưa kiểm, và việc Thầy cần làm trước khi dùng thật
+### 9.5 Chưa kiểm ở thời điểm viết mã (đã xử lý ở mục 10)
 
-- Chưa chạy trên ứng dụng có đăng nhập với **dữ liệu thật**: phiếu của một học viên thật, bộ lọc ở "Cần thu", mã QR
-  bằng tài khoản thật của CLB, dán ảnh vào Zalo.
-- PostgreSQL: do CI kiểm (job `postgres` của `ds-check`, đã thêm `tests/server/edu-phieu-bao.test.ts` vào danh sách).
-- **Triển khai:** cần `pnpm nocobase db apply` để tạo bảng `eduPhieuBao` (migration mới); nên sao lưu trước như mọi lần
-  cập nhật VPS. Mã QR chỉ hiện khi máy chủ có `EDU_VIETQR_BANK_ID` và `EDU_VIETQR_ACCOUNT_NO`.
+- Dữ liệu thật và PostgreSQL: xem mục 10.
+- Mã QR bằng tài khoản thật của CLB và việc dán ảnh vào Zalo: xem mục 11.
 
 ### 9.6 Giới hạn đã biết
 
@@ -241,3 +239,109 @@ Kiểm thử máy chủ phải chạy bằng **Node 24** (đúng `engines`); she
   được tính ở "Cần thu". Hiếm gặp; chấp nhận.
 - Bộ lọc "Chưa báo / Đã báo" đọc tối đa 5.000 học viên cần thu rồi mới cắt trang.
 - Tên người báo vừa đánh dấu chỉ hiện sau khi đóng dialog và mở lại (dialog không đọc lại hồ sơ khi đang mở).
+
+## 10. Gộp mã và triển khai lên bản thật (19/11/2026)
+
+### 10.1 Gộp mã
+
+- PR #54 (`feat/phieu-bao-ky-hoc-phi` → `main`), CI `ds-check` xanh cả hai job: `check` (toàn bộ `pnpm check`: lint, định
+  dạng, kiểm kiểu, mọi kiểm thử, build; 8 phút 14 giây) và `postgres` (PostgreSQL 16, có
+  `tests/server/edu-phieu-bao.test.ts`; 1 phút 38 giây). Gộp thành commit `16daf54`.
+
+### 10.2 Triển khai (theo đúng quy trình của `2026-11-19-ke-hoach-cap-nhat-vps-nocoedu.md`)
+
+| Bước           | Kết quả                                                                                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sao lưu        | `/root/backups/nocoedu-20261119-truoc-phieu-bao/`: `nocoedu.dump` (708 KB, 86 bảng có dữ liệu), `storage.tgz` (14,8 MB)                                    |
+| Image dự phòng | `nocoedu-app:rollback-20261119-truoc-phieu-bao` (= image đang chạy trước đó, `8da4ec23d046`)                                                               |
+| Build          | `docker compose build app` từ `main@16daf54`, 23 phút (máy đang tải nặng, xem 10.4), `BUILD_EXIT=0`; nhật ký `/root/backups/redeploy-phieu-bao.log`        |
+| Thay container | `docker compose up -d app` lúc 22:32; container mới báo `healthy` sau 35 giây; CSDL không khởi động lại                                                    |
+| Migration      | `202611190001_create_edu_phieu_bao` chạy lúc 22:33:16 (batch 7); bảng `edu_phieu_bao` có đủ 7 cột, 0 dòng                                                  |
+| Dữ liệu cũ     | Giữ nguyên trước và sau: 174 học viên, 8 lớp, 322 gói, 225 khoản thu, 5.658 dòng điểm danh, 5.686 dòng sổ số dư                                            |
+| Nhật ký app    | 0 dòng mức lỗi kể từ khi khởi động                                                                                                                         |
+| Từ bên ngoài   | `GET /main/api/healthz` 200; trang chủ 200; `POST /main/api/phieuBao/ghi`, `/xoa`, `/vietQr`, `/soDu/canhBao` trả 401 khi chưa đăng nhập; route lạ trả 404 |
+
+### 10.3 Xem trên bản thật bằng phiên đăng nhập sẵn của Thầy (chỉ xem, không ghi)
+
+- Tab "Cần thu" (`/main/hoc-phi?tab=can-thu`): hiện 73 học viên, có cột "Báo phụ huynh" (mọi dòng đang "Chưa báo"), bộ
+  lọc "Tất cả" và liên kết "Phiếu báo" trên từng dòng.
+- Bấm "Phiếu báo" ở một dòng: mở hồ sơ học viên với dialog phiếu báo của kỳ đang học; ảnh có đủ kỳ, số buổi, lưới ngày
+  học và mục "Buổi học thêm, chưa có học phí"; lời nhắn soạn sẵn đúng học viên; mục "Theo dõi báo phụ huynh" ghi "Chưa
+  đánh dấu"; ba nút Chia sẻ / Tải ảnh / Sao chép ảnh đều bật. Không có ô mã QR vì máy chủ chưa cấu hình VietQR (đúng
+  thiết kế).
+- Tôi không bấm "Đánh dấu đã báo", không sao chép và không tải ảnh nào của học viên thật.
+
+### 10.4 Điều nên biết
+
+- **VPS đang tải rất cao:** load trung bình 63 trong lúc build và vẫn 52 sau khi build xong, trên máy 6 nhân (tôi không
+  đo trước khi build). Lúc xem, tốn CPU nhất là một dịch vụ khác trên cùng máy (`compose-navigate-online-bus-…-api`,
+  ~129% CPU), không phải NocoEdu. NocoEdu vẫn trả lời bình thường, nhưng lần build này mất 23 phút thay vì ~15. Tôi
+  không đụng tới các ứng dụng đó; Thầy nên cho người xem.
+- Trong danh sách "Cần thu" nhiều học viên đang âm rất sâu (vài chục buổi). Phiếu báo của các em này liệt kê toàn bộ
+  buổi học thêm nên ảnh khá dài. Đây là số liệu sau lần nạp lịch sử học phí, không phải lỗi của phiếu báo; nếu Thầy
+  muốn ảnh gọn hơn (ví dụ chỉ hiện 10 buổi gần nhất kèm "và n buổi khác") thì đó là một chỉnh sửa nhỏ.
+
+### 10.5 Hoàn tác (nếu cần)
+
+1. Trên VPS: `docker tag nocoedu-app:rollback-20261119-truoc-phieu-bao nocoedu-app:main`, rồi trong thư mục compose
+   `docker compose -p compose-synthesize-online-firewall-897jlk up -d app`. Mã cũ không dùng bảng `edu_phieu_bao`; bảng
+   thừa không gây hại.
+2. Chỉ khi dữ liệu cũ bị ảnh hưởng (hiện không có dấu hiệu nào): dừng app, `pg_restore --clean -d nocoedu` từ
+   `/root/backups/nocoedu-20261119-truoc-phieu-bao/nocoedu.dump`, rồi chạy image cũ.
+
+## 11. Việc cần Thầy làm nốt
+
+### 11.1 Bật mã VietQR (cần số tài khoản của CLB, tôi không có)
+
+Cần ba giá trị: mã ngân hàng (tên viết tắt hoặc mã BIN mà vietqr.io nhận, ví dụ `vietinbank` hoặc `970415`), số tài
+khoản, tên chủ tài khoản (chữ in hoa không dấu). Có hai cách:
+
+**Cách A — gửi ba giá trị đó cho người triển khai** (Claude hoặc kỹ thuật viên) để làm các bước của cách B.
+
+**Cách B — tự làm trên VPS:**
+
+1. `ssh root@217.15.160.118`
+2. `cd /etc/dokploy/compose/compose-synthesize-online-firewall-897jlk/code`
+3. Sao lưu hai tệp: `cp docker-compose.yml docker-compose.yml.bak-vietqr && cp .env .env.bak-vietqr`
+4. Thêm vào cuối tệp `.env` (thay giá trị thật):
+
+   ```
+   EDU_VIETQR_BANK_ID=vietinbank
+   EDU_VIETQR_ACCOUNT_NO=0000000000
+   EDU_VIETQR_ACCOUNT_NAME=CONG TY CP CO VUA DUONG SINH
+   ```
+
+5. Trong `docker-compose.yml`, ở dịch vụ `app`, mục `environment:`, ngay dưới dòng `LARK_DOMAIN: …`, thêm ba dòng
+   (thụt lề đúng 6 dấu cách như các dòng bên trên):
+
+   ```
+         EDU_VIETQR_BANK_ID: ${EDU_VIETQR_BANK_ID:-}
+         EDU_VIETQR_ACCOUNT_NO: ${EDU_VIETQR_ACCOUNT_NO:-}
+         EDU_VIETQR_ACCOUNT_NAME: ${EDU_VIETQR_ACCOUNT_NAME:-}
+   ```
+
+6. Kiểm tra cú pháp: `docker compose -p compose-synthesize-online-firewall-897jlk config --quiet && echo OK`
+7. Áp dụng (app khởi động lại khoảng 40 giây, không build lại):
+   `docker compose -p compose-synthesize-online-firewall-897jlk up -d app`
+8. Kiểm tra: mở một phiếu báo của học viên đã hết kỳ; phải thấy ô "Kèm mã QR chuyển khoản kỳ tiếp theo" và khối mã QR
+   trong ảnh. Quét thử bằng ứng dụng ngân hàng: đúng tên chủ tài khoản, số tiền và nội dung `HP <mã học viên>`. Quầy
+   thu ngân (nút "Mã QR" của một gói) cũng bắt đầu dùng được.
+
+Lưu ý: nếu sau này Thầy bấm "Deploy" trong bảng điều khiển Dokploy, Dokploy có thể ghi lại `docker-compose.yml` từ bản
+nó lưu. Để chắc, dán ba dòng ở bước 5 vào cả phần Compose của ứng dụng trong Dokploy, và ba dòng ở bước 4 vào phần
+Environment.
+
+### 11.2 Gửi thử một phiếu qua Zalo
+
+1. Vào `https://nocoedu.dsc.edu.vn/main/hoc-phi?tab=can-thu`, chọn một học viên, bấm **Phiếu báo**.
+2. Đọc lại ảnh và lời nhắn (sửa lời nhắn nếu cần), bấm **Sao chép ảnh**, sang Zalo dán (Ctrl+V) vào cuộc trò chuyện
+   với phụ huynh; quay lại bấm **Sao chép lời nhắn** rồi dán tiếp. Trên điện thoại dùng nút **Chia sẻ** → Zalo.
+3. Gửi xong bấm **Đánh dấu đã báo**. Đóng dialog; ở tab "Cần thu" dòng đó phải đổi thành "Đã báo dd/mm", và bộ lọc
+   "Chưa báo" không còn em đó.
+4. Nếu câu chữ chưa đúng giọng của CLB, báo lại câu cần sửa (tệp `client/locales/edu-copy-phieu-bao.ts`).
+
+### 11.3 Máy lập trình
+
+- `main` cục bộ đã cập nhật tới `16daf54`. Lần chạy `pnpm dev` tới sẽ tự tạo bảng mới trong CSDL dev.
+- Shell mặc định đang là Node 22, dự án cần Node 24: `fnm default v24.18.0` (đã cài sẵn) để kiểm thử máy chủ chạy được
+  bằng `pnpm exec vitest run …` như thường.
