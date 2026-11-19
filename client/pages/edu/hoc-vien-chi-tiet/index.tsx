@@ -319,6 +319,7 @@ function StudentFile({
                 loaded.hocPhi ? (
                   <Tuition
                     terms={loaded.hocPhi.cacKy}
+                    payments={loaded.hocPhi.cacLanNop ?? []}
                     studentId={student.id}
                     canSeeSessions={canSessions}
                     sessionsLink={(kySo) =>

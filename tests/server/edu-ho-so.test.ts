@@ -409,3 +409,83 @@ test('the sessions download is an export: permission, formula guard and one log 
   expect((await download(keToan.session, ids.hocVienA)).status).toBe(200);
   expect((await download(admin, ids.hocVienA)).status).toBe(200);
 });
+
+test('the tuition tab lists every payment, hides a cancelled opening package and marks a Lark term of unknown price', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin, ids } = await setup(testApp, connection);
+  const { first, second } = await fixture(connection, ids);
+  const q = connection.query;
+  // An opening package replaced by the terms of Lark (cancelled), and a Lark term whose payment was not found.
+  for (const row of [
+    {
+      soBuoi: 5,
+      ngayMua: '2026-08-01',
+      trangThai: 'da_huy',
+      loai: 'chuyen_so_du',
+      externalId: 'lark:sodu:recMau',
+    },
+    {
+      soBuoi: 4,
+      ngayMua: '2026-11-01',
+      trangThai: 'hieu_luc',
+      loai: 'mua',
+      externalId: 'lark:deal:recMau',
+    },
+  ])
+    await q
+      .insertInto('eduGoiHoc')
+      .values({
+        hocVienId: ids.hocVienA,
+        donGia: 0,
+        thanhTien: 0,
+        nguoiTaoId: 'seed',
+        ghiChu: 'chuyen_tu_lark',
+        ...row,
+      })
+      .execute();
+  // A payment Lark could not place in a term.
+  await q
+    .insertInto('eduThanhToan')
+    .values({
+      goiHocId: null,
+      hocVienId: ids.hocVienA,
+      coSoId: ids.coSoA,
+      soTien: 150000,
+      hinhThuc: 'khong_ro',
+      ngay: '2026-11-02',
+      thang: '2026-11',
+      nguoiGhiNhanId: 'seed',
+    })
+    .execute();
+
+  const { data } = await json(
+    await post(admin, HO_SO, { hocVienId: ids.hocVienA }),
+  );
+  const terms = data.hocPhi.cacKy as Record<string, unknown>[];
+  expect(
+    terms.map((k) => [
+      k.goiHocId === first || k.goiHocId === second,
+      k.soBuoi,
+      k.chuaRoTien,
+    ]),
+  ).toEqual([
+    [true, 2, false],
+    [true, 10, false],
+    [false, 4, true],
+  ]);
+  expect(data.tongHop.tongSoBuoiDaMua).toBe(16);
+  expect(
+    (data.hocPhi.cacLanNop as Record<string, unknown>[]).map((p) => [
+      p.ngay,
+      p.soTien,
+      p.hinhThuc,
+      p.kySo,
+    ]),
+  ).toEqual([
+    ['2026-11-02', 150000, 'khong_ro', null],
+    ['2026-10-01', 300000, 'tien_mat', 2],
+    ['2026-10-01', 200000, 'tien_mat', 1],
+  ]);
+});

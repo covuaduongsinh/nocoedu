@@ -16,7 +16,7 @@ import {
 import { formatDay, formatMoney } from '../format.js';
 import { text, usePagedRows } from '../kit.js';
 import { RowsTable } from '../list-page.js';
-import type { Term } from './types.js';
+import type { Payment, Term } from './types.js';
 import { termLabel } from './terms.js';
 
 const signed = (value: unknown): string =>
@@ -28,6 +28,7 @@ const signed = (value: unknown): string =>
  */
 export function Tuition(props: {
   readonly terms: readonly Term[];
+  readonly payments: readonly Payment[];
   readonly studentId: number;
   readonly sessionsLink: (kySo: number) => string;
   readonly canSeeSessions: boolean;
@@ -72,7 +73,11 @@ export function Tuition(props: {
               </TableHeader>
               <TableBody>
                 {props.terms.map((term) => {
-                  const paid = term.goiHocId === null || term.conNo === 0;
+                  const unknown = term.chuaRoTien === true;
+                  const paid =
+                    !unknown && (term.goiHocId === null || term.conNo === 0);
+                  const money = (value: number) =>
+                    unknown ? t('edu.hoSo.chuaRoTien') : formatMoney(value);
                   return (
                     <TableRow key={term.kySo}>
                       <TableCell className='font-medium'>
@@ -86,7 +91,7 @@ export function Tuition(props: {
                         {term.daDung} / {term.soBuoi}
                       </TableCell>
                       <TableCell className='text-right'>
-                        {formatMoney(term.thanhTien)}
+                        {money(term.thanhTien)}
                       </TableCell>
                       <TableCell className='text-right'>
                         {formatMoney(term.daThanhToan)}
@@ -98,25 +103,29 @@ export function Tuition(props: {
                             : 'text-right'
                         }
                       >
-                        {formatMoney(term.conNo)}
+                        {money(term.conNo)}
                       </TableCell>
                       <TableCell>
                         {term.goiHocId === null ? null : (
                           <StatusBadge
                             tone={
-                              paid
-                                ? 'success'
-                                : term.daThanhToan > 0
-                                  ? 'warning'
-                                  : 'neutral'
+                              unknown
+                                ? 'neutral'
+                                : paid
+                                  ? 'success'
+                                  : term.daThanhToan > 0
+                                    ? 'warning'
+                                    : 'neutral'
                             }
                             size='sm'
                           >
-                            {paid
-                              ? t('edu.hoSo.pay.paid')
-                              : term.daThanhToan > 0
-                                ? t('edu.hoSo.pay.partial')
-                                : t('edu.hoSo.pay.none')}
+                            {unknown
+                              ? t('edu.hoSo.pay.unknown')
+                              : paid
+                                ? t('edu.hoSo.pay.paid')
+                                : term.daThanhToan > 0
+                                  ? t('edu.hoSo.pay.partial')
+                                  : t('edu.hoSo.pay.none')}
                           </StatusBadge>
                         )}
                       </TableCell>
@@ -141,8 +150,71 @@ export function Tuition(props: {
           </div>
         )}
       </section>
+      <Payments payments={props.payments} />
       <Ledger studentId={props.studentId} />
     </div>
+  );
+}
+
+/** Every payment of the student with the term it pays for; a payment Lark could not place says "no term". */
+function Payments({
+  payments,
+}: {
+  readonly payments: readonly Payment[];
+}): ReactElement {
+  const { t } = useTranslation();
+  const method = (value: string) =>
+    value === 'chuyen_khoan'
+      ? t('edu.hocPhi.transfer')
+      : value === 'tien_mat'
+        ? t('edu.hocPhi.cash')
+        : t('edu.hoSo.hinhThucKhongRo');
+  return (
+    <section className='flex flex-col gap-3'>
+      <h2 className='text-base font-semibold'>{t('edu.hoSo.paymentsTitle')}</h2>
+      {payments.length === 0 ? (
+        <div className='rounded-lg border border-dashed p-6 text-center'>
+          <p className='text-sm text-muted-foreground'>
+            {t('edu.hoSo.paymentsEmpty')}
+          </p>
+        </div>
+      ) : (
+        <div className='overflow-x-auto rounded-lg border'>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('edu.hocVien.ngay')}</TableHead>
+                <TableHead className='text-right'>
+                  {t('edu.hoSo.col.soTien')}
+                </TableHead>
+                <TableHead>{t('edu.hoSo.col.hinhThuc')}</TableHead>
+                <TableHead>{t('edu.hoSo.col.ky')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {payments.map((payment) => (
+                <TableRow key={payment.id}>
+                  <TableCell>{formatDay(payment.ngay)}</TableCell>
+                  <TableCell className='text-right'>
+                    {formatMoney(payment.soTien)}
+                  </TableCell>
+                  <TableCell>{method(payment.hinhThuc)}</TableCell>
+                  <TableCell>
+                    {payment.kySo === null ? (
+                      <span className='text-muted-foreground'>
+                        {t('edu.hoSo.payNoTerm')}
+                      </span>
+                    ) : (
+                      t('edu.hoSo.kyShort', { n: payment.kySo })
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -499,6 +499,58 @@ describe('student file', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('marks a Lark term of unknown price and lists every payment with its term', async () => {
+    const term = profile.hocPhi.cacKy[0];
+    profileAnswer = {
+      ...profile,
+      hocPhi: {
+        cacKy: [
+          term,
+          {
+            ...term,
+            kySo: 2,
+            goiHocId: 42,
+            ngayMua: '2026-11-01',
+            soBuoi: 15,
+            donGia: 0,
+            thanhTien: 0,
+            daThanhToan: 0,
+            conNo: 0,
+            daDung: 0,
+            conLai: 15,
+            tienDo: 0,
+            chuaRoTien: true,
+          },
+        ],
+        cacLanNop: [
+          {
+            id: 9,
+            ngay: '2026-11-02',
+            soTien: 480000,
+            hinhThuc: 'khong_ro',
+            kySo: null,
+          },
+          {
+            id: 8,
+            ngay: '2026-10-01',
+            soTien: 1000000,
+            hinhThuc: 'tien_mat',
+            kySo: 1,
+          },
+        ],
+      },
+    };
+    await render('/hoc-vien/7?tab=hoc-phi');
+    expect(await screen.findByText('Các lần nộp tiền')).toBeInTheDocument();
+    // The term of unknown price says so instead of 0 đ, and is not "not paid".
+    expect(screen.getAllByText('Chưa rõ')).toHaveLength(2);
+    expect(screen.getByText('Chưa rõ số tiền')).toBeInTheDocument();
+    expect(screen.getByText('480.000')).toBeInTheDocument();
+    expect(screen.getByText('Chưa gắn kỳ')).toBeInTheDocument();
+    expect(screen.getByText('Không rõ')).toBeInTheDocument();
+    expect(screen.getByText('Kỳ 1')).toBeInTheDocument();
+  });
+
   it('falls back to the overview when the address names a tab the person may not open', async () => {
     permissions = {
       unrestricted: false,

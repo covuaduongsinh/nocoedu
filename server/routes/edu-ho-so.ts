@@ -233,57 +233,107 @@ export default [
         }
         let tongSoBuoiDaMua = 0;
         let tongTienHocPhi = 0;
+        // Which packages came from Lark: `ghiChu` is not a permission field, so it is read for the packages the policy
+        // returned, the way the awareness score is read below.
+        const fromLark = new Set<number>();
+        for (const part of chunksOf(
+          packages.map((pack) => Number(pack.id)),
+          200,
+        ))
+          for (const row of await query
+            .selectFrom('eduGoiHoc')
+            .select(['id', 'ghiChu', 'loai'])
+            .where('id', 'in', part)
+            .execute())
+            if (
+              asText(row.ghiChu) === 'chuyen_tu_lark' &&
+              asText(row.loai) === 'mua'
+            )
+              fromLark.add(Number(row.id));
+        // A cancelled package (an opening balance replaced by the terms of Lark) is not a term of the student.
+        const inEffect = (id: number | null) =>
+          id === null || asText(packageById.get(id)?.trangThai) === 'hieu_luc';
         for (const pack of packages) {
+          if (!inEffect(Number(pack.id))) continue;
           tongSoBuoiDaMua += Number(pack.soBuoi || 0);
           tongTienHocPhi += Number(pack.thanhTien || 0);
         }
-        const cacKy = result.cacGoi.map((entry, index) => {
-          const pack =
-            entry.goiHocId === null
-              ? undefined
-              : packageById.get(entry.goiHocId);
-          const thanhTien = Number(pack?.thanhTien || 0);
-          let daThanhToan =
-            entry.goiHocId === null
-              ? 0
-              : (paidByPackage.get(entry.goiHocId) ?? 0);
-          // A payment that names no package covers the oldest term that is still open.
-          if (pack && daThanhToan < thanhTien && unallocated > 0) {
-            const part = Math.min(thanhTien - daThanhToan, unallocated);
-            daThanhToan += part;
-            unallocated -= part;
-          }
-          const conNo = Math.max(0, thanhTien - daThanhToan);
-          for (const taken of entry.cacLanTru) {
-            if (taken.diemDanhId !== null && !termOfMark.has(taken.diemDanhId))
-              termOfMark.set(taken.diemDanhId, index + 1);
-          }
-          return {
-            kySo: index + 1,
-            goiHocId: entry.goiHocId,
-            loai: entry.loai,
-            trangThaiGoi: pack ? asText(pack.trangThai) : 'hieu_luc',
-            ngayMua: entry.ngayMua,
-            soBuoi: entry.soBuoi,
-            donGia: Number(pack?.donGia || 0),
-            thanhTien,
-            daThanhToan,
-            conNo,
-            daDung: entry.daDung,
-            conLai: entry.conLai,
-            tienDo:
-              entry.soBuoi > 0
-                ? Math.round((entry.daDung / entry.soBuoi) * 100)
-                : 0,
-          };
-        });
+        const cacKy = result.cacGoi
+          .filter((entry) => inEffect(entry.goiHocId))
+          .map((entry, index) => {
+            const pack =
+              entry.goiHocId === null
+                ? undefined
+                : packageById.get(entry.goiHocId);
+            const thanhTien = Number(pack?.thanhTien || 0);
+            let daThanhToan =
+              entry.goiHocId === null
+                ? 0
+                : (paidByPackage.get(entry.goiHocId) ?? 0);
+            // A payment that names no package covers the oldest term that is still open.
+            if (pack && daThanhToan < thanhTien && unallocated > 0) {
+              const part = Math.min(thanhTien - daThanhToan, unallocated);
+              daThanhToan += part;
+              unallocated -= part;
+            }
+            const conNo = Math.max(0, thanhTien - daThanhToan);
+            for (const taken of entry.cacLanTru) {
+              if (
+                taken.diemDanhId !== null &&
+                !termOfMark.has(taken.diemDanhId)
+              )
+                termOfMark.set(taken.diemDanhId, index + 1);
+            }
+            return {
+              kySo: index + 1,
+              goiHocId: entry.goiHocId,
+              loai: entry.loai,
+              trangThaiGoi: pack ? asText(pack.trangThai) : 'hieu_luc',
+              ngayMua: entry.ngayMua,
+              soBuoi: entry.soBuoi,
+              donGia: Number(pack?.donGia || 0),
+              thanhTien,
+              daThanhToan,
+              conNo,
+              // A term loaded from Lark whose payment was not found: its price is unknown, not zero, and nothing is owed.
+              chuaRoTien:
+                thanhTien === 0 &&
+                entry.goiHocId !== null &&
+                fromLark.has(entry.goiHocId),
+              daDung: entry.daDung,
+              conLai: entry.conLai,
+              tienDo:
+                entry.soBuoi > 0
+                  ? Math.round((entry.daDung / entry.soBuoi) * 100)
+                  : 0,
+            };
+          });
         let vuotSoDu = 0;
         for (const over of result.vuotSoDu) {
           vuotSoDu += over.soBuoi;
           if (over.diemDanhId !== null) overBalance.add(over.diemDanhId);
         }
+        const kyOf = new Map(
+          cacKy.flatMap((term) =>
+            term.goiHocId === null ? [] : [[term.goiHocId, term.kySo] as const],
+          ),
+        );
+        // Every payment of the student, newest first, with the term it pays for (none: "not linked to a term").
+        const cacLanNop = payments
+          .map((payment) => ({
+            id: Number(payment.id),
+            ngay: asText(payment.ngay),
+            soTien: Number(payment.soTien || 0),
+            hinhThuc: asText(payment.hinhThuc),
+            kySo:
+              payment.goiHocId == null
+                ? null
+                : (kyOf.get(Number(payment.goiHocId)) ?? null),
+          }))
+          .sort((a, b) => b.ngay.localeCompare(a.ngay) || b.id - a.id);
         hocPhi = {
           cacKy,
+          cacLanNop,
           vuotSoDu,
           tongSoBuoiDaMua,
           tongTienHocPhi,
