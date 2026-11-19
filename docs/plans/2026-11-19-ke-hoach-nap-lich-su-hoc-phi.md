@@ -1,6 +1,9 @@
 # Kế hoạch nạp chính xác lịch sử thu học phí từ Lark (2026-11-19)
 
-Trạng thái: **chờ Thầy duyệt các quyết định ở mục 4**
+Trạng thái: **đã duyệt Q1, Q2, Q5 (19/11/2026); Q3, Q4 theo đề xuất — chờ triển khai code**
+
+Đã chốt ngày 19/11/2026: **Q1** tính lại số dư; **Q2** kế toán gắn `Tên HS link` cho 45 khoản trên Lark rồi mới
+nạp (dòng còn trống thì chỉ báo cáo); **Q5** đồng ý sửa một lần các bản ghi đã nhập, có sao lưu và nhật ký.
 
 ## 1. Vấn đề
 
