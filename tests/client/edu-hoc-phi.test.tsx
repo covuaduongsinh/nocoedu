@@ -187,6 +187,11 @@ describe('tuition page', () => {
     });
     // The list is not computed from every student on the client.
     expect(callsTo('hocVien/findMany')).toHaveLength(0);
+    // A row leads straight to the notice of the term in use, ready to send to the parent.
+    expect(screen.getByRole('link', { name: 'Phiếu báo' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('/hoc-vien/8?tab=hoc-phi&phieu=hien-tai'),
+    );
   });
 
   it('keeps the tab in the address', async () => {

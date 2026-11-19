@@ -1,7 +1,7 @@
 import { useApiClient, usePageBreadcrumb } from '@nocobase/app-client';
 import { useCan } from '@nocobase/app-plugin-authorization/client';
 import { useTranslation } from '@nocobase/i18n/client';
-import { Download, Printer, Wallet } from 'lucide-react';
+import { Download, Printer, Send, Wallet } from 'lucide-react';
 import { useState, type ReactElement } from 'react';
 import { Link, useParams } from 'react-router';
 
@@ -29,6 +29,8 @@ import { Knowledge } from './kien-thuc.js';
 import { TestResults } from './kiem-tra.js';
 import { GroupHistory } from './nhom-lich-su.js';
 import { Comments } from './nhan-xet.js';
+import { NoticeDialog } from './phieu-bao/dialog.js';
+import { currentTermNo, resolveTermNo } from './phieu-bao/model.js';
 import { Parents } from './phu-huynh.js';
 import { BooksAndFund } from './sach-quy.js';
 import { Overview } from './tong-quan.js';
@@ -100,7 +102,13 @@ function StudentFile({
   const { t } = useTranslation();
   const api = useApiClient();
   const message = useErrorMessage();
-  const url = useUrlState({ tab: 'tong-quan', ky: '', trangThai: '' });
+  // `phieu` opens the notice of a tuition term for the parent: `hien-tai` (the term in use) or a term number.
+  const url = useUrlState({
+    tab: 'tong-quan',
+    ky: '',
+    trangThai: '',
+    phieu: '',
+  });
   const profileRequest = useRequest<Profile>('/hocVien/hoSo360', {
     hocVienId: student.id,
   });
@@ -110,6 +118,11 @@ function StudentFile({
     profileRequest.reload();
     onChanged();
   };
+  // A notice needs the terms and the sessions, so it is offered to who sees both (a coach sees no tuition).
+  const canNotice = profile !== null && currentTermNo(profile) !== null;
+  const noticeTermNo = profile
+    ? resolveTermNo(profile, url.values.phieu)
+    : null;
 
   // A tab is offered only to a person who may view what it lists (a coach sees no parents' phones and no tuition).
   const canSessions = useCanView('edu.diemDanh');
@@ -238,6 +251,21 @@ function StudentFile({
                     {t('edu.hoSo.collect')}
                   </Link>
                 ) : null}
+                {canNotice ? (
+                  <Button
+                    size='sm'
+                    variant='outline'
+                    onClick={() =>
+                      url.set(
+                        { phieu: 'hien-tai' },
+                        { keepPage: true, replace: false },
+                      )
+                    }
+                  >
+                    <Send className='size-3.5' />
+                    {t('edu.phieuBao.button')}
+                  </Button>
+                ) : null}
                 {profile?.buoiHoc ? (
                   <Button
                     size='sm'
@@ -364,6 +392,16 @@ function StudentFile({
         ) : null}
       </Tabs>
       {profile ? <PrintSheet profile={profile} /> : null}
+      {profile && noticeTermNo !== null ? (
+        <NoticeDialog
+          profile={profile}
+          kySo={noticeTermNo}
+          onTerm={(kySo) =>
+            url.set({ phieu: String(kySo) }, { keepPage: true })
+          }
+          onClose={() => url.set({ phieu: '' }, { keepPage: true })}
+        />
+      ) : null}
     </PageContainer>
   );
 }

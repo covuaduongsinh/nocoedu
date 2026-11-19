@@ -929,6 +929,16 @@ function NeedToPay(props: {
                         <DollarSign className='h-3 w-3' />
                         {t('edu.hocPhi.collectNow')}
                       </Button>
+                      {/* The notice of the term in use, ready to send to the parent (the student file opens it). */}
+                      <Link
+                        to={`/hoc-vien/${row.id}?tab=hoc-phi&phieu=hien-tai`}
+                        className={buttonVariants({
+                          variant: 'outline',
+                          size: 'sm',
+                        })}
+                      >
+                        {t('edu.phieuBao.link')}
+                      </Link>
                       <Link
                         to={`/hoc-vien/${row.id}?tab=hoc-phi`}
                         className={buttonVariants({
