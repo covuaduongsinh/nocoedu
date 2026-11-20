@@ -47,6 +47,9 @@ export interface Counts {
   vangCoPhep: number;
   vangKhongPhep: number;
   hocBu: number;
+  /** Trial sessions and sessions given for free: present, nothing deducted. */
+  hocThu: number;
+  tang: number;
 }
 
 export const emptyCounts = (): Counts => ({
@@ -54,6 +57,8 @@ export const emptyCounts = (): Counts => ({
   vangCoPhep: 0,
   vangKhongPhep: 0,
   hocBu: 0,
+  hocThu: 0,
+  tang: 0,
 });
 
 const FIELD_OF: Record<AttendanceStatus, keyof Counts> = {
@@ -61,6 +66,8 @@ const FIELD_OF: Record<AttendanceStatus, keyof Counts> = {
   vang_co_phep: 'vangCoPhep',
   vang_khong_phep: 'vangKhongPhep',
   hoc_bu: 'hocBu',
+  hoc_thu: 'hocThu',
+  tang: 'tang',
 };
 
 export const isStatus = (value: string): value is AttendanceStatus =>
@@ -72,12 +79,13 @@ export function addMarks(counts: Counts, status: string, n: number): void {
 }
 
 export const totalOf = (c: Counts): number =>
-  c.coMat + c.vangCoPhep + c.vangKhongPhep + c.hocBu;
+  c.coMat + c.vangCoPhep + c.vangKhongPhep + c.hocBu + c.hocThu + c.tang;
 
-/** Attendance rate in percent: present or making up a session, over every mark. 0 when there is no mark. */
+/** Attendance rate in percent: present (also making up, on trial or on a free session), over every mark. 0 when there is no mark. */
 export function rateOf(c: Counts): number {
   const total = totalOf(c);
-  return total === 0 ? 0 : Math.round(((c.coMat + c.hocBu) / total) * 100);
+  const present = c.coMat + c.hocBu + c.hocThu + c.tang;
+  return total === 0 ? 0 : Math.round((present / total) * 100);
 }
 
 /** Sessions in `list` that the register keeps: every one, or only those with a mark that matched the filters. */

@@ -181,6 +181,25 @@ const ROWS: readonly Row[] = [
     'Excused absence still uses a session',
     '请假仍扣课时',
   ],
+  [
+    'coSo.truVangKhongPhep',
+    'Trừ buổi vắng không phép từ ngày',
+    'Absence without leave uses a session from',
+    '旷课扣课时起始日期',
+  ],
+  [
+    'coSo.truVangKhongPhepHint',
+    'Để trống: vắng không phép không trừ buổi. Áp dụng cho các buổi học từ ngày này, khi điểm danh lần đầu; buổi đã điểm danh giữ nguyên.',
+    'Empty: an absence without leave uses no session. Applies to sessions on or after this day when their register is first saved; registers already saved stay as they are.',
+    '留空：旷课不扣课时。适用于此日期及之后、首次点名的课程；已点名的课程保持不变。',
+  ],
+  ['coSo.truVangKhongPhepNone', 'Không trừ', 'Not deducted', '不扣'],
+  [
+    'coSo.truVangKhongPhepFrom',
+    'Từ {{date}}',
+    'From {{date}}',
+    '自 {{date}} 起',
+  ],
   ['coSo.trangThai', 'Trạng thái', 'Status', '状态'],
   [
     'coSo.empty',

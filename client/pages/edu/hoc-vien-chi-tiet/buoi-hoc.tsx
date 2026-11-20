@@ -35,6 +35,9 @@ const STATUSES = [
   'hoc_bu',
   'vang_co_phep',
   'vang_khong_phep',
+  // Present, nothing deducted: changing a deducted session to one of these gives the session back.
+  'hoc_thu',
+  'tang',
 ] as const;
 
 /** `ky` in the address: empty for every term, a term number, or `vuot` for the sessions beyond everything bought. */

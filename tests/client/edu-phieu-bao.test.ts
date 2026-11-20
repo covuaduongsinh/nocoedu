@@ -238,6 +238,88 @@ describe('notice of a tuition term: what it says', () => {
     expect(resolveTermNo(file, '')).toBeNull();
   });
 
+  it('tells each trial or free session on one term: before the first term on the first, between terms on the later one', () => {
+    const file = profile(
+      [
+        term(1),
+        term(2, { ngayMua: '2026-02-20', daDung: 1, conLai: 3, tienDo: 25 }),
+      ],
+      [
+        // The trial session, before anything was paid.
+        session('2026-01-17', {
+          trangThai: 'hoc_thu',
+          soBuoiDaTru: 0,
+          kySo: null,
+        }),
+        session('2026-01-24'),
+        session('2026-01-31'),
+        session('2026-02-07'),
+        session('2026-02-14'),
+        // A free session after term 1 was used up, before term 2 was used.
+        session('2026-02-17', {
+          trangThai: 'tang',
+          soBuoiDaTru: 0,
+          kySo: null,
+        }),
+        session('2026-02-21', { kySo: 2 }),
+        // Another free session, while term 2 is in use.
+        session('2026-03-07', {
+          trangThai: 'tang',
+          soBuoiDaTru: 0,
+          kySo: null,
+        }),
+      ],
+      { soBuoiConLai: 3, dai: 'binh_thuong' },
+    );
+    const first = buildNotice(file, 1, TODAY)!;
+    expect(first.khongTinh).toEqual([{ ngay: '2026-01-17', loai: 'hoc_thu' }]);
+    // A free session is never one of the days of a term.
+    expect(first.cacBuoi.map((row) => row.ngay)).toEqual([
+      '2026-01-24',
+      '2026-01-31',
+      '2026-02-07',
+      '2026-02-14',
+    ]);
+    const second = buildNotice(file, 2, TODAY)!;
+    expect(second.khongTinh).toEqual([
+      { ngay: '2026-02-17', loai: 'tang' },
+      { ngay: '2026-03-07', loai: 'tang' },
+    ]);
+
+    const labels = noticeLabels(t, first);
+    expect(labels.freeTitle).toBe('Học thử, buổi tặng: không tính buổi (1)');
+    expect(labels.freeDays).toEqual(['17/01/2026 (học thử)']);
+    const { svg } = noticeSvg(first, labels);
+    expect(svg).toContain('Học thử, buổi tặng: không tính buổi (1)');
+    expect(svg).toContain('17/01/2026 (học thử)');
+    expect(noticeMessage(t, second)).toContain(
+      '- Học thử, buổi tặng (không tính buổi): 17/02/2026 (buổi tặng), 07/03/2026 (buổi tặng)',
+    );
+  });
+
+  it('tells no free session on a later term the student has not reached', () => {
+    const file = profile(
+      [
+        term(1, { daDung: 2, conLai: 2, tienDo: 50 }),
+        term(2, { ngayMua: '2026-02-20', daDung: 0, conLai: 4, tienDo: 0 }),
+      ],
+      [
+        session('2026-01-24'),
+        session('2026-01-31'),
+        session('2026-02-07', {
+          trangThai: 'tang',
+          soBuoiDaTru: 0,
+          kySo: null,
+        }),
+      ],
+      { soBuoiConLai: 6, dai: 'binh_thuong' },
+    );
+    expect(buildNotice(file, 1, TODAY)!.khongTinh).toEqual([
+      { ngay: '2026-02-07', loai: 'tang' },
+    ]);
+    expect(buildNotice(file, 2, TODAY)!.khongTinh).toEqual([]);
+  });
+
   it('offers no notice to a person who sees no tuition or no sessions', () => {
     const coach = { ...profile([term(1)], []), hocPhi: null };
     expect(currentTermNo(coach)).toBeNull();

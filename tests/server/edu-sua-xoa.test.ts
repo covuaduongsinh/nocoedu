@@ -142,6 +142,17 @@ test('an edit with a value that is not valid is refused', async ({
     await refused('lop', ids.lopA, { levelKey: 'vua', levelOrder: 1 }),
   ).toBe(400);
   expect(await refused('coSo', ids.coSoA, { trangThai: 'da_nghi' })).toBe(400);
+  // The day from which an absence without leave deducts: a real calendar day or nothing.
+  for (const day of ['2026-02-30', '20/11/2026', '2026-11', 20261120])
+    expect(
+      `${day} ${await refused('coSo', ids.coSoA, { truVangKhongPhepTuNgay: day })}`,
+    ).toBe(`${day} 400`);
+  expect(
+    await refused('coSo', ids.coSoA, { truVangKhongPhepTuNgay: '2026-12-01' }),
+  ).toBe(200);
+  expect(
+    await refused('coSo', ids.coSoA, { truVangKhongPhepTuNgay: null }),
+  ).toBe(200);
   // The three "delete" forms are plain status changes that keep the history.
   expect(await refused('hocVien', ids.hocVienA, { trangThai: 'da_nghi' })).toBe(
     200,

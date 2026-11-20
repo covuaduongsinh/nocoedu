@@ -36,6 +36,16 @@ export interface NoticeTransfer {
   readonly noiDungCk: string;
 }
 
+/** Each trial or free session of the notice: `20/01/2026 (học thử)`. */
+function freeDays(t: Translate, notice: Notice): string[] {
+  return notice.khongTinh.map((session) =>
+    t('edu.phieuBao.card.freeDay', {
+      date: formatDayVn(session.ngay),
+      kind: t(`edu.phieuBao.card.freeKind.${session.loai}`),
+    }),
+  );
+}
+
 /** Every piece of text of the picture, in the language of the person who makes it. */
 export function noticeLabels(
   t: Translate,
@@ -68,6 +78,8 @@ export function noticeLabels(
     excusedTitle: t('edu.phieuBao.card.excused', {
       count: notice.nghiKhongTinh.length,
     }),
+    freeTitle: t('edu.phieuBao.card.free', { count: notice.khongTinh.length }),
+    freeDays: freeDays(t, notice),
     overTitle: t('edu.phieuBao.card.over', { count: notice.hocThem.length }),
     conclusionTitle: title,
     conclusionBody: body,
@@ -122,6 +134,10 @@ export function noticeMessage(
   if (notice.nghiKhongTinh.length > 0)
     lines.push(
       t('edu.phieuBao.msg.excused', { days: days(notice.nghiKhongTinh) }),
+    );
+  if (notice.khongTinh.length > 0)
+    lines.push(
+      t('edu.phieuBao.msg.free', { days: freeDays(t, notice).join(', ') }),
     );
   if (notice.hocThem.length > 0)
     lines.push(

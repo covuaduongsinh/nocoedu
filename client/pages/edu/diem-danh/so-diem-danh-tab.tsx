@@ -79,6 +79,9 @@ const STATUSES = [
   'vang_co_phep',
   'vang_khong_phep',
   'hoc_bu',
+  // Present, nothing deducted (`server/edu/so-du.ts`).
+  'hoc_thu',
+  'tang',
 ] as const;
 const VIEWS = ['buoi', 'hocVien', 'giaoVien'] as const;
 type View = (typeof VIEWS)[number];
@@ -100,6 +103,8 @@ interface Summary {
   readonly vangCoPhep: number;
   readonly vangKhongPhep: number;
   readonly hocBu: number;
+  readonly hocThu: number;
+  readonly tang: number;
   readonly tyLe: number;
   readonly soHocVien?: number;
 }
@@ -397,6 +402,12 @@ export function SoDiemDanhTab({
       </TableCell>
       <TableCell className='text-right tabular-nums'>
         {text(row.hocBu)}
+      </TableCell>
+      <TableCell className='text-right tabular-nums'>
+        {text(row.hocThu)}
+      </TableCell>
+      <TableCell className='text-right tabular-nums'>
+        {text(row.tang)}
       </TableCell>
     </>
   );

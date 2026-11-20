@@ -664,6 +664,29 @@ describeMigration('202611180004_create_edu_kien_thuc', {
   },
 });
 
+describeMigration('202611200001_edu_co_so_tru_vang_khong_phep', {
+  sources: [
+    {
+      packageName: 'nocoedu-migrations-test',
+      directory: path.resolve(
+        import.meta.dirname,
+        '../../database/main/migrations',
+      ),
+    },
+  ],
+  up: async ({ expectCollection }) => {
+    await expectCollection('eduCoSo').toHaveField('truVangKhongPhepTuNgay', {
+      nullable: true,
+    });
+  },
+  down: async ({ expectCollection }) => {
+    // The branch keeps its other setting.
+    await expectCollection('eduCoSo').toHaveField('truBuoiVangCoPhep', {
+      nullable: false,
+    });
+  },
+});
+
 describeMigration('202611190001_create_edu_phieu_bao', {
   sources: [
     {

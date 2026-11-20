@@ -150,6 +150,9 @@ export const EDU_MORE_ROWS: readonly (readonly [
     '旷课',
   ],
   ['diemDanh.s.hoc_bu', 'Học bù', 'Make-up', '补课'],
+  // Present and not deducted: not part of any term (docs/plans/2026-11-20-ke-hoach-hoc-thu-buoi-tang-vang-khong-phep.md).
+  ['diemDanh.s.hoc_thu', 'Học thử', 'Trial session', '试课'],
+  ['diemDanh.s.tang', 'Buổi tặng', 'Free session', '赠送课'],
 
   ['hocPhi.title', 'Học phí', 'Tuition', '学费'],
   [

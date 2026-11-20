@@ -115,7 +115,7 @@ const ledger = (connection: any) =>
     .orderBy('id')
     .execute();
 
-test('the balance drops correctly for each of the four attendance cases, with both branch settings', async ({
+test('the balance drops correctly for each attendance status, with both branch settings', async ({
   testApp,
   connection,
 }) => {
@@ -127,6 +127,9 @@ test('the balance drops correctly for each of the four attendance cases, with bo
     // An absence without leave is not deducted yet (DS-60, confirmed by the head coach).
     ['vang_khong_phep', 0, 0],
     ['hoc_bu', 1, 0],
+    // A trial session and a free one: present, never deducted (20/11/2026).
+    ['hoc_thu', 0, 0],
+    ['tang', 0, 0],
   ] as const;
   for (const deducts of [false, true]) {
     await connection.query
@@ -261,6 +264,117 @@ test('the setting for an absence without leave is fixed on the session at its fi
     delete process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP;
     expect((await save('vang_khong_phep')).status).toBe(200);
     expect(await balance(connection, ids.hocVienA)).toBe(9);
+  } finally {
+    if (previous === undefined) delete process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP;
+    else process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP = previous;
+  }
+});
+
+test('a present session marked as a trial or a free session gives its session back, through the ledger', async ({
+  testApp,
+  connection,
+}) => {
+  const { hlvA, ids, sessionA } = await setup(testApp, connection);
+  await resetStudent(connection, ids.hocVienA, 10);
+  const save = (trangThai: string) =>
+    post(hlvA.session, '/diemDanh/luu', {
+      buoiHocId: sessionA,
+      danhSach: [{ hocVienId: ids.hocVienA, trangThai }],
+    });
+  expect((await save('co_mat')).status).toBe(200);
+  expect(await balance(connection, ids.hocVienA)).toBe(9);
+  // Corrected to a trial session: the session comes back, and the row keeps "nothing deducted".
+  expect((await save('hoc_thu')).status).toBe(200);
+  expect(await balance(connection, ids.hocVienA)).toBe(10);
+  expect((await save('tang')).status).toBe(200);
+  expect(await balance(connection, ids.hocVienA)).toBe(10);
+  expect(await ledger(connection)).toEqual([
+    { thayDoi: -1, soDuSau: 9, lyDo: 'diem_danh' },
+    { thayDoi: 1, soDuSau: 10, lyDo: 'diem_danh_sua' },
+  ]);
+  const row = await connection.query
+    .selectFrom('eduDiemDanh')
+    .select(['trangThai', 'soBuoiDaTru'])
+    .executeTakeFirstOrThrow();
+  expect(row).toMatchObject({ trangThai: 'tang', soBuoiDaTru: 0 });
+});
+
+test('a branch deducts an absence without leave from the day it set, fixed on each session at its first save', async ({
+  testApp,
+  connection,
+}) => {
+  const { admin, hlvA, ids, sessionA } = await setup(testApp, connection);
+  const previous = process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP;
+  delete process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP;
+  try {
+    // A second session of the same class, a week later.
+    await connection.query
+      .insertInto('eduBuoiHoc')
+      .values({
+        lopId: ids.lopA,
+        ngay: '2026-11-09',
+        gioBatDau: '17:30',
+        gioKetThuc: '19:00',
+      })
+      .execute();
+    const later = Number(
+      (
+        await connection.query
+          .selectFrom('eduBuoiHoc')
+          .select('id')
+          .where('lopId', '=', ids.lopA)
+          .where('ngay', '=', '2026-11-09')
+          .executeTakeFirstOrThrow()
+      ).id,
+    );
+    const absent = (buoiHocId: number) =>
+      post(hlvA.session, '/diemDanh/luu', {
+        buoiHocId,
+        danhSach: [{ hocVienId: ids.hocVienA, trangThai: 'vang_khong_phep' }],
+      });
+    const setFrom = (day: string | null) =>
+      post(admin, '/coSo/updateOne', {
+        filter: { id: ids.coSoA },
+        values: { truVangKhongPhepTuNgay: day },
+      });
+
+    // The branch deducts from 9 November: the session of the 2nd does not deduct, the one of the 9th does.
+    await resetStudent(connection, ids.hocVienA, 10);
+    expect((await setFrom('2026-11-09')).status).toBe(200);
+    expect((await absent(sessionA)).status).toBe(200);
+    expect(await balance(connection, ids.hocVienA)).toBe(10);
+    expect((await absent(later)).status).toBe(200);
+    expect(await balance(connection, ids.hocVienA)).toBe(9);
+    const stored = await connection.query
+      .selectFrom('eduBuoiHoc')
+      .select(['ngay', 'truVangKhongPhep'])
+      .where('lopId', '=', ids.lopA)
+      .orderBy('ngay')
+      .execute();
+    expect(stored.map((row: any) => Boolean(row.truVangKhongPhep))).toEqual([
+      false,
+      true,
+    ]);
+
+    // Moving the day back afterwards does not reach the session already saved: it stays free.
+    expect((await setFrom('2026-11-01')).status).toBe(200);
+    expect((await absent(sessionA)).status).toBe(200);
+    expect(await balance(connection, ids.hocVienA)).toBe(9);
+    // Clearing it does not give back the session of the 9th either.
+    expect((await setFrom(null)).status).toBe(200);
+    expect((await absent(later)).status).toBe(200);
+    expect(await balance(connection, ids.hocVienA)).toBe(9);
+    // A register saved for the first time after it was cleared does not deduct.
+    await resetStudent(connection, ids.hocVienA, 10);
+    expect((await absent(later)).status).toBe(200);
+    expect(await balance(connection, ids.hocVienA)).toBe(10);
+    // The other branch never set a day.
+    const branchB = await connection.query
+      .selectFrom('eduCoSo')
+      .select('truVangKhongPhepTuNgay')
+      .where('id', '=', ids.coSoB)
+      .executeTakeFirstOrThrow();
+    expect(branchB.truVangKhongPhepTuNgay).toBeNull();
   } finally {
     if (previous === undefined) delete process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP;
     else process.env.EDU_TRU_BUOI_VANG_KHONG_PHEP = previous;

@@ -1,5 +1,6 @@
 import { LEVEL_KEYS, levelOrder } from './levels.js';
 import { normalizePhone } from './names.js';
+import { isCalendarDay } from './so-du.js';
 
 /**
  * Checks the values of a standard `updateOne` before it reaches the repository (DS-60 PR 4). The generated route
@@ -61,6 +62,13 @@ export function checkUpdate(
       typeof values.truBuoiVangCoPhep !== 'boolean'
     )
       return invalid('truBuoiVangCoPhep');
+    // The day from which an absence without leave deducts: a real calendar day, or `null` for "never".
+    if (
+      has('truVangKhongPhepTuNgay') &&
+      values.truVangKhongPhepTuNgay !== null &&
+      !isCalendarDay(values.truVangKhongPhepTuNgay)
+    )
+      return invalid('truVangKhongPhepTuNgay');
     return status();
   }
   if (name === 'lop') {

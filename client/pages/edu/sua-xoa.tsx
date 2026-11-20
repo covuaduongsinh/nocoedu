@@ -158,6 +158,7 @@ function EditCoSo({ row, onChanged, onClose }: DialogProps): ReactElement {
     ten: text(row.ten),
     diaChi: text(row.diaChi),
     truBuoiVangCoPhep: row.truBuoiVangCoPhep === true,
+    truVangKhongPhepTuNgay: text(row.truVangKhongPhepTuNgay),
     trangThai: text(row.trangThai),
   }));
   return (
@@ -170,6 +171,7 @@ function EditCoSo({ row, onChanged, onClose }: DialogProps): ReactElement {
           ten: form.ten.trim(),
           diaChi: form.diaChi.trim() || null,
           truBuoiVangCoPhep: form.truBuoiVangCoPhep,
+          truVangKhongPhepTuNgay: form.truVangKhongPhepTuNgay || null,
           trangThai: form.trangThai,
         });
         onChanged();
@@ -197,6 +199,17 @@ function EditCoSo({ row, onChanged, onClose }: DialogProps): ReactElement {
         />
         {t('edu.coSo.truBuoi')}
       </label>
+      {/* A native date field, as on the attendance register: the template ships no calendar primitive. */}
+      <TextField
+        id='sua-co-so-tru-vang-khong-phep'
+        type='date'
+        label={t('edu.coSo.truVangKhongPhep')}
+        hint={t('edu.coSo.truVangKhongPhepHint')}
+        value={form.truVangKhongPhepTuNgay}
+        onChange={(truVangKhongPhepTuNgay) =>
+          setForm({ ...form, truVangKhongPhepTuNgay })
+        }
+      />
       {statusField(
         'coSo',
         form.trangThai,
