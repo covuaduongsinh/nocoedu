@@ -20,6 +20,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import HocVienPage from '../../client/pages/edu/hoc-vien.js';
 import PhuHuynhPage from '../../client/pages/edu/phu-huynh.js';
+import CoSoPage from '../../client/pages/edu/co-so.js';
 import viVN from '../../client/locales/vi-VN.js';
 import packageMetadata from '../../package.json' with { type: 'json' };
 
@@ -65,11 +66,26 @@ const api = vi.fn(({ method, path }: ApiCall) => {
       ],
     };
   if (path === 'coSo/findMany')
-    return { data: [{ id: 1, ma: 'CS1', ten: 'Cơ sở Mẫu 1' }] };
+    return {
+      data: [
+        {
+          id: 1,
+          ma: 'CS1',
+          ten: 'Cơ sở Mẫu 1',
+          trangThai: 'hoat_dong',
+          truBuoiVangCoPhep: false,
+          truVangKhongPhepTuNgay: '2026-12-01',
+        },
+      ],
+    };
+  if (path === 'coSo/count') return { data: 1 };
   if (
-    ['hocVien/updateOne', 'hocVien/chuyenLop', 'phuHuynh/updateOne'].includes(
-      path,
-    ) ||
+    [
+      'hocVien/updateOne',
+      'hocVien/chuyenLop',
+      'phuHuynh/updateOne',
+      'coSo/updateOne',
+    ].includes(path) ||
     path === 'phuHuynh/xoa'
   )
     return { data: { id: 1 } };
@@ -82,6 +98,7 @@ async function render(route: string) {
       <Routes>
         <Route path='/hoc-vien' element={<HocVienPage />} />
         <Route path='/phu-huynh' element={<PhuHuynhPage />} />
+        <Route path='/co-so' element={<CoSoPage />} />
       </Routes>
     </AuthenticationProvider>,
     {
@@ -152,6 +169,39 @@ describe('edit and remove', () => {
         expect.objectContaining({
           path: 'hocVien/chuyenLop',
           json: { id: 1, lopId: 2 },
+        }),
+      ),
+    );
+  });
+
+  it('shows and edits the day from which a branch deducts an absence without leave', async () => {
+    permissions = {
+      unrestricted: false,
+      permissions: [grant('edu.coSo')],
+    };
+    await render('/co-so');
+    // The list says from when the branch deducts.
+    expect(await screen.findByText('Từ 01/12/2026')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Sửa' }));
+    const dialog = await screen.findByRole('dialog');
+    const day = within(dialog).getByLabelText(
+      'Trừ buổi vắng không phép từ ngày',
+    );
+    expect(day).toHaveValue('2026-12-01');
+    expect(
+      within(dialog).getByText(/Để trống: vắng không phép không trừ buổi/u),
+    ).toBeInTheDocument();
+    // Emptied: the branch stops deducting for the sessions not saved yet.
+    await userEvent.clear(day);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu' }));
+    await waitFor(() =>
+      expect(api).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: 'coSo/updateOne',
+          json: expect.objectContaining({
+            filter: { id: 1 },
+            values: expect.objectContaining({ truVangKhongPhepTuNgay: null }),
+          }),
         }),
       ),
     );

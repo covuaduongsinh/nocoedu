@@ -8,7 +8,7 @@ import { eduError } from '../routes/edu-support.js';
 import {
   asBoolean,
   sessionsToDeduct,
-  unexcusedAbsenceDeducts,
+  unexcusedAbsenceDeductsOn,
   type AttendanceStatus,
 } from './so-du.js';
 
@@ -126,9 +126,11 @@ export async function rowCountsTowardBalance(
 
 /**
  * The deduction rule in force for a session. It is fixed on the session the first time its register is saved
- * (`truVangCoPhep` from the branch setting, `truVangKhongPhep` from `EDU_TRU_BUOI_VANG_KHONG_PHEP`); a later change of
- * either setting applies to the next sessions only, so saving an old register again never moves a balance. A value
- * still `null` (a session saved before the column existed, or not saved yet) takes the current setting now.
+ * (`truVangCoPhep` from the branch setting; `truVangKhongPhep` from the day the branch deducts an absence without leave
+ * from, `eduCoSo.truVangKhongPhepTuNgay`, compared with the day of the session, or from `EDU_TRU_BUOI_VANG_KHONG_PHEP`);
+ * a later change of either setting applies to the next sessions only, so saving an old register again never moves a
+ * balance. A value still `null` (a session saved before the column existed, or not saved yet) takes the current setting
+ * now.
  */
 export async function lockSessionRule(
   connection: Queryable,
@@ -137,16 +139,22 @@ export async function lockSessionRule(
 ): Promise<{ excusedDeducts: boolean; unexcusedDeducts: boolean }> {
   const stored = await connection.query
     .selectFrom('eduBuoiHoc')
-    .select(['truVangCoPhep', 'truVangKhongPhep'])
+    .select(['ngay', 'truVangCoPhep', 'truVangKhongPhep'])
     .where('id', '=', buoiHocId)
     .executeTakeFirstOrThrow();
+  const unset = (value: unknown): boolean =>
+    value === null || value === undefined;
+  // The branch is read only when one of the two rules is still to be fixed.
+  const branch =
+    unset(stored.truVangCoPhep) || unset(stored.truVangKhongPhep)
+      ? await connection.query
+          .selectFrom('eduCoSo')
+          .select(['truBuoiVangCoPhep', 'truVangKhongPhepTuNgay'])
+          .where('id', '=', coSoId)
+          .executeTakeFirstOrThrow()
+      : undefined;
   let excusedDeducts: boolean;
-  if (stored.truVangCoPhep === null || stored.truVangCoPhep === undefined) {
-    const branch = await connection.query
-      .selectFrom('eduCoSo')
-      .select('truBuoiVangCoPhep')
-      .where('id', '=', coSoId)
-      .executeTakeFirstOrThrow();
+  if (branch && unset(stored.truVangCoPhep)) {
     excusedDeducts = asBoolean(branch.truBuoiVangCoPhep);
     await connection.query
       .updateTable('eduBuoiHoc')
@@ -158,11 +166,12 @@ export async function lockSessionRule(
     excusedDeducts = asBoolean(stored.truVangCoPhep);
   }
   let unexcusedDeducts: boolean;
-  if (
-    stored.truVangKhongPhep === null ||
-    stored.truVangKhongPhep === undefined
-  ) {
-    unexcusedDeducts = unexcusedAbsenceDeducts(process.env);
+  if (branch && unset(stored.truVangKhongPhep)) {
+    unexcusedDeducts = unexcusedAbsenceDeductsOn(
+      String(stored.ngay),
+      branch.truVangKhongPhepTuNgay,
+      process.env,
+    );
     await connection.query
       .updateTable('eduBuoiHoc')
       .set({ truVangKhongPhep: unexcusedDeducts })

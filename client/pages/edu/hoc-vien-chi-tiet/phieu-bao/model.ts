@@ -24,6 +24,12 @@ export interface NoticeSession {
   readonly vang: boolean;
 }
 
+export interface FreeSession {
+  /** `YYYY-MM-DD`. */
+  readonly ngay: string;
+  readonly loai: 'hoc_thu' | 'tang';
+}
+
 export interface Notice {
   readonly hocVien: {
     readonly hoTen: string;
@@ -39,6 +45,12 @@ export interface Notice {
   readonly cacBuoi: readonly NoticeSession[];
   /** Absences inside the term's period that deducted nothing (`YYYY-MM-DD`). */
   readonly nghiKhongTinh: readonly string[];
+  /**
+   * Trial sessions and sessions given for free: present, nothing deducted, so part of no term. Each is told on one
+   * term: the first term also takes those before it started (a trial session usually is), the last one those up to
+   * today, the others those after the previous term ended up to their own end.
+   */
+  readonly khongTinh: readonly FreeSession[];
   /** Sessions attended beyond everything paid for; listed on the last term only. */
   readonly hocThem: readonly NoticeSession[];
   /** How many sessions are owed (0 unless `status` is `vuot`). */
@@ -55,6 +67,9 @@ export interface Notice {
 export { formatDayVn } from '../../format.js';
 
 const isAbsence = (status: string): boolean => status.startsWith('vang');
+/** Present on a trial session or a free one: nothing deducted (`server/edu/so-du.ts`). */
+const isFree = (status: string): boolean =>
+  status === 'hoc_thu' || status === 'tang';
 
 /** The terms a notice can be made for; none when the person sees no tuition or no sessions. */
 export function noticeTerms(profile: Profile): readonly Term[] {
@@ -126,6 +141,35 @@ export function buildNotice(
           )
           .map((row) => row.ngay);
 
+  // Trial and free sessions, told on exactly one term (see `Notice.khongTinh`).
+  const previous = index > 0 ? terms[index - 1] : undefined;
+  const previousSessions = previous
+    ? sessions.filter(
+        (row) =>
+          row.kySo === previous.kySo && row.soBuoiDaTru > 0 && !row.vuotSoDu,
+      )
+    : [];
+  const previousEnd =
+    previous && previous.conLai === 0
+      ? (previousSessions[previousSessions.length - 1]?.ngay ?? null)
+      : null;
+  const freeUntil = last ? today : (ketThuc ?? today);
+  const khongTinh: FreeSession[] =
+    index > 0 && previousEnd === null
+      ? []
+      : sessions
+          .filter(
+            (row) =>
+              isFree(row.trangThai) &&
+              row.soBuoiDaTru === 0 &&
+              (previousEnd === null || row.ngay > previousEnd) &&
+              row.ngay <= freeUntil,
+          )
+          .map((row) => ({
+            ngay: row.ngay,
+            loai: row.trangThai as FreeSession['loai'],
+          }));
+
   const balance = profile.tongHop.soBuoiConLai;
   const over = last ? sessions.filter((row) => row.vuotSoDu) : [];
   const soBuoiVuot = last
@@ -151,6 +195,7 @@ export function buildNotice(
     ketThuc,
     cacBuoi: numbered(ofTerm),
     nghiKhongTinh,
+    khongTinh,
     hocThem: numbered(over),
     soBuoiVuot: status === 'vuot' ? soBuoiVuot : 0,
     status,

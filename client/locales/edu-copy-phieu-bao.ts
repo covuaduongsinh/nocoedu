@@ -148,6 +148,20 @@ export const EDU_PHIEU_BAO_ROWS: readonly Row[] = [
     '请假，不计课时（{{count}}）',
   ],
   [
+    'phieuBao.card.free',
+    'Học thử, buổi tặng: không tính buổi ({{count}})',
+    'Trial and free sessions: not counted ({{count}})',
+    '试课、赠送课：不计课时（{{count}}）',
+  ],
+  [
+    'phieuBao.card.freeDay',
+    '{{date}} ({{kind}})',
+    '{{date}} ({{kind}})',
+    '{{date}}（{{kind}}）',
+  ],
+  ['phieuBao.card.freeKind.hoc_thu', 'học thử', 'trial', '试课'],
+  ['phieuBao.card.freeKind.tang', 'buổi tặng', 'free', '赠送'],
+  [
     'phieuBao.card.over',
     'Buổi học thêm, chưa có học phí ({{count}} buổi)',
     'Extra sessions, not paid for yet ({{count}})',
@@ -258,6 +272,12 @@ export const EDU_PHIEU_BAO_ROWS: readonly Row[] = [
     '- Nghỉ, không tính buổi: {{days}}',
     '- Absent, not counted: {{days}}',
     '- 请假，不计课时：{{days}}',
+  ],
+  [
+    'phieuBao.msg.free',
+    '- Học thử, buổi tặng (không tính buổi): {{days}}',
+    '- Trial and free sessions (not counted): {{days}}',
+    '- 试课、赠送课（不计课时）：{{days}}',
   ],
   [
     'phieuBao.msg.over',

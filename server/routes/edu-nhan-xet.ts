@@ -17,7 +17,7 @@ import { anyOf } from '../edu/filters.js';
 import { asText, shortName } from '../edu/names.js';
 import { chunksOf, PAGE, readAllRows, type Row } from '../edu/read-all.js';
 import { eduMessage, PERIOD_PATTERN } from '../edu/nhan-xet.js';
-import { asBoolean } from '../edu/so-du.js';
+import { asBoolean, isPresentStatus } from '../edu/so-du.js';
 import {
   currentUserId,
   eduError,
@@ -389,8 +389,8 @@ export default [
           monthOf(input.thang),
         );
         const tongBuoi = rows.length;
-        const soBuoiCoMat = rows.filter(
-          (r) => r.trangThai === 'co_mat' || r.trangThai === 'hoc_bu',
+        const soBuoiCoMat = rows.filter((r) =>
+          isPresentStatus(String(r.trangThai)),
         ).length;
         const soBuoiVang = rows.filter(
           (r) =>

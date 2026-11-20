@@ -8,6 +8,7 @@ import { Checkbox } from '#components/ui/checkbox';
 import { StatusBadge } from '#components/status-badge';
 
 import { FormDialog, TextField } from './form-parts.js';
+import { formatDayVn } from './format.js';
 import { GenericImportDialog } from './generic-import-dialog.js';
 import { createOne, useListState, usePagedRows } from './kit.js';
 import { ListPage } from './list-page.js';
@@ -74,6 +75,18 @@ export default function CoSoPage(): ReactElement {
               row.truBuoiVangCoPhep === true
                 ? t('edu.common.yes')
                 : t('edu.common.no'),
+          },
+          {
+            // From which day an absence without leave uses a session (empty: never).
+            key: 'truVangKhongPhepTuNgay',
+            label: t('edu.coSo.truVangKhongPhep'),
+            render: (row) =>
+              typeof row.truVangKhongPhepTuNgay === 'string' &&
+              row.truVangKhongPhepTuNgay
+                ? t('edu.coSo.truVangKhongPhepFrom', {
+                    date: formatDayVn(row.truVangKhongPhepTuNgay),
+                  })
+                : t('edu.coSo.truVangKhongPhepNone'),
           },
           {
             key: 'trangThai',

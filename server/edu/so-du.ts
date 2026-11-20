@@ -1,30 +1,77 @@
 /**
- * Balance rules of NocoEdu, kept free of any database access so the four attendance cases can be tested on their own.
+ * Balance rules of NocoEdu, kept free of any database access so the attendance cases can be tested on their own.
  *
  * Balance = sessions paid − sessions attended. Attendance status → sessions deducted from the balance:
  * - `co_mat` (present): 1
  * - `vang_co_phep` (excused absence): 0, or 1 when the branch sets `truBuoiVangCoPhep`
- * - `vang_khong_phep` (absent without leave): 0 for now — the head coach confirmed (DS-60) that an absence is not
- *   deducted yet but may be later; `EDU_TRU_BUOI_VANG_KHONG_PHEP=true` turns the deduction on (see `unexcusedAbsenceDeducts`)
+ * - `vang_khong_phep` (absent without leave): 0 until the branch deducts it — from the day in
+ *   `eduCoSo.truVangKhongPhepTuNgay` on (`unexcusedAbsenceDeductsOn`), or everywhere with
+ *   `EDU_TRU_BUOI_VANG_KHONG_PHEP=true`. The head coach decided (DS-60, 09/11/2026) not to deduct it yet and (20/11/2026)
+ *   to deduct it from a day of his choosing.
  * - `hoc_bu` (make-up session): 1 when the branch does not deduct an excused absence, otherwise 0 — the pairing that
  *   keeps an excused absence followed by a make-up from costing nothing or twice (see `.nb-studio/memory/hoc-bu-tru-buoi.md`).
+ *   A make-up after an absence without leave is deducted like any other (a make-up makes up an excused absence only).
+ * - `hoc_thu` (trial session) and `tang` (session given for free): the student is present and nothing is deducted,
+ *   whatever the branch setting, so the session belongs to no term (20/11/2026,
+ *   `docs/plans/2026-11-20-ke-hoach-hoc-thu-buoi-tang-vang-khong-phep.md`).
  */
 export const ATTENDANCE_STATUSES = [
   'co_mat',
   'vang_co_phep',
   'vang_khong_phep',
   'hoc_bu',
+  'hoc_thu',
+  'tang',
 ] as const;
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
+
+/** The statuses in which the student sat in the session: attendance rates, monthly comments, skills learned. */
+export const PRESENT_STATUSES = [
+  'co_mat',
+  'hoc_bu',
+  'hoc_thu',
+  'tang',
+] as const;
+/** The statuses of an absence. */
+export const ABSENT_STATUSES = ['vang_co_phep', 'vang_khong_phep'] as const;
+/** Present, and never deducted: they are not part of any term. */
+export const FREE_STATUSES = ['hoc_thu', 'tang'] as const;
+
+export const isPresentStatus = (status: string): boolean =>
+  (PRESENT_STATUSES as readonly string[]).includes(status);
 
 /** A student with this many sessions left or fewer is warned about. */
 export const LOW_BALANCE_THRESHOLD = 2;
 
-/** Whether an absence without leave deducts a session: off by default, on with `EDU_TRU_BUOI_VANG_KHONG_PHEP=true`. */
+/** Whether an absence without leave deducts a session everywhere: off by default, on with `EDU_TRU_BUOI_VANG_KHONG_PHEP=true`. */
 export function unexcusedAbsenceDeducts(
   env: Readonly<Record<string, string | undefined>>,
 ): boolean {
   return env.EDU_TRU_BUOI_VANG_KHONG_PHEP?.trim().toLowerCase() === 'true';
+}
+
+/** A calendar day `YYYY-MM-DD` that exists (`2026-02-30` does not). */
+export function isCalendarDay(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(value))
+    return false;
+  const day = new Date(`${value}T00:00:00Z`);
+  return (
+    !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === value
+  );
+}
+
+/**
+ * Whether an absence without leave in a session held on `sessionDay` deducts a session: everywhere when the variable is
+ * on, otherwise from the day the branch set (`eduCoSo.truVangKhongPhepTuNgay`, empty = never). Called once per session,
+ * at the first save of its register, and the answer is then fixed on the session (`lockSessionRule`).
+ */
+export function unexcusedAbsenceDeductsOn(
+  sessionDay: string,
+  branchFromDay: unknown,
+  env: Readonly<Record<string, string | undefined>>,
+): boolean {
+  if (unexcusedAbsenceDeducts(env)) return true;
+  return isCalendarDay(branchFromDay) && sessionDay >= branchFromDay;
 }
 
 export function sessionsToDeduct(
@@ -41,6 +88,9 @@ export function sessionsToDeduct(
       return excusedAbsenceDeducts ? 1 : 0;
     case 'hoc_bu':
       return excusedAbsenceDeducts ? 0 : 1;
+    case 'hoc_thu':
+    case 'tang':
+      return 0;
   }
 }
 

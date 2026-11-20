@@ -2,7 +2,7 @@
 name: hoc-bu-tru-buoi
 description: Quy tắc tạm chốt cho buổi học bù khi trừ số dư buổi, chờ chủ dự án xác nhận.
 type: project
-modified: 2026-11-09
+modified: 2026-11-20
 ---
 
 Buổi **học bù** trừ 1 buổi khi cơ sở để "vắng có phép không trừ", và trừ 0 khi cơ sở để "vắng có phép có trừ". Vắng có phép: trừ 0 hoặc 1 theo cấu hình của cơ sở (`eduCoSo.truBuoiVangCoPhep`). Có mặt luôn trừ 1. Vắng không phép **hiện không trừ** (Thầy Tường xác nhận ngày 09/11/2026, DS-60; trước đó là trừ 1); muốn trừ thì đặt `EDU_TRU_BUOI_VANG_KHONG_PHEP=true`. Lark chỉ có có mặt/vắng, không có học bù: "học lớp 2" là tuổi học viên, không phải học bù.
@@ -12,3 +12,5 @@ Buổi **học bù** trừ 1 buổi khi cơ sở để "vắng có phép không 
 **Cách áp dụng:** đã cài ở `server/edu/so-du.ts` (`sessionsToDeduct`) và có test cho cả hai cấu hình cơ sở; nêu lại quy tắc này trong báo cáo bàn giao để chủ dự án đổi nếu cần. Khi chủ dự án trả lời, sửa file này thay vì thêm file mới.
 
 Biến `EDU_TRU_BUOI_VANG_KHONG_PHEP` được chốt vào từng buổi (`eduBuoiHoc.truVangKhongPhep`) ở lần lưu điểm danh đầu tiên, như `truVangCoPhep`: bật biến sau này không đụng tới sổ đã lưu. Các dòng vắng không phép đã trừ 1 buổi trước ngày 09/11/2026 **không** được hoàn tự động; muốn hoàn thì chủ dự án phải quyết riêng.
+
+**Cập nhật 20/11/2026** (`docs/plans/2026-11-20-ke-hoach-hoc-thu-buoi-tang-vang-khong-phep.md`): Thầy quyết định sắp tới **trừ** vắng không phép. Mỗi cơ sở có ô "Trừ buổi vắng không phép từ ngày" (`eduCoSo.truVangKhongPhepTuNgay`); buổi từ ngày đó trở đi chốt "trừ" ở lần điểm danh đầu tiên, biến môi trường vẫn bật cho mọi cơ sở. Học bù sau một buổi vắng không phép **vẫn trừ** (học bù chỉ bù cho vắng có phép). Thêm hai trạng thái có mặt mà **không trừ**: "Học thử" (`hoc_thu`) và "Buổi tặng" (`tang`).

@@ -20,10 +20,11 @@ export type Nguon = (typeof NGUON)[number];
 export const KT_STATUSES = ['hoat_dong', 'an'] as const;
 export type KtStatus = (typeof KT_STATUSES)[number];
 
-/** Attendance statuses that count as having been taught. */
-export const PRESENT_STATUSES = ['co_mat', 'hoc_bu'] as const;
-/** Attendance statuses that make a taught skill a gap. */
-export const ABSENT_STATUSES = ['vang_co_phep', 'vang_khong_phep'] as const;
+/**
+ * Attendance statuses that count as having been taught (a trial session or a free one included) and those that make a
+ * taught skill a gap: the lists of `so-du.ts`, the one place attendance statuses are defined.
+ */
+export { ABSENT_STATUSES, PRESENT_STATUSES } from './so-du.js';
 
 export const CODE_MAX = 40;
 export const NAME_MAX = 200;

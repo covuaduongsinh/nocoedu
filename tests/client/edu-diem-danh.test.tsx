@@ -309,6 +309,46 @@ describe('attendance tab', () => {
       await screen.findByText(/Sắp hết buổi \(2 buổi\)/u),
     ).toBeInTheDocument();
   });
+
+  it('marks a trial session or a free one, which the server deducts nothing for', async () => {
+    permissions = {
+      unrestricted: false,
+      permissions: [
+        {
+          resource: { type: 'composite', id: 'edu.diemDanh' },
+          actions: ['record'],
+        },
+      ],
+    };
+    await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
+    const [status] = await screen.findAllByRole('combobox', {
+      name: 'Trạng thái',
+    });
+    const options = within(status as HTMLElement)
+      .getAllByRole('option')
+      .map((option) => option.textContent);
+    expect(options).toEqual([
+      'Có mặt',
+      'Vắng có phép',
+      'Vắng không phép',
+      'Học bù',
+      'Học thử',
+      'Buổi tặng',
+    ]);
+    await userEvent.selectOptions(status as HTMLElement, 'hoc_thu');
+    const [save] = screen.getAllByRole('button', { name: 'Lưu điểm danh' });
+    await userEvent.click(save as HTMLElement);
+    await waitFor(() =>
+      expect(api).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: 'diemDanh/luu',
+          json: expect.objectContaining({
+            danhSach: [expect.objectContaining({ trangThai: 'hoc_thu' })],
+          }),
+        }),
+      ),
+    );
+  });
   it('offers the attendance CSV only to a person who holds the export action of the reports', async () => {
     await render(<DiemDanhPage />, '/diem-danh?buoi=5', '/diem-danh');
     await screen.findByText('Học viên Mẫu 01');

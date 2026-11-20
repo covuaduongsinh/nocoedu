@@ -17,7 +17,7 @@ import { toCsv } from '../edu/csv.js';
 import { asText } from '../edu/names.js';
 import { needsCollection } from '../edu/can-thu.js';
 import { activeSkills, readCatalog, readGaps } from '../edu/kien-thuc-doc.js';
-import { addDays, todayVn } from '../edu/so-du.js';
+import { addDays, PRESENT_STATUSES, todayVn } from '../edu/so-du.js';
 import {
   currentUserId,
   eduError,
@@ -82,7 +82,8 @@ const GATE: Record<ReportKind, string> = {
 const PAGE = 100;
 /** A report reads at most this many rows; more is refused with a clear error instead of a silently short report. */
 export const MAX_ROWS = 5000;
-const PRESENT = ['co_mat', 'hoc_bu'];
+/** Present in a session: also making up, on trial or on a free session (`so-du.ts`). */
+const PRESENT: readonly string[] = PRESENT_STATUSES;
 
 const chunks = <T>(items: readonly T[], size: number): T[][] => {
   const out: T[][] = [];

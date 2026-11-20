@@ -63,6 +63,9 @@ const STATUSES = [
   'vang_co_phep',
   'vang_khong_phep',
   'hoc_bu',
+  // Present, nothing deducted (`server/edu/so-du.ts`).
+  'hoc_thu',
+  'tang',
 ] as const;
 type Status = (typeof STATUSES)[number];
 

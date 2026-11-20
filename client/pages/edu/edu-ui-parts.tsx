@@ -115,6 +115,9 @@ const ATTENDANCE_TONES = {
   hoc_bu: 'success',
   vang_co_phep: 'warning',
   vang_khong_phep: 'neutral',
+  // Present on a trial or a free session: nothing is deducted.
+  hoc_thu: 'info',
+  tang: 'info',
 } as const;
 
 /** The attendance status of a session, labelled in the person's language (`edu.diemDanh.s.*`) and toned by meaning. */
@@ -128,9 +131,12 @@ export function AttendanceStatusBadge({
   const { t } = useTranslation();
   const key = text(status);
   const tone =
-    (ATTENDANCE_TONES as Record<string, 'success' | 'warning' | 'neutral'>)[
-      key
-    ] ?? 'neutral';
+    (
+      ATTENDANCE_TONES as Record<
+        string,
+        'success' | 'warning' | 'neutral' | 'info'
+      >
+    )[key] ?? 'neutral';
   return (
     <StatusBadge
       tone={tone}

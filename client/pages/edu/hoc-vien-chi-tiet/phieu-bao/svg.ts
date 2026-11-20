@@ -26,6 +26,10 @@ export interface NoticeLabels {
   readonly noSessions: string;
   readonly absentLegend: string;
   readonly excusedTitle: string;
+  /** `Học thử, buổi tặng — không tính buổi (2)`. */
+  readonly freeTitle: string;
+  /** Each trial or free session as the picture writes it: `20/01/2026 (học thử)`. */
+  readonly freeDays: readonly string[];
   readonly overTitle: string;
   readonly conclusionTitle: string;
   readonly conclusionBody: string;
@@ -326,6 +330,27 @@ export function noticeSvg(
       y += 22;
       out.push(
         text(PAD, y, days.slice(start, start + 6).join(', '), {
+          size: 14,
+          fill: MUTED,
+        }),
+      );
+    }
+  }
+
+  // Trial sessions and free ones: present, not counted in any term. Three a line, they carry their kind.
+  if (labels.freeDays.length > 0) {
+    y += 30;
+    out.push(
+      text(PAD, y, labels.freeTitle, {
+        size: 14,
+        weight: 600,
+        fill: TONES.success.text,
+      }),
+    );
+    for (let start = 0; start < labels.freeDays.length; start += 3) {
+      y += 22;
+      out.push(
+        text(PAD, y, labels.freeDays.slice(start, start + 3).join(', '), {
           size: 14,
           fill: MUTED,
         }),

@@ -54,6 +54,7 @@ export const FIELDS = {
       'diaChi',
       'nguoiPhuTrachId',
       'truBuoiVangCoPhep',
+      'truVangKhongPhepTuNgay',
       'trangThai',
     ],
     write: [
@@ -62,6 +63,7 @@ export const FIELDS = {
       'diaChi',
       'nguoiPhuTrachId',
       'truBuoiVangCoPhep',
+      'truVangKhongPhepTuNgay',
       'trangThai',
     ],
   },
