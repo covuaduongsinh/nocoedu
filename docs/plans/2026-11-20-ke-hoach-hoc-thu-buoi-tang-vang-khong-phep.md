@@ -1,6 +1,7 @@
 # Kế hoạch buổi học thử, buổi tặng và trừ buổi vắng không phép (2026-11-20)
 
-Trạng thái: **đã viết xong và kiểm thử** trên nhánh `feat/hoc-thu-buoi-tang-vang-khong-phep` (mục 8); gộp và triển khai ở mục 9.
+Trạng thái: **đã gộp vào `main` (PR #56) và chạy trên bản thật từ 14:17 ngày 20/11/2026** (mục 9). Còn hai việc của Thầy: đặt
+ngày bắt đầu trừ vắng không phép cho từng cơ sở (Q2) và duyệt danh sách buổi học thử cũ (Q1) — mục 10.
 
 ## 1. Yêu cầu của Thầy
 
@@ -114,3 +115,47 @@ Làm đúng thiết kế mục 3. Không đổi seed quyền (trường mới c�
 | Client: `edu-diem-danh` (20, có ca chọn "Học thử"), `edu-phieu-bao` (12, mỗi buổi học thử/tặng vào đúng một kỳ), `edu-sua-xoa` (5, ô ngày của cơ sở), `edu-detail` (11), `edu-phieu-bao-dialog` (12), `edu-format` (3)    | qua        |
 | `pnpm typecheck`, `eslint` và `prettier` trên các tệp đã sửa, `tests/project/agents-md`                                                                                                                                   | sạch       |
 | Ảnh phiếu báo mẫu (có buổi học thử trước kỳ, buổi tặng trong kỳ, vắng không phép bị trừ) chụp bằng Edge, soát bằng mắt                                                                                                    | đúng       |
+
+## 9. Gộp mã và triển khai (20/11/2026)
+
+- PR #56, CI `ds-check` xanh: `check` (toàn bộ `pnpm check`, 6 phút 29 giây) và `postgres` (PostgreSQL 16, có
+  `edu-diem-danh` với ca trừ vắng không phép theo ngày; 1 phút 43 giây). Gộp thành `64bfe91`.
+- Sao lưu: `/root/backups/nocoedu-20261120-truoc-hoc-thu/` (`nocoedu.dump` 711 KB, `storage.tgz` 14,7 MB); image dự
+  phòng `nocoedu-app:rollback-20261120-truoc-hoc-thu` (`a58d12ae0f2f`).
+- Build từ `main@64bfe91` mất 35 phút (VPS tải trung bình 50–68 trên 6 nhân, do ứng dụng khác); nhật ký
+  `/root/backups/redeploy-hoc-thu.log`. Container mới khoẻ sau 45 giây.
+- Migration `202611200001_edu_co_so_tru_vang_khong_phep` chạy lúc 14:17 (batch 8); cột `tru_vang_khong_phep_tu_ngay`
+  có, cả hai cơ sở (KL, VP) đang để trống → **chưa trừ vắng không phép ở đâu**.
+- Số liệu trước = sau: 174 học viên, 5.658 dòng điểm danh, tổng số dư 106 buổi, 5.686 dòng sổ số dư. Nhật ký app: 0
+  dòng lỗi. `healthz` 200, trang chủ 200, `/api/diemDanh/luu` khi chưa đăng nhập 401.
+- Hoàn tác: `docker tag nocoedu-app:rollback-20261120-truoc-hoc-thu nocoedu-app:main` rồi
+  `docker compose -p compose-synthesize-online-firewall-897jlk up -d app` trong thư mục compose; cột thừa không gây hại.
+
+## 10. Việc của Thầy
+
+### 10.1 Q2 — Bật trừ buổi vắng không phép
+
+1. Vào **Danh mục → Cơ sở**, ở dòng cơ sở cần bật bấm **⋮ → Sửa**.
+2. Ô **"Trừ buổi vắng không phép từ ngày"**: chọn ngày bắt đầu áp dụng (ví dụ ngày đầu tháng sau, và đã báo phụ
+   huynh trước). Bấm **Lưu**. Bảng cơ sở hiện "Từ dd/mm/yyyy".
+3. Từ đó, buổi học có ngày ≥ ngày đã chọn, khi điểm danh lần đầu, vắng không phép sẽ trừ 1 buổi; ở phiếu báo phụ
+   huynh buổi đó có ô màu vàng "Vắng mặt, vẫn tính buổi". Buổi đã điểm danh trước đó giữ nguyên.
+4. Muốn dừng: xoá trống ô ngày và lưu (buổi đã trừ không được hoàn tự động; sửa từng buổi nếu cần).
+
+### 10.2 Dùng "Học thử" và "Buổi tặng" từ nay
+
+- Khi điểm danh, ở cột trạng thái của học viên chọn **Học thử** hoặc **Buổi tặng** thay cho "Có mặt". Buổi đó không
+  trừ và không nằm trong kỳ nào; phiếu báo ghi ở mục "Học thử, buổi tặng: không tính buổi".
+- Sửa buổi đã lỡ trừ: hồ sơ 360° → tab **Buổi học** → nút sửa ở dòng buổi đó → **Trạng thái điểm danh** = "Học thử"
+  hoặc "Buổi tặng" → Lưu. Hệ thống hoàn 1 buổi và ghi vào sổ số dư.
+
+### 10.3 Q1 — Buổi học thử cũ đang bị trừ
+
+Danh sách 55 học viên có **đúng 1 buổi** bị trừ trước ngày nộp gói đầu tiên (chỉ mã học viên, ngày buổi đó, ngày nộp
+gói đầu, trạng thái, số dư hiện tại) đã được lập từ bản thật. **53/55 em có buổi đó cách ngày nộp gói đầu không quá 7
+ngày**, 1 em 8–30 ngày, 1 em hơn 30 ngày — rất giống "học thử rồi đăng ký". Thầy chọn một trong hai:
+
+- **Sửa tay** những em Thầy chắc chắn, theo mục 10.2 (mỗi em một buổi, mất khoảng 30 giây/em).
+- **Sửa hàng loạt**: Thầy xác nhận "đổi cả 53 buổi (cách ≤ 7 ngày) sang Học thử"; người triển khai viết lệnh có chạy
+  thử, sao lưu và nhật ký, chạy trong một giao dịch, mỗi em được hoàn 1 buổi qua sổ số dư. Số dư của 53 em sẽ tăng 1.
+  31 em còn lại (có 2 buổi trở lên trước gói đầu) cần Thầy xem từng em.
